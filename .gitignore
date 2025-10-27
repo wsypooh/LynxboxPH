@@ -1,0 +1,109 @@
+# Root-level .gitignore for ListSpace PH
+# Covers Next.js frontend (listspace-ph/) and Terraform infra (infra/)
+
+# -----------------------------
+# Node / Next.js (listspace-ph)
+# -----------------------------
+listspace-ph/node_modules/
+listspace-ph/.next/
+listspace-ph/.next/cache/
+listspace-ph/out/
+listspace-ph/.turbo/
+listspace-ph/.vercel/
+listspace-ph/coverage/
+listspace-ph/dist/
+listspace-ph/build/
+listspace-ph/.eslintcache
+
+# Package manager logs
+listspace-ph/npm-debug.log*
+listspace-ph/yarn-debug.log*
+listspace-ph/yarn-error.log*
+listspace-ph/pnpm-debug.log*
+listspace-ph/lerna-debug.log*
+
+# Env files
+listspace-ph/.env
+listspace-ph/.env*.local
+
+# Local editor settings (keep recommended settings files)
+listspace-ph/.vscode/*
+!listspace-ph/.vscode/settings.json
+!listspace-ph/.vscode/tasks.json
+!listspace-ph/.vscode/launch.json
+!listspace-ph/.vscode/extensions.json
+
+# -----------------------------
+# Terraform (infra)
+# -----------------------------
+infra/.terraform/
+infra/.terraform.*
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfstate.d/
+infra/crash.log
+infra/crash.*.log
+infra/*.tfvars
+infra/*.tfvars.json
+infra/override.tf
+infra/override.tf.json
+infra/*_override.tf
+infra/*_override.tf.json
+infra/.terraformrc
+infra/terraform.rc
+infra/*.plan
+infra/*.tfplan
+infra/*.hcl
+
+# -----------------------------
+# Terraform (bootstrap)
+# -----------------------------
+infra/bootstrap/.terraform/
+infra/bootstrap/.terraform.*
+infra/bootstrap/*.tfstate
+infra/bootstrap/*.tfstate.*
+infra/bootstrap/terraform.tfstate.d/
+infra/bootstrap/crash.log
+infra/bootstrap/crash.*.log
+infra/bootstrap/*.tfvars
+infra/bootstrap/*.tfvars.json
+infra/bootstrap/override.tf
+infra/bootstrap/override.tf.json
+infra/bootstrap/*_override.tf
+infra/bootstrap/*_override.tf.json
+infra/bootstrap/.terraformrc
+infra/bootstrap/terraform.rc
+infra/bootstrap/*.plan
+infra/bootstrap/*.tfplan
+infra/bootstrap/*.hcl
+
+# -----------------------------
+# System / OS files
+# -----------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# -----------------------------
+# IDEs / Editors
+# -----------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# -----------------------------
+# Logs & temp
+# -----------------------------
+logs/
+*.log
+*.log.*
+log/
+.tmp/
+.cache/
