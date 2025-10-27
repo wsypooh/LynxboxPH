@@ -48,13 +48,25 @@ resource "aws_cognito_user_pool" "main" {
     }
   }
 
-  # MFA configuration (optional)
-  mfa_configuration = var.enable_mfa ? "OPTIONAL" : "OFF"
-
+  # MFA configuration - Only TOTP (authenticator app) is enabled
+  mfa_configuration = var.enable_mfa ? var.mfa_configuration : "OFF"
+  
+  # Configure TOTP (authenticator app) as the only MFA type
+  software_token_mfa_configuration {
+    enabled = var.enable_mfa
+  }
+  
+  # No SMS configuration needed as we're only using TOTP for MFA
+  
   # Device tracking
   device_configuration {
     challenge_required_on_new_device      = true
     device_only_remembered_on_user_prompt = false
+  }
+
+  # User attribute updates
+  user_attribute_update_settings {
+    attributes_require_verification_before_update = ["email"]
   }
 
   tags = var.common_tags
@@ -89,7 +101,10 @@ resource "aws_cognito_user_pool_client" "main" {
   # OAuth configuration
   allowed_oauth_flows                  = ["code", "implicit"]
   allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+  allowed_oauth_scopes                 = ["email", "openid", "profile", "aws.cognito.signin.user.admin"]
+  
+  # Enable token revocation
+  enable_token_revocation = true
 
   callback_urls = var.callback_urls
   logout_urls   = var.logout_urls

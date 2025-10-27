@@ -6,6 +6,7 @@ import {
   Container,
   FormControl,
   FormLabel,
+  FormErrorMessage,
   Heading,
   Input,
   Stack,
@@ -19,10 +20,11 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { signIn } from 'aws-amplify/auth'
+import { signIn, type SignInInput } from 'aws-amplify/auth'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/features/auth/AuthContext'
+import MFAVerification from '@/components/auth/MFAVerification'
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -35,11 +37,18 @@ export default function SignInPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [showMFA, setShowMFA] = useState(false)
+  const [username, setUsername] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
 
-  const form = useForm<SignInFormData>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+  } = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
   })
 
@@ -56,22 +65,56 @@ export default function SignInPage() {
     }
   }, [user, router])
 
-  const onSubmit = async (data: SignInFormData) => {
+  const handleSignIn = async (data: SignInFormData) => {
     setIsLoading(true)
     setError('')
     setSuccessMessage('')
 
     try {
-      await signIn({
+      const { isSignedIn, nextStep } = await signIn({
         username: data.email,
         password: data.password,
-      })
-      router.push('/dashboard')
+      } as SignInInput)
+      
+      // If MFA is required, show the MFA verification form
+      if (nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE') {
+        setUsername(data.email)
+        setShowMFA(true)
+        return
+      }
+      
+      // If already signed in, redirect to dashboard
+      if (isSignedIn) {
+        router.push('/dashboard')
+      }
     } catch (err: any) {
+      console.error('Sign in error:', err)
       setError(err.message || 'An error occurred during sign in')
     } finally {
       setIsLoading(false)
     }
+  }
+  
+  const handleMFASuccess = () => {
+    router.push('/dashboard')
+  }
+  
+  const handleBackToSignIn = () => {
+    setShowMFA(false)
+    setError('')
+  }
+
+  // Show MFA verification form if needed
+  if (showMFA) {
+    return (
+      <Container maxW="md" py={12}>
+        <MFAVerification 
+          username={username} 
+          onSuccess={handleMFASuccess}
+          onBack={handleBackToSignIn}
+        />
+      </Container>
+    )
   }
 
   return (
@@ -85,54 +128,53 @@ export default function SignInPage() {
         </VStack>
 
         {successMessage && (
-          <Alert status="success">
+          <Alert status="success" borderRadius="md">
             <AlertIcon />
             {successMessage}
           </Alert>
         )}
 
         {error && (
-          <Alert status="error">
+          <Alert status="error" borderRadius="md">
             <AlertIcon />
             {error}
           </Alert>
         )}
 
         <Box w="full">
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(handleSignIn)}>
             <Stack spacing={4}>
-              <FormControl isInvalid={!!form.formState.errors.email}>
+              <FormControl isInvalid={!!errors.email}>
                 <FormLabel>Email</FormLabel>
                 <Input
-                  {...form.register('email')}
+                  {...register('email')}
                   type="email"
                   placeholder="Enter your email"
+                  autoComplete="username"
                 />
-                {form.formState.errors.email && (
-                  <Text color="red.500" fontSize="sm">
-                    {form.formState.errors.email.message}
-                  </Text>
-                )}
+                <FormErrorMessage>
+                  {errors.email?.message}
+                </FormErrorMessage>
               </FormControl>
 
-              <FormControl isInvalid={!!form.formState.errors.password}>
+              <FormControl isInvalid={!!errors.password}>
                 <FormLabel>Password</FormLabel>
                 <Input
-                  {...form.register('password')}
+                  {...register('password')}
                   type="password"
                   placeholder="Enter your password"
+                  autoComplete="current-password"
                 />
-                {form.formState.errors.password && (
-                  <Text color="red.500" fontSize="sm">
-                    {form.formState.errors.password.message}
-                  </Text>
-                )}
+                <FormErrorMessage>
+                  {errors.password?.message}
+                </FormErrorMessage>
               </FormControl>
 
               <Button
                 type="submit"
-                colorScheme="primary"
+                colorScheme="blue"
                 size="lg"
+                width="full"
                 isLoading={isLoading}
                 loadingText="Signing In..."
               >

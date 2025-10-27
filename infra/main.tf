@@ -93,6 +93,10 @@ module "auth" {
   cognito_domain = local.resource_names.cognito_domain
   callback_urls  = var.cognito_callback_urls
   logout_urls    = var.cognito_logout_urls
+  
+  # Enable TOTP MFA (Authenticator App)
+  enable_mfa       = true
+  mfa_configuration = "OPTIONAL"
 
   # Password policy
   password_policy = {

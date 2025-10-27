@@ -22,9 +22,20 @@ variable "cognito_domain" {
 }
 
 variable "enable_mfa" {
-  description = "Whether to enable MFA for the user pool"
+  description = "Whether to enable TOTP MFA (authenticator app) for the user pool"
   type        = bool
   default     = false
+}
+
+variable "mfa_configuration" {
+  description = "The MFA configuration. Valid values: 'OFF', 'ON', or 'OPTIONAL'"
+  type        = string
+  default     = "OFF"
+  
+  validation {
+    condition     = contains(["OFF", "ON", "OPTIONAL"], var.mfa_configuration)
+    error_message = "The mfa_configuration must be one of: 'OFF', 'ON', or 'OPTIONAL'."
+  }
 }
 
 variable "callback_urls" {

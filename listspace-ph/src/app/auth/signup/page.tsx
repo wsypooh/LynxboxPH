@@ -1,27 +1,31 @@
-'use client'
+'use client';
 
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { signUp, getCurrentUser } from 'aws-amplify/auth';
+import Link from 'next/link';
 import {
   Box,
   Button,
   Container,
   FormControl,
   FormLabel,
-  Heading,
+  FormErrorMessage,
   Input,
-  Stack,
-  Text,
   VStack,
-  Alert,
-  AlertIcon,
+  Text,
+  useToast,
+  Code,
   Link as ChakraLink,
-} from '@chakra-ui/react'
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { signUp, confirmSignUp } from 'aws-amplify/auth'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+  useColorModeValue,
+  InputGroup,
+  InputRightElement,
+  IconButton,
+} from '@chakra-ui/react';
+import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 
 const signUpSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -31,35 +35,75 @@ const signUpSchema = z.object({
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
-})
+});
 
-const confirmationSchema = z.object({
-  confirmationCode: z.string().min(6, 'Confirmation code must be 6 digits'),
-})
+type SignUpFormData = z.infer<typeof signUpSchema>;
 
-type SignUpFormData = z.infer<typeof signUpSchema>
-type ConfirmationFormData = z.infer<typeof confirmationSchema>
+// Debug component to display environment variables
+const DebugInfo = ({ debugInfo }: { debugInfo: Record<string, any> }) => {
+  if (process.env.NODE_ENV === 'production') return null;
+  
+  return (
+    <Box mt={8} p={4} bg="gray.50" borderRadius="md">
+      <Text fontWeight="bold" mb={2}>Debug Information:</Text>
+      <Code whiteSpace="pre" p={2} display="block">
+        {JSON.stringify(debugInfo, null, 2)}
+      </Code>
+    </Box>
+  );
+};
 
 export default function SignUpPage() {
-  const [step, setStep] = useState<'signup' | 'confirm'>('signup')
-  const [email, setEmail] = useState('')
-  const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [debugInfo, setDebugInfo] = useState<Record<string, any>>({});
+  const router = useRouter();
+  const toast = useToast();
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
 
-  const signUpForm = useForm<SignUpFormData>({
+  // Debug: Log environment variables and config
+  useEffect(() => {
+    const debugData = {
+      env: {
+        region: process.env.NEXT_PUBLIC_AWS_REGION,
+        userPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
+        userPoolClientId: process.env.NEXT_PUBLIC_AWS_USER_POOL_WEB_CLIENT_ID,
+        identityPoolId: process.env.NEXT_PUBLIC_AWS_IDENTITY_POOL_ID,
+      },
+      window: typeof window !== 'undefined' ? 'available' : 'not available',
+    };
+    
+    console.log('Debug Info:', debugData);
+    setDebugInfo(debugData);
+    
+    // Check if user is already authenticated
+    const checkAuth = async () => {
+      try {
+        const user = await getCurrentUser();
+        console.log('Current user:', user);
+      } catch (error) {
+        console.log('No authenticated user:', error);
+      }
+    };
+    
+    checkAuth();
+  }, []);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SignUpFormData>({
     resolver: zodResolver(signUpSchema),
-  })
+  });
 
-  const confirmForm = useForm<ConfirmationFormData>({
-    resolver: zodResolver(confirmationSchema),
-  })
-
-  const onSignUp = async (data: SignUpFormData) => {
-    setIsLoading(true)
-    setError('')
-
+  const onSubmit = async (data: SignUpFormData) => {
     try {
+      setIsLoading(true);
+      setError('');
+      
       await signUp({
         username: data.email,
         password: data.password,
@@ -69,166 +113,135 @@ export default function SignUpPage() {
             name: data.name,
           },
         },
-      })
-      setEmail(data.email)
-      setStep('confirm')
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during sign up')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      });
 
-  const onConfirm = async (data: ConfirmationFormData) => {
-    setIsLoading(true)
-    setError('')
-
-    try {
-      await confirmSignUp({
-        username: email,
-        confirmationCode: data.confirmationCode,
-      })
-      router.push('/auth/signin?message=Account confirmed successfully')
+      toast({
+        title: 'Account created!',
+        description: 'Please check your email to confirm your account.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+      
+      router.push(`/auth/confirm-signup?email=${encodeURIComponent(data.email)}`);
     } catch (err: any) {
-      setError(err.message || 'An error occurred during confirmation')
+      console.error('Error signing up:', err);
+      setError(err.message || 'An error occurred during sign up');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <Container maxW="md" py={12}>
-      <VStack spacing={8}>
-        <VStack spacing={2} textAlign="center">
-          <Heading size="lg">
-            {step === 'signup' ? 'Create Your Account' : 'Confirm Your Email'}
-          </Heading>
-          <Text color="gray.600">
-            {step === 'signup'
-              ? 'Join ListSpace PH and start managing your properties'
-              : `We sent a confirmation code to ${email}`}
-          </Text>
-        </VStack>
+    <Container maxW="container.lg" py={8}>
+      <Box display="flex" gap={8}>
+        {/* Signup Form */}
+        <Box flex={1} maxW="md">
+          <Box
+            p={8}
+            borderWidth={1}
+            borderRadius="lg"
+            borderColor={borderColor}
+            bg={bgColor}
+            boxShadow="md"
+          >
+            <VStack spacing={6} align="stretch">
+              <VStack spacing={2} textAlign="center">
+                <Text fontSize="2xl" fontWeight="bold">Create an account</Text>
+                <Text color="gray.500">
+                  Already have an account?{' '}
+                  <ChakraLink as={Link} href="/auth/signin" color="blue.500">
+                    Sign in
+                  </ChakraLink>
+                </Text>
+              </VStack>
 
-        {error && (
-          <Alert status="error">
-            <AlertIcon />
-            {error}
-          </Alert>
-        )}
+              {error && (
+                <Box p={3} bg="red.50" borderRadius="md" color="red.600">
+                  <Text fontWeight="bold">Error:</Text>
+                  <Text>{error}</Text>
+                </Box>
+              )}
 
-        {step === 'signup' ? (
-          <Box w="full">
-            <form onSubmit={signUpForm.handleSubmit(onSignUp)}>
-              <Stack spacing={4}>
-                <FormControl isInvalid={!!signUpForm.formState.errors.name}>
-                  <FormLabel>Full Name</FormLabel>
-                  <Input
-                    {...signUpForm.register('name')}
-                    placeholder="Enter your full name"
-                  />
-                  {signUpForm.formState.errors.name && (
-                    <Text color="red.500" fontSize="sm">
-                      {signUpForm.formState.errors.name.message}
-                    </Text>
-                  )}
-                </FormControl>
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <VStack spacing={4}>
+                  <FormControl isInvalid={!!errors.name}>
+                    <FormLabel>Full Name</FormLabel>
+                    <Input
+                      type="text"
+                      placeholder="John Doe"
+                      {...register('name')}
+                    />
+                    <FormErrorMessage>
+                      {errors.name?.message}
+                    </FormErrorMessage>
+                  </FormControl>
 
-                <FormControl isInvalid={!!signUpForm.formState.errors.email}>
-                  <FormLabel>Email</FormLabel>
-                  <Input
-                    {...signUpForm.register('email')}
-                    type="email"
-                    placeholder="Enter your email"
-                  />
-                  {signUpForm.formState.errors.email && (
-                    <Text color="red.500" fontSize="sm">
-                      {signUpForm.formState.errors.email.message}
-                    </Text>
-                  )}
-                </FormControl>
+                  <FormControl isInvalid={!!errors.email}>
+                    <FormLabel>Email address</FormLabel>
+                    <Input
+                      type="email"
+                      placeholder="your@email.com"
+                      {...register('email')}
+                    />
+                    <FormErrorMessage>
+                      {errors.email?.message}
+                    </FormErrorMessage>
+                  </FormControl>
 
-                <FormControl isInvalid={!!signUpForm.formState.errors.password}>
-                  <FormLabel>Password</FormLabel>
-                  <Input
-                    {...signUpForm.register('password')}
-                    type="password"
-                    placeholder="Enter your password"
-                  />
-                  {signUpForm.formState.errors.password && (
-                    <Text color="red.500" fontSize="sm">
-                      {signUpForm.formState.errors.password.message}
-                    </Text>
-                  )}
-                </FormControl>
+                  <FormControl isInvalid={!!errors.password}>
+                    <FormLabel>Password</FormLabel>
+                    <InputGroup>
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        {...register('password')}
+                      />
+                      <InputRightElement>
+                        <IconButton
+                          variant="ghost"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
+                          onClick={() => setShowPassword(!showPassword)}
+                        />
+                      </InputRightElement>
+                    </InputGroup>
+                    <FormErrorMessage>
+                      {errors.password?.message}
+                    </FormErrorMessage>
+                  </FormControl>
 
-                <FormControl isInvalid={!!signUpForm.formState.errors.confirmPassword}>
-                  <FormLabel>Confirm Password</FormLabel>
-                  <Input
-                    {...signUpForm.register('confirmPassword')}
-                    type="password"
-                    placeholder="Confirm your password"
-                  />
-                  {signUpForm.formState.errors.confirmPassword && (
-                    <Text color="red.500" fontSize="sm">
-                      {signUpForm.formState.errors.confirmPassword.message}
-                    </Text>
-                  )}
-                </FormControl>
+                  <FormControl isInvalid={!!errors.confirmPassword}>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      {...register('confirmPassword')}
+                    />
+                    <FormErrorMessage>
+                      {errors.confirmPassword?.message}
+                    </FormErrorMessage>
+                  </FormControl>
 
-                <Button
-                  type="submit"
-                  colorScheme="primary"
-                  size="lg"
-                  isLoading={isLoading}
-                  loadingText="Creating Account..."
-                >
-                  Create Account
-                </Button>
-              </Stack>
-            </form>
+                  <Button
+                    type="submit"
+                    colorScheme="blue"
+                    width="full"
+                    mt={4}
+                    isLoading={isLoading}
+                    loadingText="Creating account..."
+                  >
+                    Create Account
+                  </Button>
+                </VStack>
+              </form>
+              
+              {/* Debug information */}
+              <DebugInfo debugInfo={debugInfo} />
+            </VStack>
           </Box>
-        ) : (
-          <Box w="full">
-            <form onSubmit={confirmForm.handleSubmit(onConfirm)}>
-              <Stack spacing={4}>
-                <FormControl isInvalid={!!confirmForm.formState.errors.confirmationCode}>
-                  <FormLabel>Confirmation Code</FormLabel>
-                  <Input
-                    {...confirmForm.register('confirmationCode')}
-                    placeholder="Enter 6-digit code"
-                    textAlign="center"
-                    fontSize="lg"
-                    letterSpacing="wider"
-                  />
-                  {confirmForm.formState.errors.confirmationCode && (
-                    <Text color="red.500" fontSize="sm">
-                      {confirmForm.formState.errors.confirmationCode.message}
-                    </Text>
-                  )}
-                </FormControl>
-
-                <Button
-                  type="submit"
-                  colorScheme="primary"
-                  size="lg"
-                  isLoading={isLoading}
-                  loadingText="Confirming..."
-                >
-                  Confirm Account
-                </Button>
-              </Stack>
-            </form>
-          </Box>
-        )}
-
-        <Text textAlign="center">
-          Already have an account?{' '}
-          <ChakraLink as={Link} href="/auth/signin" color="primary.500">
-            Sign in here
-          </ChakraLink>
-        </Text>
-      </VStack>
+        </Box>
+      </Box>
     </Container>
-  )
+  );
 }
