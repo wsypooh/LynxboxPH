@@ -73,6 +73,13 @@ locals {
     domain_name = var.domain_name != "" ? var.domain_name : ""
     bucket_name = local.resource_names.frontend_bucket
   }
+  
+  # API configuration
+  api_config = {
+    name        = local.resource_names.api_gateway
+    description = "API Gateway for ${var.project_name} ${var.environment} environment"
+    stage_name  = var.environment
+  }
 }
 
 # Networking Module
@@ -121,6 +128,44 @@ module "database" {
   project_name = var.project_name
   environment  = var.environment
   common_tags  = local.common_tags
+}
+
+# API Module
+module "api" {
+  source                  = "./modules/api"
+  project_name           = var.project_name
+  environment            = var.environment
+  common_tags            = local.common_tags
+  aws_region            = var.aws_region
+  dynamodb_table_name    = local.resource_names.dynamodb_table
+  user_pool_id          = module.auth.user_pool_id
+  user_pool_client_id   = module.auth.user_pool_client_id
+  cognito_user_pool_client_id = module.auth.user_pool_client_id
+  cognito_user_pool_endpoint  = "cognito-idp.${var.aws_region}.amazonaws.com/${module.auth.user_pool_id}"
+  domain_name           = var.domain_name
+  
+  # API Gateway settings
+  api_gateway_name      = "${var.project_name}-api-${var.environment}"
+  api_stage_name        = var.environment
+  
+  # Lambda function settings
+  lambda_runtime        = "nodejs18.x"
+  lambda_memory_size    = 256
+  lambda_timeout        = 30
+  
+  # Environment variables for Lambda
+  environment_variables = {
+    NODE_ENV       = var.environment
+    TABLE_NAME     = local.resource_names.dynamodb_table
+    USER_POOL_ID   = module.auth.user_pool_id
+    CLIENT_ID      = module.auth.user_pool_client_id
+  }
+  
+  # CORS settings
+  cors_allowed_origins = local.auth_config.callback_urls
+  
+  # Enable Cognito authentication
+  enable_cognito_auth  = true
 }
 
 # Frontend Module

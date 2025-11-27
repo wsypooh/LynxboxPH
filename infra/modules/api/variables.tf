@@ -86,3 +86,21 @@ variable "enable_cognito_auth" {
   type        = bool
   default     = true
 }
+
+variable "cognito_user_pool_client_id" {
+  description = "The ID of the Cognito User Pool Client"
+  type        = string
+  default     = ""
+}
+
+variable "cognito_user_pool_endpoint" {
+  description = "The endpoint of the Cognito User Pool"
+  type        = string
+  default     = ""
+}
+
+variable "environment_variables" {
+  description = "A map of environment variables to pass to the Lambda function"
+  type        = map(string)
+  default     = {}
+}

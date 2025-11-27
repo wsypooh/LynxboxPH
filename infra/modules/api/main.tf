@@ -89,20 +89,25 @@ resource "aws_lambda_function" "api" {
   runtime       = "nodejs18.x"
 
   # The deployment package will be uploaded separately
-  filename         = "${path.module}/../../../../dist/api.zip"
-  source_code_hash = fileexists("${path.module}/../../../../dist/api.zip") ? filebase64sha256("${path.module}/../../../../dist/api.zip") : null
+  filename         = "${path.module}/../../../api/dist/api.zip"
+  source_code_hash = fileexists("${path.module}/../../../api/dist/api.zip") ? filebase64sha256("${path.module}/../../../api/dist/api.zip") : null
 
   role    = aws_iam_role.lambda.arn
   timeout = 30
 
   environment {
-    variables = {
-      NODE_ENV       = var.environment
-      DYNAMODB_TABLE = var.dynamodb_table_name
-      USER_POOL_ID   = var.user_pool_id
-      CLIENT_ID      = var.user_pool_client_id
-      REGION         = var.aws_region
-    }
+    variables = merge(
+      {
+        NODE_ENV     = var.environment
+        TABLE_NAME   = var.dynamodb_table_name
+        USER_POOL_ID = var.user_pool_id
+        CLIENT_ID    = var.user_pool_client_id
+      },
+      {
+        for k, v in var.environment_variables :
+        k => v if !contains(["AWS_REGION", "AWS_DEFAULT_REGION"], k)
+      }
+    )
   }
 
   tags = var.common_tags
