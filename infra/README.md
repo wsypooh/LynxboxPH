@@ -148,3 +148,39 @@ To completely remove all resources for an environment:
 
 > **Warning:** This action is irreversible and will delete all resources in the specified environment.
 
+## Local Development and Testing
+
+### Prerequisites
+
+1. Install [Node.js](https://nodejs.org/) (v18+)
+2. Install [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
+3. Clone the repository
+4. Install dependencies:
+   ```bash
+   cd listspace-ph
+   npm install
+   ```
+
+### Running the Application Locally
+
+1. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
+   This will start the Next.js development server at `http://localhost:3000`
+
+2. **Configure environment variables**:
+   Create a `.env.local` file in the `listspace-ph` directory with the following variables:
+   ```
+   NEXT_PUBLIC_AWS_REGION=your_aws_region
+   NEXT_PUBLIC_USER_POOL_ID=your_cognito_user_pool_id
+   NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID=your_cognito_client_id
+   NEXT_PUBLIC_API_ENDPOINT=your_api_gateway_url
+   ```
+
+### Common Issues
+
+- **CORS Errors**: Ensure your API Gateway and Cognito are configured to accept requests from `http://localhost:3000`
+- **Authentication Issues**: Verify your Cognito configuration and environment variables
+- **Missing Dependencies**: Run `npm install` if you encounter module not found errors
+

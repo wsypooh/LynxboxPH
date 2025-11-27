@@ -173,12 +173,12 @@ export default function SignInPage() {
               <Button
                 type="submit"
                 colorScheme="blue"
-                size="lg"
                 width="full"
+                mt={4}
                 isLoading={isLoading}
-                loadingText="Signing In..."
+                loadingText="Signing in..."
               >
-                Sign In
+                Sign in
               </Button>
             </Stack>
           </form>
