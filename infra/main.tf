@@ -130,6 +130,16 @@ module "database" {
   common_tags  = local.common_tags
 }
 
+# S3 Module for Image Storage
+module "s3" {
+  source          = "./modules/s3"
+  project_name    = var.project_name
+  environment     = var.environment
+  aws_region      = var.aws_region
+  common_tags     = local.common_tags
+  lambda_role_name = module.api.lambda_role_name
+}
+
 # API Module
 module "api" {
   source                  = "./modules/api"
@@ -143,6 +153,7 @@ module "api" {
   cognito_user_pool_client_id = module.auth.user_pool_client_id
   cognito_user_pool_endpoint  = "cognito-idp.${var.aws_region}.amazonaws.com/${module.auth.user_pool_id}"
   domain_name           = var.domain_name
+  s3_bucket_name        = module.s3.bucket_name
   
   # API Gateway settings
   api_gateway_name      = "${var.project_name}-api-${var.environment}"
@@ -159,6 +170,7 @@ module "api" {
     TABLE_NAME     = local.resource_names.dynamodb_table
     USER_POOL_ID   = module.auth.user_pool_id
     CLIENT_ID      = module.auth.user_pool_client_id
+    S3_BUCKET_NAME = module.s3.bucket_name
   }
   
   # CORS settings

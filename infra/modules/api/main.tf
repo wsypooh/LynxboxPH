@@ -98,14 +98,15 @@ resource "aws_lambda_function" "api" {
   environment {
     variables = merge(
       {
-        NODE_ENV     = var.environment
-        TABLE_NAME   = var.dynamodb_table_name
-        USER_POOL_ID = var.user_pool_id
-        CLIENT_ID    = var.user_pool_client_id
+        NODE_ENV       = var.environment
+        TABLE_NAME     = var.dynamodb_table_name
+        USER_POOL_ID   = var.user_pool_id
+        CLIENT_ID      = var.user_pool_client_id
+        S3_BUCKET_NAME = var.s3_bucket_name
       },
       {
         for k, v in var.environment_variables :
-        k => v if !contains(["AWS_REGION", "AWS_DEFAULT_REGION"], k)
+        k => v if !contains(["AWS_REGION", "AWS_DEFAULT_REGION", "S3_BUCKET_NAME"], k)
       }
     )
   }
