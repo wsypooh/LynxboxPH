@@ -1,0 +1,56 @@
+service: listspace-api
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: dev
+  region: ap-southeast-1
+  environment:
+    DYNAMODB_TABLE: ${env:DYNAMODB_TABLE}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: "*"
+
+functions:
+  api:
+    handler: dist/handlers/properties/handler.handler
+    events:
+      - http:
+          path: /api/properties
+          method: get
+          cors: true
+      - http:
+          path: /api/properties
+          method: post
+          cors: true
+      - http:
+          path: /api/properties/{id}
+          method: get
+          cors: true
+      - http:
+          path: /api/properties/{id}
+          method: put
+          cors: true
+      - http:
+          path: /api/properties/{id}
+          method: delete
+          cors: true
+
+plugins:
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3000
+    noPrependStageInUrl: true
+    noAuth: true  # Disable auth for local development
+    noTimeout: true
