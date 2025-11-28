@@ -14,11 +14,21 @@ resource "aws_dynamodb_table" "main" {
     type = "S"
   }
 
+  attribute {
+    name = "GSI1PK"
+    type = "S"
+  }
+
+  attribute {
+    name = "GSI1SK"
+    type = "S"
+  }
+
   # Add GSI for reverse lookups
   global_secondary_index {
     name            = "GSI1"
-    hash_key        = "SK"
-    range_key       = "PK"
+    hash_key        = "GSI1PK"
+    range_key       = "GSI1SK"
     projection_type = "ALL"
   }
 

@@ -1,13 +1,21 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
-const client = new DynamoDBClient({
-  region: process.env.AWS_REGION || 'us-east-1',
+const dynamoDbClient = new DynamoDBClient({
+  region: process.env.AWS_REGION || 'ap-southeast-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
+  }
 });
 
-export const ddbDocClient = DynamoDBDocument.from(client, {
+export const ddbDocClient = DynamoDBDocumentClient.from(dynamoDbClient, {
   marshallOptions: {
     removeUndefinedValues: true,
+    convertEmptyValues: true,
+  },
+  unmarshallOptions: {
+    wrapNumbers: false,
   },
 });
 
@@ -16,20 +24,13 @@ export enum EntityType {
   USER = 'USER'
 }
 
-export function createPK(entityType: EntityType, id: string): string {
-  return `${entityType}#${id}`;
-}
-
-export function createGSI1PK(entityType: EntityType, id: string): string {
-  return `${entityType}#${id}`;
-}
-
 export interface BaseEntity {
   PK: string;
   SK: string;
-  GSI1PK: string;
-  GSI1SK: string;
+  GSI1PK?: string;
+  GSI1SK?: string;
   entityType: EntityType;
+  id: string;
   createdAt: string;
   updatedAt: string;
 }

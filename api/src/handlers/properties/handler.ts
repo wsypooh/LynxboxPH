@@ -3,6 +3,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { PropertyRepository } from '../../repositories/propertyRepository';
 import { ApiResponse } from '../../lib/apiResponse';
 import { Property, PropertyFeatures, PropertyLocation, PropertyContactInfo } from '../../models/property';
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { ddbDocClient } from '../../lib/dynamodb';
 
 export class PropertyHandler {
   static async createProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -137,32 +139,47 @@ export class PropertyHandler {
   }
 
   static async listProperties(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      const type = event.queryStringParameters?.type || '';
-      const limit = parseInt(event.queryStringParameters?.limit || '10');
-      const lastEvaluatedKey = event.queryStringParameters?.lastKey 
-        ? JSON.parse(decodeURIComponent(event.queryStringParameters.lastKey))
-        : undefined;
+  try {
+    const type = event.queryStringParameters?.type;
+    const limit = parseInt(event.queryStringParameters?.limit || '10');
+    const lastEvaluatedKey = event.queryStringParameters?.lastKey 
+      ? JSON.parse(decodeURIComponent(event.queryStringParameters.lastKey))
+      : undefined;
 
-      const { items, lastEvaluatedKey: newLastKey } = await PropertyRepository.listByType(
-        type,
-        limit,
-        lastEvaluatedKey
-      );
-
-      const response: any = { items };
-      if (newLastKey) {
-        response.lastKey = encodeURIComponent(JSON.stringify(newLastKey));
-      }
-
-      return ApiResponse.success(response);
-
-    } catch (error) {
-      console.error('Error listing properties:', error);
-      return ApiResponse.error('Failed to list properties', 500);
+    let result;
+    if (type) {
+      // List properties by type
+      result = await PropertyRepository.listByType(type, limit, lastEvaluatedKey);
+    } else {
+      // List all properties (using a scan operation - be careful with large datasets)
+      const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new ScanCommand({
+        TableName: process.env.DYNAMODB_TABLE || 'listspace-ph-dev',
+        FilterExpression: 'begins_with(PK, :pkPrefix)',
+        ExpressionAttributeValues: {
+          ':pkPrefix': 'PROPERTY#'
+        },
+        Limit: limit,
+        ExclusiveStartKey: lastEvaluatedKey
+      }));
+      
+      result = {
+        items: Items as Property[],
+        lastEvaluatedKey: LastEvaluatedKey
+      };
     }
-  }
 
+    const response: any = { items: result.items };
+    if (result.lastEvaluatedKey) {
+      response.lastKey = encodeURIComponent(JSON.stringify(result.lastEvaluatedKey));
+    }
+
+    return ApiResponse.success(response);
+
+  } catch (error) {
+    console.error('Error listing properties:', error);
+    return ApiResponse.error('Failed to list properties', 500);
+  }
+}
   static async searchProperties(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const query = event.queryStringParameters?.q;

@@ -27,8 +27,9 @@ export interface PropertyContactInfo {
   phone: string;
 }
 
+
 export interface Property extends BaseEntity {
-  id: string;
+  [key: string]: any;  // Add index signature
   title: string;
   description: string;
   type: string;
@@ -39,24 +40,42 @@ export interface Property extends BaseEntity {
   images: string[];
   status: string;
   ownerId: string;
-  viewCount: number;
+  viewCount?: number;  // Make this optional
   contactInfo: PropertyContactInfo;
 }
 
-export function createProperty(data: Omit<Property, keyof BaseEntity | 'id' | 'viewCount'>): Property {
+// Type for creating a new property (excludes auto-generated fields)
+export type PropertyInput = Omit<Property, keyof BaseEntity | 'id' | 'viewCount' | 'PK' | 'SK' | 'GSI1PK' | 'GSI1SK' | 'entityType' | 'createdAt' | 'updatedAt'>;
+
+export function createProperty(data: PropertyInput): Property {
   const now = new Date().toISOString();
   const id = uuidv4();
-  
-  return {
-    ...data,
-    id,
-    viewCount: 0,
+
+  // Create the property with all required fields
+  const property: Property = {
+    // Base entity fields
     PK: `PROPERTY#${id}`,
     SK: `PROPERTY#${id}`,
     GSI1PK: `PROPERTY#${data.type.toUpperCase()}`,
-    GSI1SK: now,
+    GSI1SK: `CREATED_AT#${now}`,
     entityType: EntityType.PROPERTY,
+    id,
+    viewCount: 0,  // Default value
     createdAt: now,
     updatedAt: now,
+    // Required fields from input
+    title: data.title,
+    description: data.description,
+    type: data.type,
+    price: data.price,
+    currency: data.currency,
+    location: data.location,
+    features: data.features,
+    images: data.images || [],
+    status: data.status || 'available',
+    ownerId: data.ownerId,
+    contactInfo: data.contactInfo,
   };
+
+  return property;
 }
