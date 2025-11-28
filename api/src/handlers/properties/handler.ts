@@ -185,23 +185,29 @@ export class PropertyHandler {
 // Lambda handler function
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const httpMethod = event.httpMethod;
+  // Get the path from the request context (REST API v1)
   const path = event.resource;
 
   try {
     // Route the request to the appropriate handler method
-    if (httpMethod === 'POST' && path === '/properties') {
+    if (httpMethod === 'POST' && path.endsWith('/api/properties')) {
       return PropertyHandler.createProperty(event);
-    } else if (httpMethod === 'GET' && path === '/properties/{id}') {
+    } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.split('/').length === 4) {
+      // Matches /api/properties/{id}
       return PropertyHandler.getProperty(event);
-    } else if (httpMethod === 'PUT' && path === '/properties/{id}') {
+    } else if (httpMethod === 'PUT' && path.includes('/api/properties/') && path.split('/').length === 4) {
+      // Matches /api/properties/{id}
       return PropertyHandler.updateProperty(event);
-    } else if (httpMethod === 'DELETE' && path === '/properties/{id}') {
+    } else if (httpMethod === 'DELETE' && path.includes('/api/properties/') && path.split('/').length === 4) {
+      // Matches /api/properties/{id}
       return PropertyHandler.deleteProperty(event);
-    } else if (httpMethod === 'GET' && path === '/properties') {
+    } else if (httpMethod === 'GET' && (path.endsWith('/api/properties') || path.includes('/api/properties?'))) {
+      // Matches /api/properties or /api/properties?param=value
       return PropertyHandler.listProperties(event);
-    } else if (httpMethod === 'GET' && path === '/properties/search') {
+    } else if (httpMethod === 'GET' && path.includes('/api/properties/search')) {
       return PropertyHandler.searchProperties(event);
     } else {
+      console.log('No route found for:', { httpMethod, path });
       return ApiResponse.error('Not Found', 404);
     }
   } catch (error) {

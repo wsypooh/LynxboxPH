@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.23.0"
     }
   }
 
@@ -142,14 +142,24 @@ module "s3" {
 
 # API Module
 module "api" {
-  source                  = "./modules/api"
-  project_name           = var.project_name
-  environment            = var.environment
-  common_tags            = local.common_tags
-  aws_region            = var.aws_region
-  dynamodb_table_name    = local.resource_names.dynamodb_table
-  user_pool_id          = module.auth.user_pool_id
-  user_pool_client_id   = module.auth.user_pool_client_id
+  source = "./modules/api"
+  
+  project_name = var.project_name
+  environment  = var.environment
+  aws_region  = var.aws_region
+  
+  # Get the DynamoDB table name and policy ARN from the database module
+  dynamodb_table_name = module.database.table_name
+  dynamodb_policy_arn = module.database.dynamodb_policy_arn
+  
+  # Cognito User Pool and Client IDs
+  user_pool_id       = module.auth.user_pool_id
+  user_pool_client_id = module.auth.user_pool_client_id
+  
+  # Tags
+  common_tags = local.common_tags
+  
+  # Cognito User Pool Client ID
   cognito_user_pool_client_id = module.auth.user_pool_client_id
   cognito_user_pool_endpoint  = "cognito-idp.${var.aws_region}.amazonaws.com/${module.auth.user_pool_id}"
   domain_name           = var.domain_name
@@ -160,7 +170,7 @@ module "api" {
   api_stage_name        = var.environment
   
   # Lambda function settings
-  lambda_runtime        = "nodejs18.x"
+  lambda_runtime        = "nodejs24.x"
   lambda_memory_size    = 256
   lambda_timeout        = 30
   

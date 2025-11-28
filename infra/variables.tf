@@ -89,7 +89,7 @@ variable "cognito_logout_urls" {
 variable "lambda_runtime" {
   description = "Runtime for Lambda functions"
   type        = string
-  default     = "nodejs18.x"
+  default     = "nodejs24.x"
 }
 
 # Database Configuration

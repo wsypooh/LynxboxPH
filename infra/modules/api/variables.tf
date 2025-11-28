@@ -39,6 +39,12 @@ variable "dynamodb_table_name" {
   default     = ""
 }
 
+variable "dynamodb_policy_arn" {
+  description = "The ARN of the DynamoDB access policy"
+  type        = string
+  default     = ""
+}
+
 variable "user_pool_id" {
   description = "ID of the Cognito User Pool"
   type        = string
@@ -60,7 +66,7 @@ variable "aws_region" {
 variable "lambda_runtime" {
   description = "Runtime for Lambda functions"
   type        = string
-  default     = "nodejs18.x"
+  default     = "nodejs24.x"
 }
 
 variable "lambda_memory_size" {

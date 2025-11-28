@@ -152,7 +152,7 @@ To completely remove all resources for an environment:
 
 ### Prerequisites
 
-1. Install [Node.js](https://nodejs.org/) (v18+)
+1. Install [Node.js](https://nodejs.org/) (v24+)
 2. Install [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
 3. Clone the repository
 4. Install dependencies:

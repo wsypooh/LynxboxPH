@@ -3,8 +3,11 @@ terraform {
     bucket         = "listspace-ph-terraform-state"
     key            = "terraform.tfstate"
     region         = "ap-southeast-1"
-    dynamodb_table = "listspace-ph-terraform-locks"
     encrypt        = true
+    
+    # Use lock file for state locking
+    use_lockfile = true
+    
   }
 }
 

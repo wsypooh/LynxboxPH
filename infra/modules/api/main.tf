@@ -82,11 +82,17 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Attach DynamoDB policy to Lambda role
+resource "aws_iam_role_policy_attachment" "lambda_dynamodb" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = var.dynamodb_policy_arn
+}
+
 # Lambda Function
 resource "aws_lambda_function" "api" {
   function_name = "${var.project_name}-api-${var.environment}"
   handler       = "index.handler"
-  runtime       = "nodejs18.x"
+  runtime       = "nodejs24.x"
 
   # The deployment package will be uploaded separately
   filename         = "${path.module}/../../../api/dist/api.zip"
