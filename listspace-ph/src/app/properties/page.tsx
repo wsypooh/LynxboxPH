@@ -37,8 +37,34 @@ import {
 import { Search, Filter, MapPin, Building2, X, Plus } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { PropertyCard } from '@/features/properties/components/PropertyCard'
-import { PropertyService } from '@/features/properties/services/propertyService'
-import { Property, PropertySearchParams, PropertyType } from '@/features/properties/types'
+import { propertyService } from '@/services/propertyService'
+import { Property, PropertyType } from '@/services/propertyService'
+
+// Define search params interface since we're not using the mock types
+interface FilterState {
+  type?: PropertyType[];
+  priceMin?: number;
+  priceMax?: number;
+  minArea?: number;
+  maxArea?: number;
+  location?: string;
+  features?: {
+    parking?: boolean;
+    furnished?: boolean;
+    aircon?: boolean;
+    wifi?: boolean;
+    security?: boolean;
+  };
+}
+
+interface PropertySearchParams {
+  query?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: 'price' | 'area' | 'date' | 'views';
+  sortOrder?: 'asc' | 'desc';
+  filters?: FilterState;
+}
 
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([])
@@ -59,12 +85,37 @@ export default function PropertiesPage() {
     try {
       setLoading(true)
       setError('')
-      const result = await PropertyService.searchProperties(searchParams)
-      setProperties(result.properties)
-      setTotalPages(result.totalPages)
-      setTotal(result.total)
+      
+      // Use the real API service
+      let result;
+      if (searchParams.query) {
+        // If there's a search query, use search
+        result = await propertyService.searchProperties(searchParams.query, searchParams.limit);
+        console.log('Search result:', result);
+        
+        // Ensure result has items property
+        const items = result?.items || [];
+        setProperties(items);
+        setTotal(items.length);
+        setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
+      } else {
+        // Otherwise, list all properties
+        const listResult = await propertyService.listProperties({
+          limit: searchParams.limit
+        });
+        console.log('List result:', listResult);
+        
+        // Ensure listResult has items property
+        const items = listResult?.items || [];
+        setProperties(items);
+        setTotal(items.length);
+        setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
+      }
     } catch (err: any) {
+      console.error('Error loading properties:', err);
       setError(err.message || 'Failed to load properties')
+      // Set empty array on error to prevent map undefined error
+      setProperties([]);
     } finally {
       setLoading(false)
     }
@@ -94,22 +145,6 @@ export default function PropertiesPage() {
 
   const handlePageChange = (page: number) => {
     setSearchParams(prev => ({ ...prev, page }))
-  }
-
-  interface FilterState {
-    type?: PropertyType[];
-    priceMin?: number;
-    priceMax?: number;
-    minArea?: number;
-    maxArea?: number;
-    location?: string;
-    features?: {
-      parking?: boolean;
-      furnished?: boolean;
-      aircon?: boolean;
-      wifi?: boolean;
-      security?: boolean;
-    };
   }
 
   const [filters, setFilters] = useState<FilterState>(
@@ -176,12 +211,12 @@ export default function PropertiesPage() {
   }
 
   const propertyTypes: { value: PropertyType; label: string }[] = [
+    { value: 'apartment', label: 'Apartment' },
+    { value: 'house', label: 'House' },
+    { value: 'condo', label: 'Condo' },
+    { value: 'commercial', label: 'Commercial' },
+    { value: 'land', label: 'Land' },
     { value: 'office', label: 'Office' },
-    { value: 'warehouse', label: 'Warehouse' },
-    { value: 'retail', label: 'Retail' },
-    { value: 'restaurant', label: 'Restaurant' },
-    { value: 'industrial', label: 'Industrial' },
-    { value: 'mixed-use', label: 'Mixed Use' },
   ]
 
   return (
@@ -193,6 +228,14 @@ export default function PropertiesPage() {
             <Button 
               leftIcon={<Plus size={18} />} 
               colorScheme="blue"
+              as="a"
+              href="/properties/manage"
+            >
+              Manage Properties
+            </Button>
+            <Button 
+              leftIcon={<Plus size={18} />} 
+              colorScheme="green"
               as="a"
               href="/properties/add"
             >
@@ -300,7 +343,7 @@ export default function PropertiesPage() {
         {/* Results Summary */}
         <Flex align="center">
           <Text color="gray.600">
-            {loading ? 'Loading...' : `Showing ${properties.length} of ${total} properties`}
+            {loading ? 'Loading...' : `Showing ${properties?.length || 0} of ${total} properties`}
           </Text>
           <Spacer />
           <Text fontSize="sm" color="gray.500">
@@ -324,7 +367,7 @@ export default function PropertiesPage() {
         )}
 
         {/* Properties Grid */}
-        {!loading && properties.length > 0 && (
+        {!loading && properties && properties.length > 0 && (
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} spacing={6}>
             {properties.map((property) => (
               <PropertyCard
@@ -337,7 +380,7 @@ export default function PropertiesPage() {
         )}
 
         {/* Empty State */}
-        {!loading && properties.length === 0 && !error && (
+        {!loading && (!properties || properties.length === 0) && !error && (
           <VStack spacing={4} py={12} textAlign="center">
             <Icon as={Building2} boxSize={16} color="gray.300" />
             <Heading size="md" color="gray.500">No properties found</Heading>

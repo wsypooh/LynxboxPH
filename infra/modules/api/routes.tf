@@ -35,3 +35,50 @@ resource "aws_apigatewayv2_route" "list_properties" {
   route_key = "GET /api/properties"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
+
+# OPTIONS route for CORS preflight requests
+resource "aws_apigatewayv2_route" "options_properties" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /api/properties"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Image upload route
+resource "aws_apigatewayv2_route" "upload_image" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /api/properties/{id}/images"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Image upload URL route
+resource "aws_apigatewayv2_route" "get_upload_url" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /api/properties/{id}/images/upload-url"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Image view URL route
+resource "aws_apigatewayv2_route" "get_view_url" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /api/properties/{id}/images/view-url"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# OPTIONS routes for image endpoints
+resource "aws_apigatewayv2_route" "options_images" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /api/properties/{id}/images"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "options_upload_url" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /api/properties/{id}/images/upload-url"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "options_view_url" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /api/properties/{id}/images/view-url"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}

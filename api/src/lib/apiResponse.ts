@@ -1,13 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 
 export class ApiResponse {
-  static success(data: any, statusCode = 200): APIGatewayProxyResult {
+  static success(data: any, statusCode = 200, headers?: Record<string, string>): APIGatewayProxyResult {
     return {
       statusCode,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
+        ...(headers || {}),
       },
       body: JSON.stringify({
         success: true,

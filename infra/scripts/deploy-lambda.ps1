@@ -291,20 +291,10 @@ if ($functionExists) {
     # Update existing function
     ExecOrFail "aws lambda update-function-code --function-name '$LambdaFunctionName' --zip-file 'fileb://$zipPath' --region '$AwsRegion'" "Failed to update Lambda function"
     
-    # Always update the handler to ensure it's correct
+    # Update handler only (without touching other configuration)
     Write-Host "Setting handler to index.handler..." -ForegroundColor Yellow
     try {
-        # Get current configuration first
-        $currentConfig = ExecOrFail "aws lambda get-function-configuration --function-name '$LambdaFunctionName' --region '$AwsRegion' --query '{Runtime: Runtime, Timeout: Timeout, MemorySize: MemorySize}' --output json" "Failed to get current Lambda config" -ErrorAction SilentlyContinue
-        
-        if ($currentConfig) {
-            # Update handler with current runtime and other settings to avoid validation errors
-            $updateCommand = "aws lambda update-function-configuration --function-name '$LambdaFunctionName' --handler 'index.handler' --runtime '$($currentConfig.Runtime)' --timeout '$($currentConfig.Timeout)' --memory-size '$($currentConfig.MemorySize)' --region '$AwsRegion'"
-            ExecOrFail $updateCommand "Failed to update Lambda handler"
-        } else {
-            # Fallback: Try with just handler
-            ExecOrFail "aws lambda update-function-configuration --function-name '$LambdaFunctionName' --handler 'index.handler' --region '$AwsRegion'" "Failed to update Lambda handler"
-        }
+        ExecOrFail "aws lambda update-function-configuration --function-name '$LambdaFunctionName' --handler 'index.handler' --region '$AwsRegion'" "Failed to update Lambda handler"
         Write-Host "✓ Updated Lambda handler to index.handler" -ForegroundColor Green
     } catch {
         Write-Host "WARNING: Failed to update handler, but code was updated" -ForegroundColor Yellow

@@ -48,8 +48,11 @@ export class PropertyHandler {
         return ApiResponse.unauthorized('User ID not found in request');
       }
 
+      // Remove base64Images from the data before storing - only keep S3 URLs
+      const { base64Images, ...cleanPropertyData } = propertyData;
+
       const finalPropertyData = {
-        ...propertyData,
+        ...cleanPropertyData,
         ownerId: userId,
         currency: 'PHP', // Default currency
         status: 'available', // Default status
@@ -429,6 +432,52 @@ export class PropertyHandler {
     }
   }
 
+  static async getPresignedViewUrl(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const propertyId = event.pathParameters?.id;
+      let imageKey = event.queryStringParameters?.imageKey;
+      
+      if (!propertyId || !imageKey) {
+        return ApiResponse.error('Property ID and imageKey are required', 400);
+      }
+
+      // Extract S3 key from full URL if needed
+      if (imageKey.startsWith('https://')) {
+        const urlParts = imageKey.split('/');
+        imageKey = urlParts.slice(3).join('/'); // Remove https://bucket.s3.region.amazonaws.com/
+      }
+
+      // Verify property exists
+      const property = await PropertyRepository.findById(propertyId);
+      if (!property) {
+        return ApiResponse.notFound('Property not found');
+      }
+
+      // Verify the image belongs to this property (check both full URL and key)
+      const hasImage = property.images.some(img => {
+        const imgKey = img.startsWith('https://') 
+          ? img.split('/').slice(3).join('/') 
+          : img;
+        return imgKey === imageKey;
+      });
+
+      if (!hasImage) {
+        return ApiResponse.forbidden('Image does not belong to this property');
+      }
+
+      const s3Service = new S3Service();
+      const { url } = await s3Service.getPresignedViewUrl(imageKey);
+
+      return ApiResponse.success({
+        viewUrl: url,
+        expiresIn: 3600 // 1 hour
+      });
+    } catch (error) {
+      console.error('Error generating presigned view URL:', error);
+      return ApiResponse.error('Failed to generate presigned view URL', 500);
+    }
+  }
+
   static async getPresignedUploadUrl(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const propertyId = event.pathParameters?.id;
@@ -497,6 +546,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.includes('/images/upload-url')) {
       // Matches /api/properties/{id}/images/upload-url
       return PropertyHandler.getPresignedUploadUrl(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.includes('/images/view-url')) {
+      // Matches /api/properties/{id}/images/view-url
+      return PropertyHandler.getPresignedViewUrl(event);
     } else {
       console.log('No route found for:', { httpMethod, path });
       return ApiResponse.error('Not Found', 404);

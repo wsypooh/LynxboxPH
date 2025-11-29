@@ -38,6 +38,7 @@ export interface Property extends BaseEntity {
   location: PropertyLocation;
   features: PropertyFeatures;
   images: string[];
+  defaultImageIndex?: number;
   status: string;
   ownerId: string;
   viewCount?: number;  // Make this optional
@@ -72,6 +73,7 @@ export function createProperty(data: PropertyInput): Property {
     location: data.location,
     features: data.features,
     images: data.images || [],
+    defaultImageIndex: data.defaultImageIndex,
     status: data.status || 'available',
     ownerId: data.ownerId,
     contactInfo: data.contactInfo,

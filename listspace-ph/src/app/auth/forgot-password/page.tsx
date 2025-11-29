@@ -137,7 +137,7 @@ export default function ForgotPassword() {
               Enter Verification Code
             </Heading>
             <Text color="gray.600">
-              We've sent a verification code to <strong>{email}</strong>. Please enter it below along with your new password.
+              We&apos;ve sent a verification code to <strong>{email}</strong>. Please enter it below along with your new password.
             </Text>
           </Box>
 
@@ -187,7 +187,7 @@ export default function ForgotPassword() {
 
           <Box mt={6} textAlign="center">
             <Text>
-              Didn't receive a code?{' '}
+              Didn&apos;t receive a code?{' '}
               <ChakraLink as="button" onClick={() => setIsCodeSent(false)} color="blue.500">
                 Resend code
               </ChakraLink>
@@ -214,7 +214,7 @@ export default function ForgotPassword() {
             Forgot your password?
           </Heading>
           <Text color="gray.600">
-            Enter your email address and we'll send you a verification code to reset your password.
+            Enter your email address and we&apos;ll send you a verification code to reset your password.
           </Text>
         </Box>
 

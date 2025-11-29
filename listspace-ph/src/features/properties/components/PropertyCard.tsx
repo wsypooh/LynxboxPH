@@ -18,7 +18,7 @@ import {
 } from '@chakra-ui/react'
 import { MapPin, Square, Car, Eye, Phone, Mail } from 'lucide-react'
 import Link from 'next/link'
-import { Property } from '../types'
+import { Property } from '@/services/propertyService'
 
 interface PropertyCardProps {
   property: Property
@@ -26,6 +26,7 @@ interface PropertyCardProps {
 }
 
 export function PropertyCard({ property, onContact }: PropertyCardProps) {
+  
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
@@ -34,14 +35,14 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
     }).format(price)
   }
 
-  const getPropertyTypeColor = (type: string) => {
+  const getTypeColor = (type: string) => {
     const colors = {
-      office: 'blue',
-      warehouse: 'orange',
-      retail: 'green',
-      restaurant: 'red',
-      industrial: 'gray',
-      'mixed-use': 'purple',
+      apartment: 'blue',
+      house: 'green',
+      condo: 'purple',
+      commercial: 'orange',
+      land: 'yellow',
+      office: 'red',
     }
     return colors[type as keyof typeof colors] || 'gray'
   }
@@ -50,8 +51,8 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
     const colors = {
       available: 'green',
       rented: 'red',
-      pending: 'yellow',
-      maintenance: 'gray',
+      sold: 'gray',
+      maintenance: 'orange',
     }
     return colors[status as keyof typeof colors] || 'gray'
   }
@@ -60,17 +61,22 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
     <Card maxW="sm" overflow="hidden" shadow="md" _hover={{ shadow: 'lg', transform: 'translateY(-2px)' }} transition="all 0.2s">
       <Box position="relative">
         <Image
-          src={property.images[0] || '/images/placeholder-property.jpg'}
+          src={
+            property.images.length > 0
+              ? property.images[0] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPgogIDxyZWN0IHg9IjE1MCIgeT0iMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2QwZDBkMCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMjAwLDEyMCAxODAsMTQwIDE4MCwxNjAgMjIwLDE2MCAyMjAsMTQwIiBmaWxsPSIjYTBhMGEwIi8+CiAgPHRleHQgeD0iMjAwIiB5PSIyMjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+UHJvcGVydHkgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=='
+              : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPgogIDxyZWN0IHg9IjE1MCIgeT0iMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2QwZDBkMCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMjAwLDEyMCAxODAsMTQwIDE4MCwxNjAgMjIwLDE2MCAyMjAsMTQwIiBmaWxsPSIjYTBhMGEwIi8+CiAgPHRleHQgeD0iMjAwIiB5PSIyMjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+UHJvcGVydHkgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=='
+          }
           alt={property.title}
           h="200px"
           w="full"
           objectFit="cover"
+          fallbackStrategy="beforeLoadOrError"
         />
         <Badge
           position="absolute"
           top={2}
           left={2}
-          colorScheme={getPropertyTypeColor(property.type)}
+          colorScheme={getTypeColor(property.type)}
           textTransform="capitalize"
         >
           {property.type}

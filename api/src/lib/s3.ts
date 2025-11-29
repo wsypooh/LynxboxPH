@@ -15,7 +15,8 @@ export class S3Service {
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION || 'ap-southeast-1',
     });
-    this.bucketName = process.env.S3_BUCKET_NAME || 'listspace-ph-images';
+    // Use the correct bucket name for images
+    this.bucketName = 'listspace-ph-images-dev-ap-southeast-1';
   }
 
   async uploadImage(file: Buffer, fileName: string, contentType: string): Promise<UploadImageResult> {
@@ -75,6 +76,22 @@ export class S3Service {
     } catch (error) {
       console.error('Error generating presigned URL:', error);
       throw new Error('Failed to generate presigned upload URL');
+    }
+  }
+
+  async getPresignedViewUrl(key: string): Promise<{ url: string }> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+
+      return { url };
+    } catch (error) {
+      console.error('Error generating presigned view URL:', error);
+      throw new Error('Failed to generate presigned view URL');
     }
   }
 

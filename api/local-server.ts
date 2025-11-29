@@ -35,6 +35,21 @@ const port = 3000;
 
 app.use(express.json());
 
+// Add CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'http://localhost:3001');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token');
+  res.header('Access-Control-Max-Age', '300');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+  
+  next();
+});
+
 // Helper to convert Express request to API Gateway event
 const createApiGatewayEvent = (req: express.Request): APIGatewayProxyEvent => {
   // For local development, add a mock user ID
@@ -95,6 +110,19 @@ app.all('/api/properties', async (req, res) => {
 });
 
 app.all('/api/properties/:id', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+// Image endpoints
+app.all('/api/properties/:id/images', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+app.all('/api/properties/:id/images/upload-url', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+app.all('/api/properties/:id/images/view-url', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 

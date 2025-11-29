@@ -24,6 +24,7 @@ export interface Property {
     security: boolean
   }
   images: string[]
+  defaultImageIndex?: number
   status: PropertyStatus
   ownerId: string
   createdAt: string
