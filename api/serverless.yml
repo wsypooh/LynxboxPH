@@ -7,6 +7,8 @@ provider:
   region: ap-southeast-1
   environment:
     DYNAMODB_TABLE: ${env:DYNAMODB_TABLE}
+    S3_BUCKET_NAME: ${env:S3_BUCKET_NAME}
+    AWS_REGION: ap-southeast-1
   iam:
     role:
       statements:
@@ -19,6 +21,16 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource: "*"
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:DeleteObject
+            - s3:GetObject
+          Resource: "arn:aws:s3:::${env:S3_BUCKET_NAME}/*"
+        - Effect: Allow
+          Action:
+            - s3:ListBucket
+          Resource: "arn:aws:s3:::${env:S3_BUCKET_NAME}"
 
 functions:
   api:
@@ -43,6 +55,14 @@ functions:
       - http:
           path: /api/properties/{id}
           method: delete
+          cors: true
+      - http:
+          path: /api/properties/{id}/images
+          method: post
+          cors: true
+      - http:
+          path: /api/properties/{id}/images/upload-url
+          method: get
           cors: true
 
 plugins:

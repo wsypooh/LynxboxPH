@@ -5,6 +5,7 @@ import { ApiResponse } from '../../lib/apiResponse';
 import { Property, PropertyFeatures, PropertyLocation, PropertyContactInfo } from '../../models/property';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../../lib/dynamodb';
+import { S3Service } from '../../lib/s3';
 
 export class PropertyHandler {
   static async createProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -13,38 +14,141 @@ export class PropertyHandler {
         return ApiResponse.error('Request body is required', 400);
       }
 
-      const body = JSON.parse(event.body);
-      
+      const contentType = event.headers['content-type'] || event.headers['Content-Type'];
+      let propertyData: any;
+      let uploadedImages: string[] = [];
+
+      // Handle multipart form data (files + property data)
+      if (contentType && contentType.includes('multipart/form-data')) {
+        const { property, images } = await this.handleMultipartPropertyCreation(event);
+        propertyData = property;
+        uploadedImages = images;
+      } else {
+        // Handle JSON data with base64 images
+        const body = JSON.parse(event.body);
+        propertyData = body;
+
+        // Handle base64 images if present
+        if (body.base64Images && Array.isArray(body.base64Images)) {
+          uploadedImages = await this.handleBase64Images(body.base64Images);
+        }
+      }
+
       // Basic validation
       const requiredFields = ['title', 'description', 'type', 'price', 'location', 'features', 'contactInfo'];
-      const missingFields = requiredFields.filter(field => !(field in body));
+      const missingFields = requiredFields.filter(field => !(field in propertyData));
       
       if (missingFields.length > 0) {
         return ApiResponse.error(`Missing required fields: ${missingFields.join(', ')}`, 400);
       }
 
       // Extract user ID from request context (assuming using Cognito authorizer)
-      // Temporarily disabled for testing
       const userId = event.requestContext.authorizer?.claims?.sub || 'test-user-id';
       if (!userId) {
         return ApiResponse.unauthorized('User ID not found in request');
       }
 
-      const propertyData = {
-        ...body,
+      const finalPropertyData = {
+        ...propertyData,
         ownerId: userId,
         currency: 'PHP', // Default currency
         status: 'available', // Default status
-        images: body.images || [], // Default empty array if no images
+        images: [...(propertyData.images || []), ...uploadedImages], // Combine existing and uploaded images
       };
 
-      const property = await PropertyRepository.create(propertyData);
+      const property = await PropertyRepository.create(finalPropertyData);
       return ApiResponse.success(property, 201);
 
     } catch (error) {
       console.error('Error creating property:', error);
       return ApiResponse.error('Failed to create property', 500);
     }
+  }
+
+  private static async handleMultipartPropertyCreation(event: APIGatewayProxyEvent): Promise<{ property: any; images: string[] }> {
+    const contentType = event.headers['content-type'] || event.headers['Content-Type'];
+    
+    if (!contentType || !contentType.includes('multipart/form-data')) {
+      throw new Error('Content-Type must be multipart/form-data');
+    }
+    
+    const boundary = contentType.split('boundary=')[1];
+    if (!boundary) {
+      throw new Error('Invalid multipart boundary');
+    }
+    
+    const parts = event.body!.split(`--${boundary}`);
+    
+    let propertyData: any = {};
+    let uploadedImages: string[] = [];
+    const s3Service = new S3Service();
+
+    for (const part of parts) {
+      if (part.includes('Content-Disposition: form-data')) {
+        const lines = part.split('\n');
+        let name: string | null = null;
+        let fileName: string | null = null;
+        let fileContentType: string | null = null;
+        let value: string | null = null;
+
+        for (const line of lines) {
+          if (line.includes('name=')) {
+            name = line.split('name=')[1].trim().replace(/"/g, '');
+          }
+          if (line.includes('filename=')) {
+            fileName = line.split('filename=')[1].trim().replace(/"/g, '');
+          }
+          if (line.includes('Content-Type:')) {
+            fileContentType = line.split('Content-Type:')[1].trim();
+          }
+        }
+
+        const headerEndIndex = part.indexOf('\r\n\r\n');
+        if (headerEndIndex !== -1) {
+          value = part.substring(headerEndIndex + 4).trim();
+        }
+
+        if (name === 'images' && fileName && fileContentType && value) {
+          // Handle file upload
+          s3Service.validateImageFile(fileName, fileContentType, Buffer.from(value, 'base64').length);
+          const fileBuffer = Buffer.from(value, 'base64');
+          const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType);
+          uploadedImages.push(uploadResult.url);
+        } else if (name && value && !fileName) {
+          // Handle form field (JSON property data)
+          try {
+            propertyData = JSON.parse(value);
+          } catch {
+            propertyData[name] = value;
+          }
+        }
+      }
+    }
+
+    return { property: propertyData, images: uploadedImages };
+  }
+
+  private static async handleBase64Images(base64Images: any[]): Promise<string[]> {
+    const uploadedImages: string[] = [];
+    const s3Service = new S3Service();
+
+    for (const imageData of base64Images) {
+      const { data, fileName, contentType } = imageData;
+      
+      if (!data || !fileName || !contentType) {
+        throw new Error('Each base64 image must include data, fileName, and contentType');
+      }
+
+      // Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+      const base64Data = data.includes(',') ? data.split(',')[1] : data;
+      const fileBuffer = Buffer.from(base64Data, 'base64');
+
+      s3Service.validateImageFile(fileName, contentType, fileBuffer.length);
+      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, contentType);
+      uploadedImages.push(uploadResult.url);
+    }
+
+    return uploadedImages;
   }
 
   static async getProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -80,14 +184,31 @@ export class PropertyHandler {
 
       const updates = JSON.parse(event.body);
       
-      // Remove fields that shouldn't be updated
-      const { id: _, ownerId, createdAt, ...validUpdates } = updates;
+      // Handle image removal and replacement
+      if (updates.removeImages && Array.isArray(updates.removeImages)) {
+        await this.removePropertyImages(id, updates.removeImages);
+      }
 
-      // Verify ownership (in a real app, you'd check if the current user is the owner)
+      // Handle new image uploads
+      let uploadedImages: string[] = [];
+      if (updates.base64Images && Array.isArray(updates.base64Images)) {
+        uploadedImages = await this.handleBase64Images(updates.base64Images);
+      }
+
+      // Combine existing images (minus removed ones) with new uploads
       const property = await PropertyRepository.findById(id);
       if (!property) {
         return ApiResponse.notFound('Property not found');
       }
+
+      const currentImages = property.images || [];
+      const imagesToRemove = updates.removeImages || [];
+      const remainingImages = currentImages.filter(img => !imagesToRemove.includes(img));
+      const finalImages = [...remainingImages, ...uploadedImages];
+
+      // Remove fields that shouldn't be updated
+      const { id: _, ownerId, createdAt, removeImages, base64Images, ...validUpdates } = updates;
+      validUpdates.images = finalImages;
 
       // In a real app, you'd verify the current user is the owner
       // if (property.ownerId !== userId) {
@@ -104,6 +225,25 @@ export class PropertyHandler {
     } catch (error) {
       console.error('Error updating property:', error);
       return ApiResponse.error('Failed to update property', 500);
+    }
+  }
+
+  private static async removePropertyImages(propertyId: string, imageUrls: string[]): Promise<void> {
+    const s3Service = new S3Service();
+    
+    for (const imageUrl of imageUrls) {
+      try {
+        // Extract key from URL
+        const urlParts = imageUrl.split('/');
+        const key = urlParts.slice(3).join('/'); // Remove https://bucket-name.s3.region.amazonaws.com/
+        
+        if (key) {
+          await s3Service.deleteImage(key);
+        }
+      } catch (error) {
+        console.error(`Failed to delete image ${imageUrl}:`, error);
+        // Continue with other images even if one fails
+      }
     }
   }
 
@@ -198,6 +338,133 @@ export class PropertyHandler {
       return ApiResponse.error('Failed to search properties', 500);
     }
   }
+
+  static async uploadPropertyImage(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const propertyId = event.pathParameters?.id;
+      if (!propertyId) {
+        return ApiResponse.error('Property ID is required', 400);
+      }
+
+      if (!event.body) {
+        return ApiResponse.error('Request body is required', 400);
+      }
+
+      // Parse the multipart form data
+      const contentType = event.headers['content-type'] || event.headers['Content-Type'];
+      
+      if (!contentType || !contentType.includes('multipart/form-data')) {
+        return ApiResponse.error('Content-Type must be multipart/form-data', 400);
+      }
+
+      const body = event.body;
+      const isBase64Encoded = event.isBase64Encoded;
+      
+      if (!isBase64Encoded) {
+        return ApiResponse.error('File must be base64 encoded', 400);
+      }
+
+      // Parse the multipart data (simplified approach - in production, use a proper multipart parser)
+      const boundary = contentType.split('boundary=')[1];
+      const parts = body.split(`--${boundary}`);
+      
+      let fileData: string | null = null;
+      let fileName: string | null = null;
+      let fileContentType: string | null = null;
+
+      for (const part of parts) {
+        if (part.includes('Content-Disposition: form-data') && part.includes('name="image"')) {
+          const lines = part.split('\n');
+          for (const line of lines) {
+            if (line.includes('filename=')) {
+              fileName = line.split('filename=')[1].trim().replace(/"/g, '');
+            }
+            if (line.includes('Content-Type:')) {
+              fileContentType = line.split('Content-Type:')[1].trim();
+            }
+          }
+          // Extract the base64 file data (everything after the headers)
+          const headerEndIndex = part.indexOf('\r\n\r\n');
+          if (headerEndIndex !== -1) {
+            fileData = part.substring(headerEndIndex + 4).trim();
+          }
+          break;
+        }
+      }
+
+      if (!fileData || !fileName || !fileContentType) {
+        return ApiResponse.error('Invalid file upload data', 400);
+      }
+
+      // Convert base64 to buffer
+      const fileBuffer = Buffer.from(fileData, 'base64');
+
+      // Validate file
+      const s3Service = new S3Service();
+      s3Service.validateImageFile(fileName, fileContentType, fileBuffer.length);
+
+      // Upload to S3
+      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType);
+
+      // Update property with new image URL
+      const property = await PropertyRepository.findById(propertyId);
+      if (!property) {
+        return ApiResponse.notFound('Property not found');
+      }
+
+      const updatedImages = [...(property.images || []), uploadResult.url];
+      await PropertyRepository.update(propertyId, { images: updatedImages });
+
+      return ApiResponse.success({ 
+        message: 'Image uploaded successfully',
+        image: {
+          url: uploadResult.url,
+          key: uploadResult.key
+        }
+      }, 201);
+
+    } catch (error) {
+      console.error('Error uploading property image:', error);
+      return ApiResponse.error('Failed to upload property image', 500);
+    }
+  }
+
+  static async getPresignedUploadUrl(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const propertyId = event.pathParameters?.id;
+      if (!propertyId) {
+        return ApiResponse.error('Property ID is required', 400);
+      }
+
+      const fileName = event.queryStringParameters?.fileName;
+      const contentType = event.queryStringParameters?.contentType;
+
+      if (!fileName || !contentType) {
+        return ApiResponse.error('fileName and contentType query parameters are required', 400);
+      }
+
+      // Verify property exists
+      const property = await PropertyRepository.findById(propertyId);
+      if (!property) {
+        return ApiResponse.notFound('Property not found');
+      }
+
+      const s3Service = new S3Service();
+      s3Service.validateImageFile(fileName, contentType, 0); // Size validation skipped for presigned URL
+
+      const { url, key } = await s3Service.getPresignedUploadUrl(fileName, contentType);
+
+      return ApiResponse.success({
+        uploadUrl: url,
+        key: key,
+        expiresIn: 3600
+      });
+
+    } catch (error) {
+      console.error('Error generating presigned upload URL:', error);
+      return ApiResponse.error('Failed to generate presigned upload URL', 500);
+    }
+  }
 }
 
 // Lambda handler function
@@ -224,6 +491,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return PropertyHandler.listProperties(event);
     } else if (httpMethod === 'GET' && path.includes('/api/properties/search')) {
       return PropertyHandler.searchProperties(event);
+    } else if (httpMethod === 'POST' && path.includes('/api/properties/') && path.includes('/images')) {
+      // Matches /api/properties/{id}/images
+      return PropertyHandler.uploadPropertyImage(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.includes('/images/upload-url')) {
+      // Matches /api/properties/{id}/images/upload-url
+      return PropertyHandler.getPresignedUploadUrl(event);
     } else {
       console.log('No route found for:', { httpMethod, path });
       return ApiResponse.error('Not Found', 404);
