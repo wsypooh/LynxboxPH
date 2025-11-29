@@ -127,6 +127,51 @@ const mockProperties: Property[] = [
 ]
 
 export class PropertyService {
+  private static getNextId(): string {
+    // Generate a simple ID for mock data
+    return (mockProperties.length + 1).toString()
+  }
+
+  static async createProperty(propertyData: Omit<Property, 'id' | 'createdAt' | 'updatedAt' | 'viewCount'>): Promise<Property> {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    const newProperty: Property = {
+      ...propertyData,
+      id: this.getNextId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      viewCount: 0,
+      // Ensure required fields have default values if not provided
+      images: propertyData.images || [],
+      location: {
+        address: propertyData.location.address || '',
+        city: propertyData.location.city || '',
+        province: propertyData.location.province || '',
+        coordinates: propertyData.location.coordinates || { lat: 0, lng: 0 }
+      },
+      features: {
+        area: propertyData.features.area || 0,
+        parking: propertyData.features.parking || 0,
+        floors: propertyData.features.floors || 1,
+        furnished: propertyData.features.furnished || false,
+        aircon: propertyData.features.aircon || false,
+        wifi: propertyData.features.wifi || false,
+        security: propertyData.features.security || false
+      },
+      contactInfo: {
+        name: propertyData.contactInfo.name || '',
+        phone: propertyData.contactInfo.phone || '',
+        email: propertyData.contactInfo.email || ''
+      }
+    }
+
+    // Add to mock data
+    mockProperties.unshift(newProperty) // Add to beginning of array
+    
+    return newProperty
+  }
+
   static async searchProperties(params: PropertySearchParams = {}): Promise<{
     properties: Property[]
     total: number
@@ -296,21 +341,6 @@ export class PropertyService {
     return mockProperties.map(p => p.id)
   }
 
-  static async createProperty(propertyData: Omit<Property, 'id' | 'createdAt' | 'updatedAt' | 'viewCount'>): Promise<Property> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800))
-
-    const newProperty: Property = {
-      ...propertyData,
-      id: `property-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      viewCount: 0
-    }
-
-    mockProperties.push(newProperty)
-    return newProperty
-  }
 
   static async updateProperty(id: string, updates: Partial<Property>): Promise<Property | null> {
     // Simulate API delay

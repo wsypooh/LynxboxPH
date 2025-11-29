@@ -58,6 +58,33 @@ output "frontend_config" {
   }
 }
 
+# API Gateway Outputs
+output "api_gateway_url" {
+  description = "URL of the API Gateway"
+  value       = module.api.api_endpoint
+}
+
+output "api_gateway_id" {
+  description = "ID of the API Gateway"
+  value       = module.api.api_id
+}
+
+# Lambda Outputs
+output "lambda_function_name" {
+  description = "Name of the Lambda function"
+  value       = module.api.lambda_function_name
+}
+
+output "lambda_execution_role_arn" {
+  description = "ARN of the IAM role for Lambda"
+  value       = module.api.lambda_role_arn
+}
+
+output "lambda_role_name" {
+  description = "Name of the IAM role for Lambda"
+  value       = module.api.lambda_role_name
+}
+
 # Complete AWS Config Output (for reference)
 output "aws_config" {
   description = "Complete AWS configuration for the application"

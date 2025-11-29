@@ -107,3 +107,18 @@ logs/
 log/
 .tmp/
 .cache/
+
+# -----------------------------
+# Lambda deployment temp files
+# -----------------------------
+# Temp deployment directories (created in infra folder)
+infra/temp-deploy-*/
+temp-deploy-*/
+
+# Lambda deployment zip files (created in infra folder)
+infra/lambda-*.zip
+lambda-*.zip
+
+# Temporary node_modules zip (created in infra folder)
+infra/node_modules-temp.zip
+node_modules-temp.zip

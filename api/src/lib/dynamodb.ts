@@ -1,12 +1,9 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
+// Lambda functions should use IAM role credentials, not explicit credentials
 const dynamoDbClient = new DynamoDBClient({
-  region: process.env.AWS_REGION || 'ap-southeast-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
+  region: process.env.AWS_REGION || 'ap-southeast-1'
 });
 
 export const ddbDocClient = DynamoDBDocumentClient.from(dynamoDbClient, {

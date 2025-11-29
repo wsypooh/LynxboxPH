@@ -22,7 +22,7 @@ provider:
 
 functions:
   api:
-    handler: dist/handlers/properties/handler.handler
+    handler: index.handler
     events:
       - http:
           path: /api/properties

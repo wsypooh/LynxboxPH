@@ -34,7 +34,7 @@ import {
   Checkbox,
   Stack,
 } from '@chakra-ui/react'
-import { Search, Filter, MapPin, Building2, X } from 'lucide-react'
+import { Search, Filter, MapPin, Building2, X, Plus } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { PropertyCard } from '@/features/properties/components/PropertyCard'
 import { PropertyService } from '@/features/properties/services/propertyService'
@@ -186,8 +186,23 @@ export default function PropertiesPage() {
 
   return (
     <Container maxW="container.xl" py={8}>
-      <VStack spacing={8} align="stretch">
-        {/* Header */}
+      <VStack spacing={6} align="stretch">
+        <HStack justify="space-between" mb={6}>
+          <Heading as="h1" size="xl">Available Properties</Heading>
+          <HStack spacing={4}>
+            <Button 
+              leftIcon={<Plus size={18} />} 
+              colorScheme="blue"
+              as="a"
+              href="/properties/add"
+            >
+              Add Property
+            </Button>
+            <Button leftIcon={<Filter size={18} />} onClick={onFilterOpen} variant="outline">
+              Filters
+            </Button>
+          </HStack>
+        </HStack>
         <VStack spacing={4} textAlign="center">
           <Heading size="xl" display="flex" alignItems="center" gap={3}>
             <Icon as={Building2} color="primary.500" />
