@@ -67,19 +67,50 @@ interface PropertySearchParams {
 }
 
 export default function PropertiesPage() {
+  const STORAGE_KEY = 'public-properties-filters';
+  
+  // Initialize search params from localStorage
+  const initializeSearchParams = (): PropertySearchParams => {
+    try {
+      const savedParams = localStorage.getItem(STORAGE_KEY);
+      if (savedParams) {
+        const parsed = JSON.parse(savedParams);
+        return {
+          page: 1,
+          limit: 12,
+          sortBy: 'date',
+          sortOrder: 'desc',
+          ...parsed
+        };
+      }
+    } catch (error) {
+      console.error('Error loading search params from localStorage:', error);
+    }
+    return {
+      page: 1,
+      limit: 12,
+      sortBy: 'date',
+      sortOrder: 'desc'
+    };
+  };
+  
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [searchParams, setSearchParams] = useState<PropertySearchParams>({
-    page: 1,
-    limit: 12,
-    sortBy: 'date',
-    sortOrder: 'desc'
-  })
+  const [searchParams, setSearchParams] = useState<PropertySearchParams>(initializeSearchParams)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
 
   const { isOpen: isFilterOpen, onOpen: onFilterOpen, onClose: onFilterClose } = useDisclosure()
+  
+  // Save search params to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(searchParams));
+    } catch (error) {
+      console.error('Error saving search params to localStorage:', error);
+    }
+  }, [searchParams]);
 
   const hasActiveFilters = useCallback((): boolean => {
     const currentFilters = searchParams.filters;
@@ -233,6 +264,16 @@ export default function PropertiesPage() {
       page: 1
     }));
   };
+  
+  const clearAllFilters = () => {
+    setSearchParams({
+      page: 1,
+      limit: 12,
+      sortBy: 'date',
+      sortOrder: 'desc'
+    });
+    setFilters({});
+  };
 
   const handleContact = (property: Property) => {
     // Open contact modal or redirect to contact form
@@ -326,6 +367,14 @@ export default function PropertiesPage() {
                     }}
                   >
                     Clear Filters
+                  </Button>
+                  <Button 
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="red"
+                    onClick={clearAllFilters}
+                  >
+                    Reset All
                   </Button>
                   <Badge colorScheme="primary" variant="solid">
                     {searchParams.filters ? Object.entries(searchParams.filters).filter(([key, value]) => {

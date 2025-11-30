@@ -21,7 +21,24 @@ import {
   VStack,
   Divider,
   IconButton,
+  Input,
+  Select,
+  InputGroup,
+  InputLeftElement,
+  Checkbox,
+  RangeSlider,
+  RangeSliderTrack,
+  RangeSliderFilledTrack,
+  RangeSliderThumb,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
+  Collapse,
+  useDisclosure,
 } from '@chakra-ui/react';
+import { SearchIcon, FilterIcon, ChevronDownIcon, ChevronUpIcon } from '@chakra-ui/icons';
 import { Property, propertyService } from '@/services/propertyService';
 import { EditIcon, DeleteIcon, ViewIcon, PlusSquareIcon } from '@chakra-ui/icons';
 import { formatCurrency } from '@/lib/utils';
@@ -35,6 +52,46 @@ interface PropertyListProps {
   onAddNew?: () => void;
   refreshTrigger?: number;
 }
+
+interface FilterState {
+  search: string;
+  type: string;
+  status: string;
+  sortBy: string;
+  sortOrder: string;
+  priceMin: number;
+  priceMax: number;
+  areaMin: number;
+  areaMax: number;
+  features: {
+    parking: boolean;
+    furnished: boolean;
+    aircon: boolean;
+    wifi: boolean;
+    security: boolean;
+  };
+}
+
+const STORAGE_KEY = 'property-list-filters';
+
+const defaultFilters: FilterState = {
+  search: '',
+  type: '',
+  status: '',
+  sortBy: 'date',
+  sortOrder: 'desc',
+  priceMin: 0,
+  priceMax: 1000000,
+  areaMin: 0,
+  areaMax: 1000,
+  features: {
+    parking: false,
+    furnished: false,
+    aircon: false,
+    wifi: false,
+    security: false,
+  },
+};
 
 export function PropertyList({
   onEdit,
@@ -50,28 +107,189 @@ export function PropertyList({
   const [hasMore, setHasMore] = useState(false);
   const [lastKey, setLastKey] = useState<string | undefined>();
   const toast = useToast();
+  
+  // Filter and sort state - initialize from localStorage if available
+  const initializeFilters = (): FilterState => {
+    try {
+      const savedFilters = localStorage.getItem(STORAGE_KEY);
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        // Merge saved filters with defaults to ensure all properties exist
+        return { ...defaultFilters, ...parsed };
+      }
+    } catch (error) {
+      console.error('Error loading filters from localStorage during init:', error);
+    }
+    return defaultFilters;
+  };
+  
+  const [filters, setFilters] = useState<FilterState>(initializeFilters);
+  const { isOpen: isFilterOpen, onToggle: onFilterToggle } = useDisclosure();
+  
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+    } catch (error) {
+      console.error('Error saving filters to localStorage:', error);
+    }
+  }, [filters]);
 
   const fetchProperties = useCallback(async (append = false) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Use the existing listProperties endpoint - it now automatically filters by authenticated user
-      const response = await propertyService.listProperties({
+      // Build search params based on filters
+      const params: any = {
         limit: 10,
         lastKey: append ? lastKey : undefined,
-      });
-
-      const allProperties = response.items || [];
-
-      if (append) {
-        setProperties(prev => [...prev, ...allProperties]);
+      };
+      
+      // Add search query
+      if (filters.search.trim()) {
+        // Use search endpoint for text search
+        const searchResponse = await propertyService.searchUserProperties(
+          filters.search.trim(),
+          params.limit
+        );
+        
+        const allProperties = searchResponse.items || [];
+        
+        // Apply additional filters on client side for now
+        let filteredProperties = allProperties;
+        
+        // Filter by type
+        if (filters.type) {
+          filteredProperties = filteredProperties.filter(p => p.type === filters.type);
+        }
+        
+        // Filter by status
+        if (filters.status) {
+          filteredProperties = filteredProperties.filter(p => p.status === filters.status);
+        }
+        
+        // Filter by price range
+        filteredProperties = filteredProperties.filter(p => 
+          p.price >= filters.priceMin && p.price <= filters.priceMax
+        );
+        
+        // Filter by area range
+        filteredProperties = filteredProperties.filter(p => 
+          p.features.area >= filters.areaMin && p.features.area <= filters.areaMax
+        );
+        
+        // Filter by features
+        if (filters.features.parking) {
+          filteredProperties = filteredProperties.filter(p => p.features.parking > 0);
+        }
+        if (filters.features.furnished) {
+          filteredProperties = filteredProperties.filter(p => p.features.furnished);
+        }
+        if (filters.features.aircon) {
+          filteredProperties = filteredProperties.filter(p => p.features.aircon);
+        }
+        if (filters.features.wifi) {
+          filteredProperties = filteredProperties.filter(p => p.features.wifi);
+        }
+        if (filters.features.security) {
+          filteredProperties = filteredProperties.filter(p => p.features.security);
+        }
+        
+        // Apply sorting
+        filteredProperties.sort((a, b) => {
+          let aValue: number | string;
+          let bValue: number | string;
+          
+          switch (filters.sortBy) {
+            case 'price':
+              aValue = a.price;
+              bValue = b.price;
+              break;
+            case 'area':
+              aValue = a.features.area;
+              bValue = b.features.area;
+              break;
+            case 'views':
+              aValue = a.viewCount || 0;
+              bValue = b.viewCount || 0;
+              break;
+            case 'date':
+            default:
+              aValue = new Date(a.createdAt).getTime();
+              bValue = new Date(b.createdAt).getTime();
+              break;
+          }
+          
+          if (typeof aValue === 'string' && typeof bValue === 'string') {
+            return filters.sortOrder === 'asc' 
+              ? aValue.localeCompare(bValue)
+              : bValue.localeCompare(aValue);
+          }
+          
+          return filters.sortOrder === 'asc' 
+            ? (aValue as number) - (bValue as number)
+            : (bValue as number) - (aValue as number);
+        });
+        
+        if (append) {
+          setProperties(prev => [...prev, ...filteredProperties]);
+        } else {
+          setProperties(filteredProperties);
+        }
+        
+        setHasMore(false); // Search doesn't support pagination for now
+        setLastKey(undefined);
       } else {
-        setProperties(allProperties);
+        // Use regular list endpoint with filters
+        if (filters.type) params.type = filters.type;
+        if (filters.sortBy) params.sortBy = filters.sortBy;
+        if (filters.sortOrder) params.sortOrder = filters.sortOrder;
+        
+        const response = await propertyService.listProperties(params);
+        let allProperties = response.items || [];
+        
+        // Apply additional filters that aren't supported by the API yet
+        if (filters.status) {
+          allProperties = allProperties.filter(p => p.status === filters.status);
+        }
+        
+        // Filter by price range
+        allProperties = allProperties.filter(p => 
+          p.price >= filters.priceMin && p.price <= filters.priceMax
+        );
+        
+        // Filter by area range
+        allProperties = allProperties.filter(p => 
+          p.features.area >= filters.areaMin && p.features.area <= filters.areaMax
+        );
+        
+        // Filter by features
+        if (filters.features.parking) {
+          allProperties = allProperties.filter(p => p.features.parking > 0);
+        }
+        if (filters.features.furnished) {
+          allProperties = allProperties.filter(p => p.features.furnished);
+        }
+        if (filters.features.aircon) {
+          allProperties = allProperties.filter(p => p.features.aircon);
+        }
+        if (filters.features.wifi) {
+          allProperties = allProperties.filter(p => p.features.wifi);
+        }
+        if (filters.features.security) {
+          allProperties = allProperties.filter(p => p.features.security);
+        }
+        
+        if (append) {
+          setProperties(prev => [...prev, ...allProperties]);
+        } else {
+          setProperties(allProperties);
+        }
+        
+        setHasMore(!!response.lastKey);
+        setLastKey(response.lastKey);
       }
-
-      setHasMore(!!response.lastKey);
-      setLastKey(response.lastKey);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch properties');
       toast({
@@ -84,12 +302,39 @@ export function PropertyList({
     } finally {
       setLoading(false);
     }
-  }, [lastKey, toast]);
+  }, [lastKey, toast, filters]);
 
   useEffect(() => {
     fetchProperties();
   }, [refreshTrigger, fetchProperties]);
 
+  const handleFilterChange = (key: keyof FilterState, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+  
+  const handleFeatureChange = (feature: keyof FilterState['features'], value: boolean) => {
+    setFilters(prev => ({
+      ...prev,
+      features: {
+        ...prev.features,
+        [feature]: value,
+      },
+    }));
+  };
+  
+  const clearFilters = () => {
+    setFilters(defaultFilters);
+  };
+  
+  const hasActiveFilters = filters.search || 
+    filters.type || 
+    filters.status || 
+    filters.priceMin > defaultFilters.priceMin || 
+    filters.priceMax < defaultFilters.priceMax ||
+    filters.areaMin > defaultFilters.areaMin || 
+    filters.areaMax < defaultFilters.areaMax ||
+    Object.values(filters.features).some(v => v);
+  
   const handleStatusUpdate = (updatedProperty: Property) => {
     // Update the property in the local state
     setProperties(prev => prev.map(p => p.id === updatedProperty.id ? updatedProperty : p));
@@ -175,6 +420,204 @@ export function PropertyList({
           </Button>
         )}
       </Flex>
+      
+      {/* Search and Filter Controls */}
+      <VStack spacing={4} align="stretch">
+        {/* Search Bar */}
+        <InputGroup>
+          <InputLeftElement pointerEvents="none">
+            <SearchIcon color="gray.400" />
+          </InputLeftElement>
+          <Input
+            placeholder="Search properties by title, description, or location..."
+            value={filters.search}
+            onChange={(e) => handleFilterChange('search', e.target.value)}
+            bg="white"
+          />
+        </InputGroup>
+        
+        {/* Quick Filters and Sort */}
+        <HStack spacing={4} wrap="wrap">
+          <Select
+            placeholder="Property Type"
+            value={filters.type}
+            onChange={(e) => handleFilterChange('type', e.target.value)}
+            maxW="200px"
+            bg="white"
+          >
+            <option value="office">Office</option>
+            <option value="commercial">Commercial</option>
+            <option value="land">Land</option>
+          </Select>
+          
+          <Select
+            placeholder="Status"
+            value={filters.status}
+            onChange={(e) => handleFilterChange('status', e.target.value)}
+            maxW="150px"
+            bg="white"
+          >
+            <option value="available">Available</option>
+            <option value="rented">Rented</option>
+            <option value="sold">Sold</option>
+            <option value="maintenance">Maintenance</option>
+          </Select>
+          
+          <Select
+            value={filters.sortBy}
+            onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+            maxW="150px"
+            bg="white"
+          >
+            <option value="date">Date</option>
+            <option value="price">Price</option>
+            <option value="area">Area</option>
+            <option value="views">Views</option>
+          </Select>
+          
+          <Select
+            value={filters.sortOrder}
+            onChange={(e) => handleFilterChange('sortOrder', e.target.value)}
+            maxW="120px"
+            bg="white"
+          >
+            <option value="desc">Desc</option>
+            <option value="asc">Asc</option>
+          </Select>
+          
+          <Button
+            leftIcon={<FilterIcon />}
+            variant="outline"
+            onClick={onFilterToggle}
+            rightIcon={isFilterOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+          >
+            Advanced Filters
+          </Button>
+          
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              colorScheme="red"
+              size="sm"
+              onClick={clearFilters}
+            >
+              Clear All
+            </Button>
+          )}
+        </HStack>
+        
+        {/* Advanced Filters */}
+        <Collapse in={isFilterOpen} animateOpacity>
+          <Box
+            p={4}
+            bg="gray.50"
+            borderRadius="md"
+            border="1px solid"
+            borderColor="gray.200"
+          >
+            <VStack spacing={4} align="stretch">
+              {/* Price Range */}
+              <Box>
+                <Text fontWeight="medium" mb={2}>Price Range (PHP)</Text>
+                <HStack spacing={4} align="center">
+                  <NumberInput
+                    value={filters.priceMin}
+                    onChange={(value) => handleFilterChange('priceMin', Number(value) || 0)}
+                    min={0}
+                    max={filters.priceMax}
+                  >
+                    <NumberInputField placeholder="Min" />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                  <Text>to</Text>
+                  <NumberInput
+                    value={filters.priceMax}
+                    onChange={(value) => handleFilterChange('priceMax', Number(value) || 0)}
+                    min={filters.priceMin}
+                  >
+                    <NumberInputField placeholder="Max" />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                </HStack>
+              </Box>
+              
+              {/* Area Range */}
+              <Box>
+                <Text fontWeight="medium" mb={2}>Area Range (m²)</Text>
+                <HStack spacing={4} align="center">
+                  <NumberInput
+                    value={filters.areaMin}
+                    onChange={(value) => handleFilterChange('areaMin', Number(value) || 0)}
+                    min={0}
+                    max={filters.areaMax}
+                  >
+                    <NumberInputField placeholder="Min" />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                  <Text>to</Text>
+                  <NumberInput
+                    value={filters.areaMax}
+                    onChange={(value) => handleFilterChange('areaMax', Number(value) || 0)}
+                    min={filters.areaMin}
+                  >
+                    <NumberInputField placeholder="Max" />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                </HStack>
+              </Box>
+              
+              {/* Features */}
+              <Box>
+                <Text fontWeight="medium" mb={2}>Features</Text>
+                <HStack spacing={4} wrap="wrap">
+                  <Checkbox
+                    isChecked={filters.features.parking}
+                    onChange={(e) => handleFeatureChange('parking', e.target.checked)}
+                  >
+                    Parking Available
+                  </Checkbox>
+                  <Checkbox
+                    isChecked={filters.features.furnished}
+                    onChange={(e) => handleFeatureChange('furnished', e.target.checked)}
+                  >
+                    Furnished
+                  </Checkbox>
+                  <Checkbox
+                    isChecked={filters.features.aircon}
+                    onChange={(e) => handleFeatureChange('aircon', e.target.checked)}
+                  >
+                    Air Conditioning
+                  </Checkbox>
+                  <Checkbox
+                    isChecked={filters.features.wifi}
+                    onChange={(e) => handleFeatureChange('wifi', e.target.checked)}
+                  >
+                    WiFi
+                  </Checkbox>
+                  <Checkbox
+                    isChecked={filters.features.security}
+                    onChange={(e) => handleFeatureChange('security', e.target.checked)}
+                  >
+                    Security
+                  </Checkbox>
+                </HStack>
+              </Box>
+            </VStack>
+          </Box>
+        </Collapse>
+      </VStack>
 
       <Grid
         templateColumns={{
@@ -309,6 +752,26 @@ export function PropertyList({
             Load More
           </Button>
         </Flex>
+      )}
+      
+      {/* Show active filters summary */}
+      {hasActiveFilters && (
+        <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+          <Text fontSize="sm" color="blue.800">
+            <strong>Active filters:</strong> {filters.search && `Search: "${filters.search}" `}
+            {filters.type && `Type: ${filters.type} `}
+            {filters.status && `Status: ${filters.status} `}
+            {filters.priceMin > defaultFilters.priceMin && `Price: ₱${filters.priceMin.toLocaleString()}+ `}
+            {filters.priceMax < defaultFilters.priceMax && `Price: <₱${filters.priceMax.toLocaleString()} `}
+            {filters.areaMin > defaultFilters.areaMin && `Area: ${filters.areaMin}m²+ `}
+            {filters.areaMax < defaultFilters.areaMax && `Area: <${filters.areaMax}m² `}
+            {filters.features.parking && 'Parking '}
+            {filters.features.furnished && 'Furnished '}
+            {filters.features.aircon && 'Aircon '}
+            {filters.features.wifi && 'WiFi '}
+            {filters.features.security && 'Security '}
+          </Text>
+        </Box>
       )}
     </VStack>
   );
