@@ -140,13 +140,13 @@ class PropertyService {
     const query = searchParams.toString();
     const endpoint = `/api/properties${query ? `?${query}` : ''}`;
     
-    const response = await this.request<{ data: { items: any[]; lastKey?: string } }>(endpoint);
-    // Handle nested response structure
+    const response = await this.request<{ success: boolean; data: { items: any[]; lastKey?: string } }>(endpoint);
+    // Handle nested response structure - the API returns { success: true, data: { items: [...] } }
     const responseData = response.data || response;
     // Ensure each property matches our Property interface
     return {
       ...responseData,
-      items: responseData.items.map(item => ({
+      items: (responseData.items || []).map(item => ({
         ...item,
         type: item.type as PropertyType,
         status: item.status as PropertyStatus,
@@ -252,12 +252,12 @@ class PropertyService {
     searchParams.append('q', query);
     if (limit) searchParams.append('limit', limit.toString());
 
-    const response = await this.request<{ data: { items: any[] } }>(`/api/properties/search?${searchParams.toString()}`);
-    // Handle nested response structure
+    const response = await this.request<{ success: boolean; data: { items: any[] } }>(`/api/properties/search?${searchParams.toString()}`);
+    // Handle nested response structure - the API returns { success: true, data: { items: [...] } }
     const responseData = response.data || response;
     // Ensure each property matches our Property interface
     return {
-      items: responseData.items.map(item => ({
+      items: (responseData.items || []).map(item => ({
         ...item,
         type: item.type as PropertyType,
         status: item.status as PropertyStatus,

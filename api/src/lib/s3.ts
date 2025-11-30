@@ -81,17 +81,12 @@ export class S3Service {
 
   async getPresignedViewUrl(key: string): Promise<{ url: string }> {
     try {
-      const command = new GetObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
-
-      const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
-
+      // Return public URL since bucket is now public
+      const url = `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'ap-southeast-1'}.amazonaws.com/${key}`;
       return { url };
     } catch (error) {
-      console.error('Error generating presigned view URL:', error);
-      throw new Error('Failed to generate presigned view URL');
+      console.error('Error generating public view URL:', error);
+      throw new Error('Failed to generate public view URL');
     }
   }
 

@@ -98,7 +98,7 @@ export function PropertyForm({
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
-  const [defaultImageIndex, setDefaultImageIndex] = useState<number>(0);
+  const [defaultImageIndex, setDefaultImageIndex] = useState<number | undefined>(0);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
 
@@ -205,9 +205,9 @@ export function PropertyForm({
     if (defaultImageIndex === index) {
       // If deleting the default image, set to 0 if images remain, undefined if none
       setDefaultImageIndex(imagePreviews.length > 1 ? 0 : undefined);
-    } else if (defaultImageIndex > index) {
+    } else if (defaultImageIndex !== undefined && defaultImageIndex > index) {
       // If deleting an image before the default, shift the default index down
-      setDefaultImageIndex(prev => prev - 1);
+      setDefaultImageIndex(prev => prev !== undefined ? prev - 1 : undefined);
     }
   }, [selectedImages, imagePreviews, defaultImageIndex]);
 
@@ -286,14 +286,6 @@ export function PropertyForm({
         if (!result) {
           throw new Error('Create failed: No data returned from server');
         }
-        
-        toast({
-          title: 'Property created',
-          description: 'Property has been created successfully',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
       }
 
       onSuccess?.(result);

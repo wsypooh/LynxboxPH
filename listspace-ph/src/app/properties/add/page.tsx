@@ -18,11 +18,11 @@ export default function AddPropertyPage() {
       duration: 3000,
       isClosable: true,
     });
-    router.push('/properties/manage');
+    router.push('/properties/manage.html');
   };
 
   const handleCancel = () => {
-    router.push('/properties');
+    router.push('/properties.html');
   };
 
   return (

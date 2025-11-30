@@ -63,7 +63,7 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
         <Image
           src={
             property.images.length > 0
-              ? property.images[0] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPgogIDxyZWN0IHg9IjE1MCIgeT0iMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2QwZDBkMCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMjAwLDEyMCAxODAsMTQwIDE4MCwxNjAgMjIwLDE2MCAyMjAsMTQwIiBmaWxsPSIjYTBhMGEwIi8+CiAgPHRleHQgeD0iMjAwIiB5PSIyMjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+UHJvcGVydHkgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=='
+              ? property.images[property.defaultImageIndex || 0] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPgogIDxyZWN0IHg9IjE1MCIgeT0iMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2QwZDBkMCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMjAwLDEyMCAxODAsMTQwIDE4MCwxNjAgMjIwLDE2MCAyMjAsMTQwIiBmaWxsPSIjYTBhMGEwIi8+CiAgPHRleHQgeD0iMjAwIiB5PSIyMjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+UHJvcGVydHkgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=='
               : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPgogIDxyZWN0IHg9IjE1MCIgeT0iMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2QwZDBkMCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMjAwLDEyMCAxODAsMTQwIDE4MCwxNjAgMjIwLDE2MCAyMjAsMTQwIiBmaWxsPSIjYTBhMGEwIi8+CiAgPHRleHQgeD0iMjAwIiB5PSIyMjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+UHJvcGVydHkgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=='
           }
           alt={property.title}
@@ -136,7 +136,7 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
           <HStack spacing={2}>
             <Button
               as={Link}
-              href={`/properties/${property.id}`}
+              href={`/properties/detail?id=${property.id}`}
               size="sm"
               variant="outline"
               colorScheme="primary"

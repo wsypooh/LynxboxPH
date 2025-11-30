@@ -42,11 +42,13 @@ export class PropertyHandler {
         return ApiResponse.error(`Missing required fields: ${missingFields.join(', ')}`, 400);
       }
 
-      // Extract user ID from request context (assuming using Cognito authorizer)
-      const userId = event.requestContext.authorizer?.claims?.sub || 'test-user-id';
-      if (!userId) {
-        return ApiResponse.unauthorized('User ID not found in request');
-      }
+      // Extract user ID from request context (JWT disabled for testing)
+      const userId = 'test-user-id'; // Fixed user ID for testing
+      // JWT authorization temporarily disabled
+      // const userId = event.requestContext.authorizer?.claims?.sub || 'test-user-id';
+      // if (!userId) {
+      //   return ApiResponse.unauthorized('User ID not found in request');
+      // }
 
       // Remove base64Images from the data before storing - only keep S3 URLs
       const { base64Images, ...cleanPropertyData } = propertyData;
@@ -523,6 +525,21 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const path = event.resource;
 
   try {
+    // Handle CORS preflight requests
+    if (httpMethod === 'OPTIONS') {
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+          'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        },
+        body: '',
+      };
+    }
+
     // Route the request to the appropriate handler method
     if (httpMethod === 'POST' && path.endsWith('/api/properties')) {
       return PropertyHandler.createProperty(event);

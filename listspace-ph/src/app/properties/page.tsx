@@ -229,7 +229,7 @@ export default function PropertiesPage() {
               leftIcon={<Plus size={18} />} 
               colorScheme="blue"
               as="a"
-              href="/properties/manage"
+              href="/properties/manage.html"
             >
               Manage Properties
             </Button>
@@ -237,7 +237,7 @@ export default function PropertiesPage() {
               leftIcon={<Plus size={18} />} 
               colorScheme="green"
               as="a"
-              href="/properties/add"
+              href="/properties/add.html"
             >
               Add Property
             </Button>

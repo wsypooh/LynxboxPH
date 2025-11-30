@@ -53,6 +53,16 @@ export default function PropertyDetailClient({ id }: { id: string }) {
     }
   }, [id])
 
+  // Update currentImageIndex when property loads to respect defaultImageIndex
+  useEffect(() => {
+    if (property && property.images && property.images.length > 0) {
+      const defaultIndex = property.defaultImageIndex || 0
+      if (defaultIndex < property.images.length) {
+        setCurrentImageIndex(defaultIndex)
+      }
+    }
+  }, [property])
+
   const loadProperty = async (propId: string) => {
     try {
       setLoading(true)
@@ -130,7 +140,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
           <AlertIcon />
           {error || 'Property not found'}
         </Alert>
-        <Button as={Link} href="/properties" leftIcon={<Icon as={ArrowLeft} />} mt={4}>
+        <Button as={Link} href="/properties.html" leftIcon={<Icon as={ArrowLeft} />} mt={4}>
           Back to Properties
         </Button>
       </Container>
@@ -143,7 +153,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
         {/* Back Button */}
         <Button
           as={Link}
-          href="/properties"
+          href="/properties.html"
           leftIcon={<Icon as={ArrowLeft} />}
           variant="ghost"
           alignSelf="flex-start"

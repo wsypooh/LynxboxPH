@@ -102,7 +102,7 @@ export default function Home() {
               </Button>
               <Button 
                 as={Link} 
-                href="/properties" 
+                href="/properties.html" 
                 size={['md', 'lg']} 
                 variant="outline" 
                 color="white" 

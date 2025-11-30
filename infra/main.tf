@@ -176,11 +176,12 @@ module "api" {
   
   # Environment variables for Lambda
   environment_variables = {
-    NODE_ENV       = var.environment
-    TABLE_NAME     = local.resource_names.dynamodb_table
-    USER_POOL_ID   = module.auth.user_pool_id
-    CLIENT_ID      = module.auth.user_pool_client_id
-    S3_BUCKET_NAME = module.s3.bucket_name
+    NODE_ENV                 = var.environment
+    TABLE_NAME               = local.resource_names.dynamodb_table
+    USER_POOL_ID             = module.auth.user_pool_id
+    CLIENT_ID                = module.auth.user_pool_client_id
+    S3_BUCKET_NAME           = module.s3.bucket_name
+    CLOUDFRONT_DISTRIBUTION_ID = module.frontend.cloudfront_distribution_id
   }
   
   # CORS settings
@@ -203,6 +204,6 @@ module "frontend" {
   # CloudFront settings
   cloudfront_price_class = "PriceClass_100"
   min_ttl                = 0
-  default_ttl            = 300
-  max_ttl                = 86400
+  default_ttl            = 0
+  max_ttl                = 0
 }

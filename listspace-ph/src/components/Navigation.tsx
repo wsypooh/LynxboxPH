@@ -18,7 +18,7 @@ const NAV_ITEMS: Array<NavItem> = [
   },
   {
     label: 'Properties',
-    href: '/properties',
+    href: '/properties.html',
   },
   {
     label: 'Pricing',
