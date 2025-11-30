@@ -172,16 +172,17 @@ module "api" {
   # Lambda function settings
   lambda_runtime     = "nodejs24.x"
   lambda_memory_size = 256
-  lambda_timeout     = 30
 
   # Environment variables for Lambda
   environment_variables = {
-    NODE_ENV                   = var.environment
-    TABLE_NAME                 = local.resource_names.dynamodb_table
-    USER_POOL_ID               = module.auth.user_pool_id
-    CLIENT_ID                  = module.auth.user_pool_client_id
-    S3_BUCKET_NAME             = module.s3.bucket_name
-    CLOUDFRONT_DISTRIBUTION_ID = module.frontend.cloudfront_distribution_id
+    NODE_ENV                     = var.environment
+    TABLE_NAME                   = local.resource_names.dynamodb_table
+    USER_POOL_ID                 = module.auth.user_pool_id
+    CLIENT_ID                    = module.auth.user_pool_client_id
+    S3_BUCKET_NAME               = module.s3.bucket_name
+    CLOUDFRONT_DISTRIBUTION_ID   = module.frontend.cloudfront_distribution_id
+    COGNITO_USER_POOL_CLIENT_ID  = module.auth.user_pool_client_id
+    COGNITO_USER_POOL_ISSUER     = "https://cognito-idp.${var.aws_region}.amazonaws.com/${module.auth.user_pool_id}"
   }
 
   # CORS settings

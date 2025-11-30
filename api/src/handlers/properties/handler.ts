@@ -789,8 +789,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // More specific routes first
     if (httpMethod === 'GET' && path.includes('/api/public/search')) {
       return PropertyHandler.searchPublicProperties(event);
-    } else if (httpMethod === 'GET' && path.includes('/api/public/properties') && path.split('/').length === 5) {
-      // Matches /api/public/properties/{id}
+    } else if (httpMethod === 'GET' && path.match(/^\/api\/public\/properties\/[^\/]+$/)) {
+      // Matches /api/public/properties/{id} - regex ensures there's an ID after the path
       return PropertyHandler.getPublicProperty(event);
     } else if (httpMethod === 'GET' && path.includes('/api/public/properties')) {
       return PropertyHandler.listPublicProperties(event);
@@ -800,14 +800,14 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return PropertyHandler.listPropertiesByOwner(event);
     } else if (httpMethod === 'POST' && path.endsWith('/api/properties')) {
       return PropertyHandler.createProperty(event);
-    } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.split('/').length === 4) {
-      // Matches /api/properties/{id}
+    } else if (httpMethod === 'GET' && path.match(/^\/api\/properties\/[^\/]+$/)) {
+      // Matches /api/properties/{id} - regex ensures there's an ID after the path
       return PropertyHandler.getProperty(event);
-    } else if (httpMethod === 'PUT' && path.includes('/api/properties/') && path.split('/').length === 4) {
-      // Matches /api/properties/{id}
+    } else if (httpMethod === 'PUT' && path.match(/^\/api\/properties\/[^\/]+$/)) {
+      // Matches /api/properties/{id} - regex ensures there's an ID after the path
       return PropertyHandler.updateProperty(event);
-    } else if (httpMethod === 'DELETE' && path.includes('/api/properties/') && path.split('/').length === 4) {
-      // Matches /api/properties/{id}
+    } else if (httpMethod === 'DELETE' && path.match(/^\/api\/properties\/[^\/]+$/)) {
+      // Matches /api/properties/{id} - regex ensures there's an ID after the path
       return PropertyHandler.deleteProperty(event);
     } else if (httpMethod === 'GET' && (path.endsWith('/api/properties') || path.includes('/api/properties?'))) {
       // Matches /api/properties or /api/properties?param=value (authenticated)
