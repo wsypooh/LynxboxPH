@@ -33,10 +33,24 @@ import {
   Checkbox,
   Stack,
   useToast,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  TableContainer,
+  IconButton,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  Switch,
+  Divider,
 } from '@chakra-ui/react'
-import { Search, Filter, Building2, X, Plus } from 'lucide-react'
+import { Search, Filter, Building2, X, Plus, Grid, List, ChevronUp, ChevronDown } from 'lucide-react'
 import { EditIcon, DeleteIcon, ViewIcon } from '@chakra-ui/icons'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Property, propertyService, PropertyType } from '@/services/propertyService'
 import { formatCurrency } from '@/lib/utils';
 import { PropertyStatusUpdater } from './PropertyStatusUpdater';
@@ -60,9 +74,8 @@ interface FilterState {
 
 interface PropertySearchParams {
   query?: string;
-  page?: number;
   limit?: number;
-  sortBy?: 'price' | 'area' | 'date' | 'views';
+  sortBy?: 'price' | 'area' | 'date' | 'views' | 'status';
   sortOrder?: 'asc' | 'desc';
   filters?: FilterState;
 }
@@ -91,7 +104,6 @@ export function DashboardPropertyList({
       if (savedParams) {
         const parsed = JSON.parse(savedParams);
         return {
-          page: 1,
           limit: 12,
           sortBy: 'date',
           sortOrder: 'desc',
@@ -102,7 +114,6 @@ export function DashboardPropertyList({
       console.error('Error loading search params from localStorage:', error);
     }
     return {
-      page: 1,
       limit: 12,
       sortBy: 'date',
       sortOrder: 'desc'
@@ -113,8 +124,11 @@ export function DashboardPropertyList({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchParams, setSearchParams] = useState<PropertySearchParams>(initializeSearchParams)
-  const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [lastKey, setLastKey] = useState<string | undefined>()
+  const [totalCount, setTotalCount] = useState(0)
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
+  const lastKeyRef = useRef<string | undefined>() // Use ref to avoid infinite loop
   const toast = useToast();
 
   const { isOpen: isFilterOpen, onOpen: onFilterOpen, onClose: onFilterClose } = useDisclosure()
@@ -127,6 +141,11 @@ export function DashboardPropertyList({
       console.error('Error saving search params to localStorage:', error);
     }
   }, [searchParams]);
+
+  // Sync ref with state
+  useEffect(() => {
+    lastKeyRef.current = lastKey
+  }, [lastKey])
 
   const hasActiveFilters = useCallback((): boolean => {
     const currentFilters = searchParams.filters;
@@ -146,10 +165,57 @@ export function DashboardPropertyList({
     return hasTypeFilter || hasStatusFilter || hasPriceFilters || hasAreaFilters || hasLocationFilter || hasFeatureFilters;
   }, [searchParams.filters]);
 
-  const loadProperties = useCallback(async () => {
+  const loadProperties = useCallback(async (resetPagination = false, isSorting = false) => {
     try {
       setLoading(true)
       setError('')
+      
+      // If we're just sorting existing properties, don't make API calls
+      if (isSorting && properties.length > 0 && !resetPagination) {
+        // Sort the existing properties
+        const sortedProperties = [...properties].sort((a, b) => {
+          let aValue: string | number;
+          let bValue: string | number;
+          
+          switch (searchParams.sortBy) {
+            case 'price':
+              aValue = a.price;
+              bValue = b.price;
+              break;
+            case 'area':
+              aValue = a.features.area;
+              bValue = b.features.area;
+              break;
+            case 'views':
+              aValue = a.viewCount || 0;
+              bValue = b.viewCount || 0;
+              break;
+            case 'status':
+              aValue = a.status;
+              bValue = b.status;
+              break;
+            case 'date':
+            default:
+              aValue = new Date(a.createdAt).getTime();
+              bValue = new Date(b.createdAt).getTime();
+              break;
+          }
+          
+          if (typeof aValue === 'string' && typeof bValue === 'string') {
+            return searchParams.sortOrder === 'asc' 
+              ? aValue.localeCompare(bValue)
+              : bValue.localeCompare(aValue);
+          }
+          
+          return searchParams.sortOrder === 'asc' 
+            ? (aValue as number) - (bValue as number)
+            : (bValue as number) - (aValue as number);
+        });
+        
+        setProperties(sortedProperties);
+        setLoading(false);
+        return;
+      }
       
       // Use the real API service for user properties
       let result;
@@ -161,10 +227,10 @@ export function DashboardPropertyList({
         );
         console.log('User search result:', result);
         
-        // Apply additional filters on client side
+        // Search API doesn't support pagination yet, so replace all properties
         let items = result?.items || [];
         
-        // Apply filters if they exist
+        // Apply additional filters on client side
         if (searchParams.filters && hasActiveFilters()) {
           const filters = searchParams.filters;
           
@@ -224,8 +290,8 @@ export function DashboardPropertyList({
         
         // Apply sorting
         items.sort((a, b) => {
-          let aValue: number | string;
-          let bValue: number | string;
+          let aValue: string | number;
+          let bValue: string | number;
           
           switch (searchParams.sortBy) {
             case 'price':
@@ -239,6 +305,10 @@ export function DashboardPropertyList({
             case 'views':
               aValue = a.viewCount || 0;
               bValue = b.viewCount || 0;
+              break;
+            case 'status':
+              aValue = a.status;
+              bValue = b.status;
               break;
             case 'date':
             default:
@@ -259,15 +329,22 @@ export function DashboardPropertyList({
         });
         
         setProperties(items);
-        setTotal(items.length);
-        setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
+        setTotalCount(items.length);
+        setHasMore(false);
+        setLastKey(undefined);
       } else {
-        // Otherwise, list user's properties with basic filters
+        // Otherwise, list user's properties with pagination
         const listParams: any = {
           limit: searchParams.limit,
           sortBy: searchParams.sortBy,
           sortOrder: searchParams.sortOrder
         };
+        
+        // Add pagination cursor
+        const currentLastKey = resetPagination ? undefined : lastKeyRef.current;
+        if (currentLastKey) {
+          listParams.lastKey = currentLastKey;
+        }
         
         // Add type filter if specified
         if (searchParams.filters?.type && searchParams.filters.type.length === 1) {
@@ -332,9 +409,63 @@ export function DashboardPropertyList({
           }
         }
         
-        setProperties(items);
-        setTotal(items.length);
-        setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
+        // Apply client-side sorting for consistency across all fields
+        items.sort((a, b) => {
+          let aValue: string | number;
+          let bValue: string | number;
+          
+          switch (searchParams.sortBy) {
+            case 'price':
+              aValue = a.price;
+              bValue = b.price;
+              break;
+            case 'area':
+              aValue = a.features.area;
+              bValue = b.features.area;
+              break;
+            case 'views':
+              aValue = a.viewCount || 0;
+              bValue = b.viewCount || 0;
+              break;
+            case 'status':
+              aValue = a.status;
+              bValue = b.status;
+              break;
+            case 'date':
+            default:
+              aValue = new Date(a.createdAt).getTime();
+              bValue = new Date(b.createdAt).getTime();
+              break;
+          }
+          
+          if (typeof aValue === 'string' && typeof bValue === 'string') {
+            return searchParams.sortOrder === 'asc' 
+              ? aValue.localeCompare(bValue)
+              : bValue.localeCompare(aValue);
+          }
+          
+          return searchParams.sortOrder === 'asc' 
+            ? (aValue as number) - (bValue as number)
+            : (bValue as number) - (aValue as number);
+        });
+        
+        // Handle pagination - append or replace based on resetPagination flag
+        if (resetPagination) {
+          setProperties(items);
+        } else {
+          setProperties(prev => [...prev, ...items]);
+        }
+        
+        // Update pagination state
+        setHasMore(!!listResult?.lastKey);
+        setLastKey(listResult?.lastKey);
+        
+        // Update total count (approximate)
+        if (resetPagination) {
+          setTotalCount(items.length);
+        } else {
+          setTotalCount(prev => prev + items.length);
+        }
       }
     } catch (err: any) {
       console.error('Error loading properties:', err);
@@ -343,18 +474,25 @@ export function DashboardPropertyList({
     } finally {
       setLoading(false)
     }
-  }, [searchParams, hasActiveFilters]);
+  }, [searchParams, hasActiveFilters, properties]) // Added properties dependency for sorting
+
+  // Create a separate effect to handle initial load and search/filter changes
+  useEffect(() => {
+    loadProperties(true) // Always reset pagination for new searches/filters
+  }, [searchParams.query, searchParams.filters, hasActiveFilters])
 
   useEffect(() => {
-    loadProperties()
-  }, [loadProperties, refreshTrigger]);
+    loadProperties(true) // Reset when refreshTrigger changes
+  }, [refreshTrigger]);
 
   const handleSearch = (query: string) => {
     setSearchParams(prev => ({
       ...prev,
-      query: query || undefined,
-      page: 1
+      query: query || undefined
     }))
+    // Reset pagination when searching
+    setLastKey(undefined)
+    setHasMore(false)
   }
 
   const handleSortChange = (sortBy: string) => {
@@ -362,13 +500,75 @@ export function DashboardPropertyList({
     setSearchParams(prev => ({
       ...prev,
       sortBy: field as any,
-      sortOrder: order as 'asc' | 'desc',
-      page: 1
+      sortOrder: order as 'asc' | 'desc'
     }))
+    // Reset pagination when sorting
+    setLastKey(undefined)
+    setHasMore(false)
   }
 
-  const handlePageChange = (page: number) => {
-    setSearchParams(prev => ({ ...prev, page }))
+  const handleLoadMore = () => {
+    if (hasMore && !loading) {
+      loadProperties(false) // Load next page without resetting
+    }
+  }
+
+  const handleTableSort = (field: 'price' | 'area' | 'date' | 'views' | 'status') => {
+    const newSortOrder = searchParams.sortBy === field && searchParams.sortOrder === 'asc' ? 'desc' : 'asc'
+    
+    // Update search params without triggering useEffect
+    setSearchParams(prev => ({
+      ...prev,
+      sortBy: field,
+      sortOrder: newSortOrder
+    }))
+    
+    // Sort existing properties immediately
+    const sortedProperties = [...properties].sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+      
+      switch (field) {
+        case 'price':
+          aValue = a.price;
+          bValue = b.price;
+          break;
+        case 'area':
+          aValue = a.features.area;
+          bValue = b.features.area;
+          break;
+        case 'views':
+          aValue = a.viewCount || 0;
+          bValue = b.viewCount || 0;
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        case 'date':
+        default:
+          aValue = new Date(a.createdAt).getTime();
+          bValue = new Date(b.createdAt).getTime();
+          break;
+      }
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return newSortOrder === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      
+      return newSortOrder === 'asc' 
+        ? (aValue as number) - (bValue as number)
+        : (bValue as number) - (aValue as number);
+    });
+    
+    setProperties(sortedProperties);
+  }
+
+  const getSortIcon = (field: 'price' | 'area' | 'date' | 'views' | 'status') => {
+    if (searchParams.sortBy !== field) return null
+    return searchParams.sortOrder === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
   }
 
   const [filters, setFilters] = useState<FilterState>(
@@ -402,9 +602,11 @@ export function DashboardPropertyList({
     setSearchParams(prev => ({
       ...prev,
       filters: JSON.parse(JSON.stringify(filters)), // Deep clone
-      page: 1
     }));
     onFilterClose();
+    // Reset pagination when applying filters
+    setLastKey(undefined)
+    setHasMore(false)
   };
 
   const handleClearFilters = () => {
@@ -413,18 +615,22 @@ export function DashboardPropertyList({
     setSearchParams(prev => ({
       ...prev,
       filters: clearedFilters,
-      page: 1
     }));
+    // Reset pagination when clearing filters
+    setLastKey(undefined)
+    setHasMore(false)
   };
   
   const clearAllFilters = () => {
     setSearchParams({
-      page: 1,
       limit: 12,
       sortBy: 'date',
       sortOrder: 'desc'
     });
     setFilters({});
+    // Reset pagination when clearing all filters
+    setLastKey(undefined)
+    setHasMore(false)
   };
 
   const handleDelete = async (property: Property) => {
@@ -472,18 +678,39 @@ export function DashboardPropertyList({
 
   return (
     <VStack spacing={6} align="stretch">
-      {/* Header with Add Button */}
+      {/* Header with Add Button and View Toggle */}
       <HStack justify="space-between" align="center">
-        <Heading size="lg">My Properties ({total})</Heading>
-        {onAddNew && (
-          <Button
-            leftIcon={<Plus />}
-            colorScheme="blue"
-            onClick={onAddNew}
-          >
-            Add Property
-          </Button>
-        )}
+        <Heading size="lg">My Properties ({totalCount})</Heading>
+        <HStack spacing={4}>
+          {/* View Mode Toggle */}
+          <HStack spacing={2} bg="gray.100" p={1} borderRadius="md">
+            <IconButton
+              aria-label="Card view"
+              icon={<Grid size={16} />}
+              size="sm"
+              variant={viewMode === 'cards' ? 'solid' : 'ghost'}
+              colorScheme={viewMode === 'cards' ? 'blue' : 'gray'}
+              onClick={() => setViewMode('cards')}
+            />
+            <IconButton
+              aria-label="Table view"
+              icon={<List size={16} />}
+              size="sm"
+              variant={viewMode === 'table' ? 'solid' : 'ghost'}
+              colorScheme={viewMode === 'table' ? 'blue' : 'gray'}
+              onClick={() => setViewMode('table')}
+            />
+          </HStack>
+          {onAddNew && (
+            <Button
+              leftIcon={<Plus />}
+              colorScheme="blue"
+              onClick={onAddNew}
+            >
+              Add Property
+            </Button>
+          )}
+        </HStack>
       </HStack>
 
       {/* Search and Filters */}
@@ -568,12 +795,14 @@ export function DashboardPropertyList({
       {/* Results Summary */}
       <Flex align="center">
         <Text color="gray.600">
-          {loading ? 'Loading...' : `Showing ${properties?.length || 0} of ${total} properties`}
+          {loading ? 'Loading...' : `Showing ${properties?.length || 0} properties`}
         </Text>
         <Spacer />
-        <Text fontSize="sm" color="gray.500">
-          Page {searchParams.page} of {totalPages}
-        </Text>
+        {hasMore && (
+          <Text fontSize="sm" color="gray.500">
+            Load more available
+          </Text>
+        )}
       </Flex>
 
       {/* Error State */}
@@ -591,128 +820,295 @@ export function DashboardPropertyList({
         </Flex>
       )}
 
-      {/* Properties Grid */}
+      {/* Properties Display */}
       {!loading && properties && properties.length > 0 && (
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-          {properties.map((property) => (
-            <Box
-              key={property.id}
-              bg="white"
-              borderRadius="lg"
-              overflow="hidden"
-              boxShadow="md"
-              border="1px solid"
-              borderColor="gray.200"
-            >
-              {/* Property Image */}
-              <Box position="relative" h="200px">
-                {property.images.length > 0 ? (
-                  <Box
-                    h="200px"
-                    w="100%"
-                    bgImage={`url(${property.images[property.defaultImageIndex ?? 0]})`}
-                    bgSize="cover"
-                    bgPosition="center"
-                  />
-                ) : (
-                  <Box h="200px" bg="gray.200" display="flex" alignItems="center" justifyContent="center">
-                    <Text color="gray.500">No image</Text>
-                  </Box>
-                )}
-                <Badge
-                  position="absolute"
-                  top={2}
-                  right={2}
-                  colorScheme={property.status === 'available' ? 'green' : 'orange'}
+        <>
+          {viewMode === 'cards' ? (
+            /* Card View */
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+              {properties.map((property) => (
+                <Box
+                  key={property.id}
+                  bg="white"
+                  borderRadius="lg"
+                  overflow="hidden"
+                  boxShadow="md"
+                  border="1px solid"
+                  borderColor="gray.200"
                 >
-                  {property.status}
-                </Badge>
-              </Box>
-
-              {/* Property Details */}
-              <Box p={4}>
-                <VStack align="start" spacing={3}>
-                  <Heading size="md" noOfLines={2}>
-                    {property.title}
-                  </Heading>
-
-                  <Badge colorScheme="blue" variant="outline">
-                    {property.type}
-                  </Badge>
-
-                  <Text color="blue.600" fontSize="xl" fontWeight="bold">
-                    {formatCurrency(property.price, property.currency)}
-                  </Text>
-
-                  <Text noOfLines={2} color="gray.600">
-                    {property.description}
-                  </Text>
-
-                  <Text fontSize="sm" color="gray.500">
-                    📍 {property.location.address}, {property.location.city}
-                  </Text>
-
-                  <HStack spacing={2} fontSize="xs" color="gray.600">
-                    {property.features.area && (
-                      <Text>📐 {property.features.area}m²</Text>
+                  {/* Property Image */}
+                  <Box position="relative" h="200px">
+                    {property.images.length > 0 ? (
+                      <Box
+                        h="200px"
+                        w="100%"
+                        bgImage={`url(${property.images[property.defaultImageIndex ?? 0]})`}
+                        bgSize="cover"
+                        bgPosition="center"
+                      />
+                    ) : (
+                      <Box h="200px" bg="gray.200" display="flex" alignItems="center" justifyContent="center">
+                        <Text color="gray.500">No image</Text>
+                      </Box>
                     )}
-                    {property.features.parking > 0 && (
-                      <Text>🚗 {property.features.parking} parking</Text>
-                    )}
-                    {property.features.furnished && (
-                      <Text>🪑 Furnished</Text>
-                    )}
-                    {property.viewCount !== undefined && (
-                      <Text>👁️ {property.viewCount.toLocaleString()} views</Text>
-                    )}
-                  </HStack>
-
-                  {/* Quick Status Update */}
-                  <Box w="full">
-                    <Text fontSize="xs" fontWeight="medium" color="gray.600" mb={2}>
-                      Quick Status Update:
-                    </Text>
-                    <PropertyStatusUpdater 
-                      property={property} 
-                      onStatusUpdate={handleStatusUpdate}
-                    />
+                    <Badge
+                      position="absolute"
+                      top={2}
+                      right={2}
+                      colorScheme={property.status === 'available' ? 'green' : 'orange'}
+                    >
+                      {property.status}
+                    </Badge>
                   </Box>
 
-                  {/* Action Buttons */}
-                  <HStack spacing={2} w="full" justify="space-between">
-                    <Button
-                      leftIcon={<ViewIcon />}
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onView?.(property)}
-                      flex={1}
-                    >
-                      View
-                    </Button>
-                    <Button
-                      leftIcon={<EditIcon />}
-                      size="sm"
-                      colorScheme="blue"
-                      onClick={() => onEdit?.(property)}
-                      flex={1}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      leftIcon={<DeleteIcon />}
-                      size="sm"
-                      colorScheme="red"
-                      variant="outline"
-                      onClick={() => handleDelete(property)}
-                    >
-                      Delete
-                    </Button>
-                  </HStack>
-                </VStack>
-              </Box>
+                  {/* Property Details */}
+                  <Box p={4}>
+                    <VStack align="start" spacing={3}>
+                      <Heading size="md" noOfLines={2}>
+                        {property.title}
+                      </Heading>
+
+                      <Badge colorScheme="blue" variant="outline">
+                        {property.type}
+                      </Badge>
+
+                      <Text color="blue.600" fontSize="xl" fontWeight="bold">
+                        {formatCurrency(property.price, property.currency)}
+                      </Text>
+
+                      <Text noOfLines={2} color="gray.600">
+                        {property.description}
+                      </Text>
+
+                      <Text fontSize="sm" color="gray.500">
+                        📍 {property.location.address}, {property.location.city}
+                      </Text>
+
+                      <HStack spacing={2} fontSize="xs" color="gray.600">
+                        {property.features.area && (
+                          <Text>📐 {property.features.area}m²</Text>
+                        )}
+                        {property.features.parking > 0 && (
+                          <Text>🚗 {property.features.parking} parking</Text>
+                        )}
+                        {property.features.furnished && (
+                          <Text>🪑 Furnished</Text>
+                        )}
+                        {property.viewCount !== undefined && (
+                          <Text>👁️ {property.viewCount.toLocaleString()} views</Text>
+                        )}
+                      </HStack>
+
+                      {/* Quick Status Update */}
+                      <Box w="full">
+                        <Text fontSize="xs" fontWeight="medium" color="gray.600" mb={2}>
+                          Quick Status Update:
+                        </Text>
+                        <PropertyStatusUpdater 
+                          property={property} 
+                          onStatusUpdate={handleStatusUpdate}
+                        />
+                      </Box>
+
+                      {/* Action Buttons */}
+                      <HStack spacing={2} w="full" justify="space-between">
+                        <Button
+                          leftIcon={<ViewIcon />}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onView?.(property)}
+                          flex={1}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          leftIcon={<EditIcon />}
+                          size="sm"
+                          colorScheme="blue"
+                          onClick={() => onEdit?.(property)}
+                          flex={1}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          leftIcon={<DeleteIcon />}
+                          size="sm"
+                          colorScheme="red"
+                          variant="outline"
+                          onClick={() => handleDelete(property)}
+                        >
+                          Delete
+                        </Button>
+                      </HStack>
+                    </VStack>
+                  </Box>
+                </Box>
+              ))}
+            </SimpleGrid>
+          ) : (
+            /* Table View */
+            <Box overflowX="auto">
+              <TableContainer bg="white" borderRadius="lg" shadow="sm" border="1px" borderColor="gray.200" minW="800px">
+                <Table variant="simple" size="sm">
+                  <Thead>
+                    <Tr>
+                      <Th minW="220px" maxW="220px">
+                        <Button
+                          variant="unstyled"
+                          size="sm"
+                          onClick={() => handleTableSort('date')}
+                          display="flex"
+                          alignItems="center"
+                          gap={1}
+                          fontWeight="bold"
+                        >
+                          Property
+                          {getSortIcon('date')}
+                        </Button>
+                      </Th>
+                      <Th minW="90px">
+                        <Button
+                          variant="unstyled"
+                          size="sm"
+                          onClick={() => handleTableSort('price')}
+                          display="flex"
+                          alignItems="center"
+                          gap={1}
+                          fontWeight="bold"
+                        >
+                          Price
+                          {getSortIcon('price')}
+                        </Button>
+                      </Th>
+                      <Th minW="150px">Location</Th>
+                      <Th minW="80px">
+                        <Button
+                          variant="unstyled"
+                          size="sm"
+                          onClick={() => handleTableSort('status')}
+                          display="flex"
+                          alignItems="center"
+                          gap={1}
+                          fontWeight="bold"
+                        >
+                          Status
+                          {getSortIcon('status')}
+                        </Button>
+                      </Th>
+                      <Th minW="60px">
+                        <Button
+                          variant="unstyled"
+                          size="sm"
+                          onClick={() => handleTableSort('area')}
+                          display="flex"
+                          alignItems="center"
+                          gap={1}
+                          fontWeight="bold"
+                        >
+                          Area
+                          {getSortIcon('area')}
+                        </Button>
+                      </Th>
+                      <Th minW="60px">
+                        <Button
+                          variant="unstyled"
+                          size="sm"
+                          onClick={() => handleTableSort('views')}
+                          display="flex"
+                          alignItems="center"
+                          gap={1}
+                          fontWeight="bold"
+                        >
+                          Views
+                          {getSortIcon('views')}
+                        </Button>
+                      </Th>
+                      <Th minW="80px">Actions</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {properties.map((property) => (
+                      <Tr key={property.id}>
+                        <Td>
+                          <VStack align="start" spacing={2} maxW="220px">
+                            <HStack spacing={2} align="start">
+                              <Text fontWeight="medium" fontSize="sm" noOfLines={1} flex={1}>
+                                {property.title}
+                              </Text>
+                              <Badge colorScheme="blue" variant="outline" fontSize="xs" flexShrink={0}>
+                                {property.type}
+                              </Badge>
+                            </HStack>
+                            <Text fontSize="xs" color="gray.600" noOfLines={2} wordBreak="break-word">
+                              {property.description}
+                            </Text>
+                          </VStack>
+                        </Td>
+                        <Td>
+                          <Text fontWeight="bold" color="blue.600" fontSize="xs" whiteSpace="nowrap">
+                            {formatCurrency(property.price, property.currency)}
+                          </Text>
+                        </Td>
+                        <Td>
+                          <Text fontSize="xs" noOfLines={2} maxW="150px">
+                            {property.location.address}, {property.location.city}
+                          </Text>
+                        </Td>
+                        <Td>
+                          <Badge
+                            colorScheme={property.status === 'available' ? 'green' : 'orange'}
+                            fontSize="xs"
+                          >
+                            {property.status}
+                          </Badge>
+                        </Td>
+                        <Td>
+                          <Text fontSize="xs">
+                            {property.features.area}m²
+                          </Text>
+                        </Td>
+                        <Td>
+                          <Text fontSize="xs">
+                            {property.viewCount?.toLocaleString() || 0}
+                          </Text>
+                        </Td>
+                        <Td>
+                          <HStack spacing={1} minW="80px">
+                            <IconButton
+                              aria-label="View property"
+                              icon={<ViewIcon />}
+                              size="xs"
+                              variant="outline"
+                              onClick={() => onView?.(property)}
+                              fontSize="xs"
+                            />
+                            <IconButton
+                              aria-label="Edit property"
+                              icon={<EditIcon />}
+                              size="xs"
+                              colorScheme="blue"
+                              onClick={() => onEdit?.(property)}
+                              fontSize="xs"
+                            />
+                            <IconButton
+                              aria-label="Delete property"
+                              icon={<DeleteIcon />}
+                              size="xs"
+                              colorScheme="red"
+                              variant="outline"
+                              onClick={() => handleDelete(property)}
+                              fontSize="xs"
+                            />
+                          </HStack>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </TableContainer>
             </Box>
-          ))}
-        </SimpleGrid>
+          )}
+        </>
       )}
 
       {/* Empty State */}
@@ -735,42 +1131,30 @@ export function DashboardPropertyList({
         </VStack>
       )}
 
-      {/* Pagination */}
-      {!loading && totalPages > 1 && (
-        <HStack justify="center" spacing={2}>
+      {/* Load More Button */}
+      {!loading && hasMore && (
+        <Flex justify="center" py={8}>
           <Button
-            size="sm"
+            onClick={handleLoadMore}
+            isLoading={loading}
+            loadingText="Loading more..."
             variant="outline"
-            isDisabled={searchParams.page === 1}
-            onClick={() => handlePageChange(searchParams.page! - 1)}
+            colorScheme="blue"
+            size="lg"
+            px={8}
           >
-            Previous
+            Load More Properties
           </Button>
-          
-          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-            const page = i + 1
-            return (
-              <Button
-                key={page}
-                size="sm"
-                variant={searchParams.page === page ? 'solid' : 'outline'}
-                colorScheme={searchParams.page === page ? 'blue' : 'gray'}
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </Button>
-            )
-          })}
+        </Flex>
+      )}
 
-          <Button
-            size="sm"
-            variant="outline"
-            isDisabled={searchParams.page === totalPages}
-            onClick={() => handlePageChange(searchParams.page! + 1)}
-          >
-            Next
-          </Button>
-        </HStack>
+      {/* End of Results */}
+      {!loading && !hasMore && properties.length > 0 && (
+        <Flex justify="center" py={4}>
+          <Text color="gray.500" fontSize="sm">
+            You've reached the end of your properties
+          </Text>
+        </Flex>
       )}
 
       {/* Filter Modal */}

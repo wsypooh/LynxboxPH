@@ -35,7 +35,7 @@ import {
   Stack,
 } from '@chakra-ui/react'
 import { Search, Filter, MapPin, Building2, X, Plus } from 'lucide-react'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { PropertyCard } from '@/features/properties/components/PropertyCard'
 import { propertyService } from '@/services/propertyService'
 import { Property, PropertyType } from '@/services/propertyService'
@@ -59,7 +59,6 @@ interface FilterState {
 
 interface PropertySearchParams {
   query?: string;
-  page?: number;
   limit?: number;
   sortBy?: 'price' | 'area' | 'date' | 'views';
   sortOrder?: 'asc' | 'desc';
@@ -76,7 +75,6 @@ export default function PropertiesPage() {
       if (savedParams) {
         const parsed = JSON.parse(savedParams);
         return {
-          page: 1,
           limit: 12,
           sortBy: 'date',
           sortOrder: 'desc',
@@ -87,7 +85,6 @@ export default function PropertiesPage() {
       console.error('Error loading search params from localStorage:', error);
     }
     return {
-      page: 1,
       limit: 12,
       sortBy: 'date',
       sortOrder: 'desc'
@@ -98,8 +95,10 @@ export default function PropertiesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchParams, setSearchParams] = useState<PropertySearchParams>(initializeSearchParams)
-  const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [lastKey, setLastKey] = useState<string | undefined>()
+  const [totalCount, setTotalCount] = useState(0)
+  const lastKeyRef = useRef<string | undefined>() // Use ref to avoid infinite loop
 
   const { isOpen: isFilterOpen, onOpen: onFilterOpen, onClose: onFilterClose } = useDisclosure()
   
@@ -129,7 +128,12 @@ export default function PropertiesPage() {
     return hasTypeFilter || hasPriceFilters || hasAreaFilters || hasLocationFilter || hasFeatureFilters;
   }, [searchParams.filters]);
 
-  const loadProperties = useCallback(async () => {
+  // Sync ref with state
+  useEffect(() => {
+    lastKeyRef.current = lastKey
+  }, [lastKey])
+
+  const loadProperties = useCallback(async (resetPagination = false) => {
     try {
       setLoading(true)
       setError('')
@@ -148,11 +152,12 @@ export default function PropertiesPage() {
         result = await propertyService.filterProperties(filterData);
         console.log('Filter result:', result);
         
-        // Ensure result has items property
+        // Filter API doesn't support pagination yet, so replace all properties
         const items = result?.items || [];
         setProperties(items);
-        setTotal(items.length);
-        setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
+        setTotalCount(items.length);
+        setHasMore(false);
+        setLastKey(undefined);
       } else if (searchParams.query) {
         // If there's a search query but no filters, use search
         result = await propertyService.searchProperties(
@@ -163,25 +168,43 @@ export default function PropertiesPage() {
         );
         console.log('Search result:', result);
         
-        // Ensure result has items property
+        // Search API doesn't support pagination yet, so replace all properties
         const items = result?.items || [];
         setProperties(items);
-        setTotal(items.length);
-        setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
+        setTotalCount(items.length);
+        setHasMore(false);
+        setLastKey(undefined);
       } else {
-        // Otherwise, list all available properties (public)
+        // Otherwise, list all available properties (public) with pagination
+        // Get the current lastKey from ref for pagination
+        const currentLastKey = resetPagination ? undefined : lastKeyRef.current;
+        
         const listResult = await propertyService.listPublicProperties({
           limit: searchParams.limit,
+          lastKey: currentLastKey,
           sortBy: searchParams.sortBy,
           sortOrder: searchParams.sortOrder
         });
         console.log('Public list result:', listResult);
         
-        // Ensure listResult has items property
+        // Handle pagination - append or replace based on resetPagination flag
         const items = listResult?.items || [];
-        setProperties(items);
-        setTotal(items.length);
-        setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
+        if (resetPagination) {
+          setProperties(items);
+        } else {
+          setProperties(prev => [...prev, ...items]);
+        }
+        
+        // Update pagination state
+        setHasMore(!!listResult?.lastKey);
+        setLastKey(listResult?.lastKey);
+        
+        // Update total count (approximate)
+        if (resetPagination) {
+          setTotalCount(items.length);
+        } else {
+          setTotalCount(prev => prev + items.length);
+        }
       }
     } catch (err: any) {
       console.error('Error loading properties:', err);
@@ -191,18 +214,16 @@ export default function PropertiesPage() {
     } finally {
       setLoading(false)
     }
-  }, [searchParams, hasActiveFilters])
-
-  useEffect(() => {
-    loadProperties()
-  }, [loadProperties])
+  }, [searchParams, hasActiveFilters]) // No lastKey dependency - using ref instead
 
   const handleSearch = (query: string) => {
     setSearchParams(prev => ({
       ...prev,
-      query: query || undefined,
-      page: 1
+      query: query || undefined
     }))
+    // Reset pagination when searching
+    setLastKey(undefined)
+    setHasMore(false)
   }
 
   const handleSortChange = (sortBy: string) => {
@@ -210,14 +231,23 @@ export default function PropertiesPage() {
     setSearchParams(prev => ({
       ...prev,
       sortBy: field as any,
-      sortOrder: order as 'asc' | 'desc',
-      page: 1
+      sortOrder: order as 'asc' | 'desc'
     }))
+    // Reset pagination when sorting
+    setLastKey(undefined)
+    setHasMore(false)
   }
 
-  const handlePageChange = (page: number) => {
-    setSearchParams(prev => ({ ...prev, page }))
+  const handleLoadMore = () => {
+    if (hasMore && !loading) {
+      loadProperties(false) // Load next page without resetting
+    }
   }
+
+  // Create a separate effect to handle initial load and search/filter changes
+  useEffect(() => {
+    loadProperties(true) // Always reset pagination for new searches/filters
+  }, [searchParams, hasActiveFilters])
 
   const [filters, setFilters] = useState<FilterState>(
     typeof searchParams.filters === 'object' ? searchParams.filters : {}
@@ -250,9 +280,11 @@ export default function PropertiesPage() {
     setSearchParams(prev => ({
       ...prev,
       filters: JSON.parse(JSON.stringify(filters)), // Deep clone
-      page: 1
     }));
     onFilterClose();
+    // Reset pagination when applying filters
+    setLastKey(undefined)
+    setHasMore(false)
   };
 
   const handleClearFilters = () => {
@@ -261,18 +293,22 @@ export default function PropertiesPage() {
     setSearchParams(prev => ({
       ...prev,
       filters: clearedFilters,
-      page: 1
     }));
+    // Reset pagination when clearing filters
+    setLastKey(undefined)
+    setHasMore(false)
   };
   
   const clearAllFilters = () => {
     setSearchParams({
-      page: 1,
       limit: 12,
       sortBy: 'date',
       sortOrder: 'desc'
     });
     setFilters({});
+    // Reset pagination when clearing all filters
+    setLastKey(undefined)
+    setHasMore(false)
   };
 
   const handleContact = (property: Property) => {
@@ -397,12 +433,14 @@ export default function PropertiesPage() {
         {/* Results Summary */}
         <Flex align="center">
           <Text color="gray.600">
-            {loading ? 'Loading...' : `Showing ${properties?.length || 0} of ${total} properties`}
+            {loading ? 'Loading...' : `Showing ${properties?.length || 0} properties`}
           </Text>
           <Spacer />
-          <Text fontSize="sm" color="gray.500">
-            Page {searchParams.page} of {totalPages}
-          </Text>
+          {hasMore && (
+            <Text fontSize="sm" color="gray.500">
+              Load more available
+            </Text>
+          )}
         </Flex>
 
         {/* Error State */}
@@ -444,42 +482,30 @@ export default function PropertiesPage() {
           </VStack>
         )}
 
-        {/* Pagination */}
-        {!loading && totalPages > 1 && (
-          <HStack justify="center" spacing={2}>
+        {/* Load More Button */}
+        {!loading && hasMore && (
+          <Flex justify="center" py={8}>
             <Button
-              size="sm"
+              onClick={handleLoadMore}
+              isLoading={loading}
+              loadingText="Loading more..."
               variant="outline"
-              isDisabled={searchParams.page === 1}
-              onClick={() => handlePageChange(searchParams.page! - 1)}
+              colorScheme="primary"
+              size="lg"
+              px={8}
             >
-              Previous
+              Load More Properties
             </Button>
-            
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              const page = i + 1
-              return (
-                <Button
-                  key={page}
-                  size="sm"
-                  variant={searchParams.page === page ? 'solid' : 'outline'}
-                  colorScheme={searchParams.page === page ? 'primary' : 'gray'}
-                  onClick={() => handlePageChange(page)}
-                >
-                  {page}
-                </Button>
-              )
-            })}
+          </Flex>
+        )}
 
-            <Button
-              size="sm"
-              variant="outline"
-              isDisabled={searchParams.page === totalPages}
-              onClick={() => handlePageChange(searchParams.page! + 1)}
-            >
-              Next
-            </Button>
-          </HStack>
+        {/* End of Results */}
+        {!loading && !hasMore && properties.length > 0 && (
+          <Flex justify="center" py={4}>
+            <Text color="gray.500" fontSize="sm">
+              You've reached the end of the available properties
+            </Text>
+          </Flex>
         )}
       </VStack>
 
