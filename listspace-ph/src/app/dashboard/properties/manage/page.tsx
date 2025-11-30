@@ -10,7 +10,7 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { Property, propertyService } from '@/services/propertyService';
-import { PropertyList } from '@/components/PropertyList';
+import { DashboardPropertyList } from '@/components/DashboardPropertyList';
 import { PropertyForm } from '@/components/PropertyForm';
 import { PropertyDetail } from '@/components/PropertyDetail';
 import { ArrowBackIcon } from '@chakra-ui/icons';
@@ -137,7 +137,7 @@ export default function PropertyManagePage() {
 
         {/* Content */}
         {currentView === 'list' && (
-          <PropertyList
+          <DashboardPropertyList
             onView={handleViewProperty}
             onEdit={handleEditProperty}
             onDelete={handleDeleteProperty}

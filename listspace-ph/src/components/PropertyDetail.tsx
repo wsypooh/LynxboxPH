@@ -58,7 +58,7 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
       isLoadingRef.current = true;
       setLoading(true);
       setError(null);
-      const data = await propertyService.getPublicProperty(propertyId);
+      const data = await propertyService.getProperty(propertyId);
       setProperty(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch property');
