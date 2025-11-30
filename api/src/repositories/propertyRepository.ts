@@ -136,18 +136,24 @@ export class PropertyRepository {
     limit: number = 10, 
     lastEvaluatedKey?: Record<string, any>
   ): Promise<{ items: Property[]; lastEvaluatedKey?: Record<string, any> }> {
-    const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new QueryCommand({
+    console.log('listByType called with type:', type);
+    console.log('Using scan with FilterExpression for type:', type);
+    
+    const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new ScanCommand({
       TableName: TABLE_NAME,
-      IndexName: 'GSI1',
-      // GSI1 uses GSI1PK as HASH key and GSI1SK as RANGE key
-      KeyConditionExpression: 'GSI1PK = :gsi1pk',
+      FilterExpression: '#type = :type AND begins_with(PK, :pkPrefix)',
+      ExpressionAttributeNames: {
+        '#type': 'type'
+      },
       ExpressionAttributeValues: {
-        ':gsi1pk': `PROPERTY#${type.toUpperCase()}`,
+        ':type': type,
+        ':pkPrefix': 'PROPERTY#'
       },
       Limit: limit,
-      ExclusiveStartKey: lastEvaluatedKey,
-      ScanIndexForward: false // Sort by newest first
+      ExclusiveStartKey: lastEvaluatedKey
     }));
+
+    console.log('Scan returned', Items.length, 'items for type', type);
 
     return {
       items: Items as Property[],
@@ -158,25 +164,177 @@ export class PropertyRepository {
   static async listByOwner(
     ownerId: string,
     limit: number = 10,
-    lastEvaluatedKey?: Record<string, any>
+    lastEvaluatedKey?: Record<string, any>,
+    sortBy?: 'price' | 'area' | 'date' | 'views',
+    sortOrder?: 'asc' | 'desc'
   ): Promise<{ items: Property[]; lastEvaluatedKey?: Record<string, any> }> {
-    const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new QueryCommand({
+    console.log('listByOwner called with ownerId:', ownerId);
+    console.log('Querying GSI1PK = USER#' + ownerId);
+    
+    // Default sort is by date (most recent first)
+    let scanIndexForward = false;
+    
+    // For DynamoDB, we need to handle sorting differently
+    // Since we're using GSI1 which sorts by GSI1SK (createdAt), we can only sort by date efficiently
+    // For other sort fields, we'll need to sort in memory
+    let queryCommand = new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :gsi1pk',
+      ExpressionAttributeValues: {
+        ':gsi1pk': `USER#${ownerId}`
+      },
+      Limit: limit,
+      ExclusiveStartKey: lastEvaluatedKey,
+      ScanIndexForward: sortBy === 'date' ? sortOrder === 'asc' : false // Always get newest first for non-date sorts
+    });
+
+    const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(queryCommand);
+    let items = Items as Property[];
+    
+    // Apply in-memory sorting for non-date fields
+    if (sortBy && sortBy !== 'date') {
+      items = this.sortProperties(items, sortBy, sortOrder);
+    } else if (sortBy === 'date' && sortOrder === 'asc') {
+      // If sorting by date ascending, reverse the default descending order
+      items = items.reverse();
+    }
+
+    console.log('Query returned', items.length, 'items');
+
+    return {
+      items,
+      lastEvaluatedKey: LastEvaluatedKey
+    };
+  }
+
+  static async listByTypeAndOwner(
+    type: string,
+    ownerId: string,
+    limit: number = 10,
+    lastEvaluatedKey?: Record<string, any>,
+    sortBy?: 'price' | 'area' | 'date' | 'views',
+    sortOrder?: 'asc' | 'desc'
+  ): Promise<{ items: Property[]; lastEvaluatedKey?: Record<string, any> }> {
+    let queryCommand = new QueryCommand({
       TableName: TABLE_NAME,
       IndexName: 'GSI1',
       // GSI1 uses SK as HASH key in the index
       KeyConditionExpression: 'GSI1PK = :gsi1pk',
-      FilterExpression: 'begins_with(SK, :skPrefix)',
+      FilterExpression: 'begins_with(SK, :skPrefix) AND #type = :type',
+      ExpressionAttributeNames: {
+        '#type': 'type'
+      },
       ExpressionAttributeValues: {
         ':gsi1pk': `USER#${ownerId}`,
-        ':skPrefix': 'PROPERTY#'
+        ':skPrefix': 'PROPERTY#',
+        ':type': type
       },
       Limit: limit,
       ExclusiveStartKey: lastEvaluatedKey,
-      ScanIndexForward: false
-    }));
+      ScanIndexForward: sortBy === 'date' ? sortOrder === 'asc' : false // Always get newest first for non-date sorts
+    });
+
+    const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(queryCommand);
+    let items = Items as Property[];
+    
+    // Apply in-memory sorting for non-date fields
+    if (sortBy && sortBy !== 'date') {
+      items = this.sortProperties(items, sortBy, sortOrder);
+    } else if (sortBy === 'date' && sortOrder === 'asc') {
+      // If sorting by date ascending, reverse the default descending order
+      items = items.reverse();
+    }
 
     return {
-      items: Items as Property[],
+      items,
+      lastEvaluatedKey: LastEvaluatedKey
+    };
+  }
+
+  static async listAllAvailableProperties(
+    limit: number = 10,
+    lastEvaluatedKey?: Record<string, any>,
+    sortBy?: 'price' | 'area' | 'date' | 'views',
+    sortOrder?: 'asc' | 'desc'
+  ): Promise<{ items: Property[]; lastEvaluatedKey?: Record<string, any> }> {
+    const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: 'begins_with(PK, :pkPrefix) AND #status = :status',
+      ExpressionAttributeNames: {
+        '#status': 'status'
+      },
+      ExpressionAttributeValues: {
+        ':pkPrefix': 'PROPERTY#',
+        ':status': 'available'
+      },
+      Limit: limit,
+      ExclusiveStartKey: lastEvaluatedKey
+    }));
+
+    let items = Items as Property[];
+    
+    // Apply in-memory sorting
+    if (sortBy) {
+      items = this.sortProperties(items, sortBy, sortOrder);
+    }
+
+    return {
+      items,
+      lastEvaluatedKey: LastEvaluatedKey
+    };
+  }
+
+  static async listPublicProperties(
+    filters: {
+      type?: string;
+      city?: string;
+      limit: number;
+      lastEvaluatedKey?: Record<string, any>;
+      sortBy?: 'price' | 'area' | 'date' | 'views';
+      sortOrder?: 'asc' | 'desc';
+    }
+  ): Promise<{ items: Property[]; lastEvaluatedKey?: Record<string, any> }> {
+    let filterExpression = 'begins_with(PK, :pkPrefix) AND #status = :status';
+    let expressionAttributeNames: Record<string, string> = {
+      '#status': 'status'
+    };
+    let expressionAttributeValues: Record<string, any> = {
+      ':pkPrefix': 'PROPERTY#',
+      ':status': 'available'
+    };
+
+    // Add type filter
+    if (filters.type) {
+      filterExpression += ' AND #type = :type';
+      expressionAttributeNames['#type'] = 'type';
+      expressionAttributeValues[':type'] = filters.type;
+    }
+
+    // Add city filter (nested in location.city)
+    if (filters.city) {
+      filterExpression += ' AND location.city = :city';
+      expressionAttributeValues[':city'] = filters.city;
+    }
+
+    const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: filterExpression,
+      ExpressionAttributeNames: expressionAttributeNames,
+      ExpressionAttributeValues: expressionAttributeValues,
+      Limit: filters.limit,
+      ExclusiveStartKey: filters.lastEvaluatedKey
+    }));
+
+    let items = Items as Property[];
+    
+    // Apply in-memory sorting
+    if (filters.sortBy) {
+      items = this.sortProperties(items, filters.sortBy, filters.sortOrder);
+    }
+
+    return {
+      items,
       lastEvaluatedKey: LastEvaluatedKey
     };
   }
@@ -226,15 +384,38 @@ export class PropertyRepository {
     };
     query?: string;
     limit?: number;
+    ownerId?: string;  // For user-specific filtering
+    status?: string;   // For status filtering (e.g., 'available')
+    sortBy?: 'price' | 'area' | 'date' | 'views';
+    sortOrder?: 'asc' | 'desc';
   }): Promise<Property[]> {
-    // For now, we'll get all properties and filter in memory
+    // Build filter expression based on provided filters
+    let filterExpression = 'begins_with(PK, :pkPrefix)';
+    let expressionAttributeNames: Record<string, string> = {};
+    let expressionAttributeValues: Record<string, any> = {
+      ':pkPrefix': 'PROPERTY#'
+    };
+
+    // Add owner filter if provided
+    if (filters.ownerId) {
+      filterExpression += ' AND GSI1PK = :ownerId';
+      expressionAttributeValues[':ownerId'] = `USER#${filters.ownerId}`;
+    }
+
+    // Add status filter if provided
+    if (filters.status) {
+      expressionAttributeNames['#status'] = 'status';
+      expressionAttributeValues[':status'] = filters.status;
+      filterExpression += ' AND #status = :status';
+    }
+
+    // For now, we'll get filtered properties and apply complex filters in memory
     // DynamoDB FilterExpression has limitations with nested attributes
     const { Items = [] } = await ddbDocClient.send(new ScanCommand({
       TableName: TABLE_NAME,
-      FilterExpression: 'begins_with(PK, :pkPrefix)',
-      ExpressionAttributeValues: {
-        ':pkPrefix': 'PROPERTY#'
-      },
+      FilterExpression: filterExpression,
+      ExpressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
+      ExpressionAttributeValues: expressionAttributeValues,
       Limit: (filters.limit || 50) * 2 // Get more items for in-memory filtering
     }));
 
@@ -359,6 +540,70 @@ export class PropertyRepository {
       }
     });
 
-    return filteredProperties.slice(0, filters.limit || 50);
+    let finalItems = filteredProperties.slice(0, filters.limit || 50);
+    
+    // Apply in-memory sorting
+    if (filters.sortBy) {
+      finalItems = this.sortProperties(finalItems, filters.sortBy, filters.sortOrder);
+    }
+    
+    return finalItems;
+  }
+
+  static async incrementViewCount(id: string): Promise<void> {
+    try {
+      await ddbDocClient.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: createPropertyKeys(id),
+        UpdateExpression: 'ADD viewCount :inc',
+        ExpressionAttributeValues: {
+          ':inc': 1
+        },
+        ReturnValues: 'NONE'
+      }));
+    } catch (error) {
+      console.error('Error incrementing view count:', error);
+      // Don't throw error - view count increment shouldn't break the main flow
+    }
+  }
+
+  private static sortProperties(
+    properties: Property[], 
+    sortBy: 'price' | 'area' | 'date' | 'views', 
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): Property[] {
+    const sorted = [...properties].sort((a, b) => {
+      let aValue: number;
+      let bValue: number;
+
+      switch (sortBy) {
+        case 'price':
+          aValue = a.price || 0;
+          bValue = b.price || 0;
+          break;
+        case 'area':
+          aValue = a.features?.area || 0;
+          bValue = b.features?.area || 0;
+          break;
+        case 'date':
+          aValue = new Date(a.createdAt || '').getTime();
+          bValue = new Date(b.createdAt || '').getTime();
+          break;
+        case 'views':
+          aValue = a.viewCount || 0;
+          bValue = b.viewCount || 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue - bValue;
+      } else {
+        return bValue - aValue;
+      }
+    });
+
+    return sorted;
   }
 }

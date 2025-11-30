@@ -31,39 +31,83 @@ provider:
           Action:
             - s3:ListBucket
           Resource: "arn:aws:s3:::${env:S3_BUCKET_NAME}"
+  httpApi:
+    authorizers:
+      ApiGatewayAuthorizer:
+        type: jwt
+        identitySource:
+          - $request.header.Authorization
+        jwtConfiguration:
+          audience:
+            - ${env:COGNITO_USER_POOL_CLIENT_ID}
+          issuer:
+            - ${env:COGNITO_USER_POOL_ISSUER}
 
 functions:
   api:
     handler: index.handler
     events:
       - http:
+          path: /api/public/properties
+          method: get
+          cors: true
+      - http:
+          path: /api/public/properties/{id}
+          method: get
+          cors: true
+      - http:
           path: /api/properties
           method: get
           cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
       - http:
           path: /api/properties
           method: post
           cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
       - http:
           path: /api/properties/{id}
           method: get
           cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
       - http:
           path: /api/properties/{id}
           method: put
           cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
       - http:
           path: /api/properties/{id}
           method: delete
           cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
       - http:
           path: /api/properties/{id}/images
           method: post
           cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
       - http:
-          path: /api/properties/{id}/images/upload-url
+          path: /api/public/search
           method: get
           cors: true
+      - http:
+          path: /api/properties/search
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
 
 plugins:
   - serverless-offline

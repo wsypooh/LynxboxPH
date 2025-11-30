@@ -2,20 +2,19 @@
 
 import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import { route } from '@/utils/routing'
 
 export default function PropertiesIndex() {
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
-    // Handle client-side routing for /properties/add and /properties/manage
-    if (pathname === '/properties/add') {
-      router.replace('/properties/add.html')
-    } else if (pathname === '/properties/manage') {
-      router.replace('/properties/manage.html')
+    // Handle client-side routing for legacy /properties/manage - redirect to dashboard
+    if (pathname === '/properties/manage') {
+      router.replace(route('/dashboard/properties/manage'))
     } else {
       // Default to properties listing
-      router.replace('/properties.html')
+      router.replace(route('/properties'))
     }
   }, [pathname, router])
 

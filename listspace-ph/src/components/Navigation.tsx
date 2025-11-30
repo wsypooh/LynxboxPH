@@ -4,6 +4,7 @@ import { Box, Container, Flex, Text, Button, HStack, IconButton, useDisclosure, 
 import { HamburgerIcon, CloseIcon } from '@chakra-ui/icons'
 import Link from 'next/link'
 import { useAuth } from '@/features/auth/AuthContext'
+import { route } from '@/utils/routing'
 
 interface NavItem {
   label: string
@@ -18,7 +19,7 @@ const NAV_ITEMS: Array<NavItem> = [
   },
   {
     label: 'Properties',
-    href: '/properties.html',
+    href: route('/properties'),
   },
   {
     label: 'Pricing',
@@ -26,7 +27,7 @@ const NAV_ITEMS: Array<NavItem> = [
   },
   {
     label: 'Dashboard',
-    href: '/dashboard',
+    href: route('/dashboard'),
     isPrivate: true,
   },
 ]
@@ -66,7 +67,7 @@ export function Navigation() {
           <HStack spacing={4} display={{ base: 'none', md: 'flex' }}>
             {user ? (
               <>
-                <Link href="/dashboard/profile">
+                <Link href={route('/dashboard/profile')}>
                   <Button variant="outline" colorScheme="white" size="sm">
                     My Account
                   </Button>
@@ -82,7 +83,7 @@ export function Navigation() {
               </>
             ) : (
               <>
-                <Link href="/auth/signin">
+                <Link href={route('/auth/signin')}>
                   <Button 
                     variant="solid" 
                     bg="white" 
@@ -97,7 +98,7 @@ export function Navigation() {
                     Sign In
                   </Button>
                 </Link>
-                <Link href="/auth/signup">
+                <Link href={route('/auth/signup')}>
                   <Button variant="solid" colorScheme="blue" size="sm">
                     Get Started
                   </Button>
@@ -144,7 +145,7 @@ export function Navigation() {
             
             {user ? (
               <>
-                <Link href="/dashboard/profile" onClick={onToggle}>
+                <Link href={route('/dashboard/profile')} onClick={onToggle}>
                   <Button w="full" justifyContent="flex-start" variant="ghost" color="white">
                     My Account
                   </Button>
@@ -164,7 +165,7 @@ export function Navigation() {
               </>
             ) : (
               <>
-                <Link href="/auth/signin" onClick={onToggle}>
+                <Link href={route('/auth/signin')} onClick={onToggle}>
                   <Button 
                     w="full" 
                     justifyContent="center" 
@@ -182,7 +183,7 @@ export function Navigation() {
                     Sign In
                   </Button>
                 </Link>
-                <Link href="/auth/signup" onClick={onToggle}>
+                <Link href={route('/auth/signup')} onClick={onToggle}>
                   <Button w="full" justifyContent="flex-start" variant="ghost" color="white">
                     Create Account
                   </Button>

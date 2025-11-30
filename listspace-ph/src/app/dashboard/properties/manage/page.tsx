@@ -14,14 +14,25 @@ import { PropertyList } from '@/components/PropertyList';
 import { PropertyForm } from '@/components/PropertyForm';
 import { PropertyDetail } from '@/components/PropertyDetail';
 import { ArrowBackIcon } from '@chakra-ui/icons';
+import { useAuth } from '@/features/auth/AuthContext';
+import { useRouter } from 'next/navigation';
 
 type View = 'list' | 'detail' | 'add' | 'edit';
 
 export default function PropertyManagePage() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
   const [currentView, setCurrentView] = useState<View>('list');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const toast = useToast();
+
+  // Redirect to signin if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/auth/signin');
+    }
+  }, [user, isLoading, router]);
 
   const handleViewProperty = (property: Property) => {
     setSelectedProperty(property);
@@ -85,6 +96,20 @@ export default function PropertyManagePage() {
     setCurrentView('list');
     setSelectedProperty(null);
   };
+
+  if (isLoading) {
+    return (
+      <Box minH="calc(100vh - 70px)" p={6}>
+        <VStack spacing={6} align="stretch" maxW="7xl" mx="auto">
+          <Heading size="lg">Loading...</Heading>
+        </VStack>
+      </Box>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect to signin
+  }
 
   return (
     <Box minH="calc(100vh - 70px)" p={6}>

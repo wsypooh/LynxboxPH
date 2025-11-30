@@ -86,7 +86,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error.name === 'NotAuthorizedException' || 
             error.message?.includes('Invalid login token') ||
             error.message?.includes('Token expired')) {
-          console.log('Token is invalid or expired, signing out...')
           await amplifySignOut()
           setUser(null)
           return
@@ -102,7 +101,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error.name === 'NotAuthorizedException' || 
           error.message?.includes('Invalid login token') ||
           error.message?.includes('Token expired')) {
-        console.log('Token is invalid or expired, signing out...')
         await amplifySignOut()
       }
       setUser(null)

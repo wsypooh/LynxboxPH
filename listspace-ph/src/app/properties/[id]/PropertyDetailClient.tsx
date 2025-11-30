@@ -36,19 +36,22 @@ import {
   Building,
   ArrowLeft,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { Property } from '@/services/propertyService'
 import { propertyService } from '@/services/propertyService'
+import { route } from '@/utils/routing';
 
 export default function PropertyDetailClient({ id }: { id: string }) {
   const [property, setProperty] = useState<Property | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const isLoadingRef = useRef(false)
 
   useEffect(() => {
-    if (id) {
+    if (id && !isLoadingRef.current) {
+      isLoadingRef.current = true
       loadProperty(id)
     }
   }, [id])
@@ -67,7 +70,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
     try {
       setLoading(true)
       setError('')
-      const result = await propertyService.getProperty(propId)
+      const result = await propertyService.getPublicProperty(propId)
       if (result) {
         setProperty(result)
       } else {
@@ -77,6 +80,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
       setError(err.message || 'Failed to load property')
     } finally {
       setLoading(false)
+      isLoadingRef.current = false
     }
   }
 
@@ -140,7 +144,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
           <AlertIcon />
           {error || 'Property not found'}
         </Alert>
-        <Button as={Link} href="/properties.html" leftIcon={<Icon as={ArrowLeft} />} mt={4}>
+        <Button as={Link} href={route('/properties')} leftIcon={<Icon as={ArrowLeft} />} mt={4}>
           Back to Properties
         </Button>
       </Container>
@@ -153,7 +157,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
         {/* Back Button */}
         <Button
           as={Link}
-          href="/properties.html"
+          href={route('/properties')}
           leftIcon={<Icon as={ArrowLeft} />}
           variant="ghost"
           alignSelf="flex-start"

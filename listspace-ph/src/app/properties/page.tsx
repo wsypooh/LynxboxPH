@@ -81,6 +81,23 @@ export default function PropertiesPage() {
 
   const { isOpen: isFilterOpen, onOpen: onFilterOpen, onClose: onFilterClose } = useDisclosure()
 
+  const hasActiveFilters = useCallback((): boolean => {
+    const currentFilters = searchParams.filters;
+    if (!currentFilters || Object.keys(currentFilters).length === 0) {
+      return false;
+    }
+    
+    const hasTypeFilter = Boolean(currentFilters.type?.length);
+    const hasPriceFilters = currentFilters.priceMin !== undefined || currentFilters.priceMax !== undefined;
+    const hasAreaFilters = currentFilters.minArea !== undefined || currentFilters.maxArea !== undefined;
+    const hasLocationFilter = Boolean(currentFilters.location);
+    const hasFeatureFilters = currentFilters.features ? 
+      Object.values(currentFilters.features).some((value): value is boolean => value === true) : 
+      false;
+    
+    return hasTypeFilter || hasPriceFilters || hasAreaFilters || hasLocationFilter || hasFeatureFilters;
+  }, [searchParams.filters]);
+
   const loadProperties = useCallback(async () => {
     try {
       setLoading(true)
@@ -93,7 +110,9 @@ export default function PropertiesPage() {
         const filterData = {
           ...searchParams.filters,
           query: searchParams.query,
-          limit: searchParams.limit
+          limit: searchParams.limit,
+          sortBy: searchParams.sortBy,
+          sortOrder: searchParams.sortOrder
         };
         result = await propertyService.filterProperties(filterData);
         console.log('Filter result:', result);
@@ -105,7 +124,12 @@ export default function PropertiesPage() {
         setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
       } else if (searchParams.query) {
         // If there's a search query but no filters, use search
-        result = await propertyService.searchProperties(searchParams.query, searchParams.limit);
+        result = await propertyService.searchProperties(
+          searchParams.query, 
+          searchParams.limit,
+          searchParams.sortBy,
+          searchParams.sortOrder
+        );
         console.log('Search result:', result);
         
         // Ensure result has items property
@@ -114,11 +138,13 @@ export default function PropertiesPage() {
         setTotal(items.length);
         setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
       } else {
-        // Otherwise, list all properties
-        const listResult = await propertyService.listProperties({
-          limit: searchParams.limit
+        // Otherwise, list all available properties (public)
+        const listResult = await propertyService.listPublicProperties({
+          limit: searchParams.limit,
+          sortBy: searchParams.sortBy,
+          sortOrder: searchParams.sortOrder
         });
-        console.log('List result:', listResult);
+        console.log('Public list result:', listResult);
         
         // Ensure listResult has items property
         const items = listResult?.items || [];
@@ -134,7 +160,7 @@ export default function PropertiesPage() {
     } finally {
       setLoading(false)
     }
-  }, [searchParams])
+  }, [searchParams, hasActiveFilters])
 
   useEffect(() => {
     loadProperties()
@@ -208,23 +234,6 @@ export default function PropertiesPage() {
     }));
   };
 
-  const hasActiveFilters = (): boolean => {
-    const currentFilters = searchParams.filters;
-    if (!currentFilters || Object.keys(currentFilters).length === 0) {
-      return false;
-    }
-    
-    const hasTypeFilter = Boolean(currentFilters.type?.length);
-    const hasPriceFilters = currentFilters.priceMin !== undefined || currentFilters.priceMax !== undefined;
-    const hasAreaFilters = currentFilters.minArea !== undefined || currentFilters.maxArea !== undefined;
-    const hasLocationFilter = Boolean(currentFilters.location);
-    const hasFeatureFilters = currentFilters.features ? 
-      Object.values(currentFilters.features).some((value): value is boolean => value === true) : 
-      false;
-    
-    return hasTypeFilter || hasPriceFilters || hasAreaFilters || hasLocationFilter || hasFeatureFilters;
-  };
-
   const handleContact = (property: Property) => {
     // Open contact modal or redirect to contact form
     window.open(`tel:${property.contactInfo.phone}`, '_self')
@@ -241,27 +250,6 @@ export default function PropertiesPage() {
       <VStack spacing={6} align="stretch">
         <HStack justify="space-between" mb={6}>
           <Heading as="h1" size="xl">Available Properties</Heading>
-          <HStack spacing={4}>
-            <Button 
-              leftIcon={<Plus size={18} />} 
-              colorScheme="blue"
-              as="a"
-              href="/properties/manage.html"
-            >
-              Manage Properties
-            </Button>
-            <Button 
-              leftIcon={<Plus size={18} />} 
-              colorScheme="green"
-              as="a"
-              href="/properties/add.html"
-            >
-              Add Property
-            </Button>
-            <Button leftIcon={<Filter size={18} />} onClick={onFilterOpen} variant="outline">
-              Filters
-            </Button>
-          </HStack>
         </HStack>
         <VStack spacing={4} textAlign="center">
           <Heading size="xl" display="flex" alignItems="center" gap={3}>

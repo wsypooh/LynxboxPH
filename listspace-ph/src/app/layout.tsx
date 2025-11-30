@@ -9,9 +9,10 @@ import { Providers } from '@/components/providers';
 import { Navigation } from '@/components/Navigation';
 import { Box } from '@chakra-ui/react';
 
+
 const inter = Inter({ subsets: ['latin'] });
 
-// Only configure Amplify in the browser
+// Configure Amplify immediately when this module loads in browser
 if (typeof window !== 'undefined') {
   try {
     const config: ResourcesConfig = {
@@ -24,19 +25,46 @@ if (typeof window !== 'undefined') {
             email: true,
           },
           signUpVerificationMethod: 'code' as const,
+          userAttributes: {
+            email: { required: true },
+            name: { required: true },
+            phone_number: { required: false },
+          },
+          passwordFormat: {
+            minLength: 8,
+            requireLowercase: true,
+            requireUppercase: true,
+            requireNumbers: true,
+            requireSpecialCharacters: true,
+          },
         },
       },
+      API: {
+        REST: {
+          listspaceAPI: {
+            endpoint: process.env.NEXT_PUBLIC_API_URL || '',
+            region: process.env.NEXT_PUBLIC_AWS_REGION || 'ap-southeast-1',
+          }
+        }
+      },
+      Storage: {
+        S3: {
+          bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET || '',
+          region: process.env.NEXT_PUBLIC_AWS_REGION || 'ap-southeast-1',
+        }
+      }
     };
 
     console.log('Configuring Amplify with:', {
       region: process.env.NEXT_PUBLIC_AWS_REGION,
       userPoolId: config.Auth?.Cognito?.userPoolId?.substring(0, 10) + '...',
+      userPoolClientId: config.Auth?.Cognito?.userPoolClientId?.substring(0, 10) + '...',
     });
     
-    Amplify.configure(config);
-    console.log('Amplify configured successfully');
+    Amplify.configure(config, { ssr: true });
+    console.log('✅ Amplify configured successfully');
   } catch (error) {
-    console.error('Error configuring Amplify:', error);
+    console.error('❌ Error configuring Amplify:', error);
   }
 }
 

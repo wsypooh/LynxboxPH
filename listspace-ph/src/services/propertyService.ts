@@ -90,21 +90,28 @@ export interface PropertyListResponse {
   lastKey?: string;
 }
 
+import { getAuthHeaders } from '../lib/auth';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.execute-api.ap-southeast-1.amazonaws.com/dev';
 
 class PropertyService {
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    requireAuth: boolean = true
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     
+    // Get auth headers for protected endpoints
+    const authHeaders = requireAuth ? await getAuthHeaders() : {};
+    
     const config: RequestInit = {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options.headers,
       },
-      ...options,
     };
 
     try {
@@ -130,12 +137,16 @@ class PropertyService {
     type?: string;
     limit?: number;
     lastKey?: string;
+    sortBy?: 'price' | 'area' | 'date' | 'views';
+    sortOrder?: 'asc' | 'desc';
   }): Promise<PropertyListResponse> {
     const searchParams = new URLSearchParams();
     
     if (params?.type) searchParams.append('type', params.type);
     if (params?.limit) searchParams.append('limit', params.limit.toString());
     if (params?.lastKey) searchParams.append('lastKey', params.lastKey);
+    if (params?.sortBy) searchParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) searchParams.append('sortOrder', params.sortOrder);
 
     const query = searchParams.toString();
     const endpoint = `/api/properties${query ? `?${query}` : ''}`;
@@ -151,6 +162,52 @@ class PropertyService {
         type: item.type as PropertyType,
         status: item.status as PropertyStatus,
       })),
+    };
+  }
+
+  async listPublicProperties(params?: {
+    type?: string;
+    city?: string;
+    limit?: number;
+    lastKey?: string;
+    sortBy?: 'price' | 'area' | 'date' | 'views';
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<PropertyListResponse> {
+    const searchParams = new URLSearchParams();
+    
+    if (params?.type) searchParams.append('type', params.type);
+    if (params?.city) searchParams.append('city', params.city);
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.lastKey) searchParams.append('lastKey', params.lastKey);
+    if (params?.sortBy) searchParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) searchParams.append('sortOrder', params.sortOrder);
+
+    const query = searchParams.toString();
+    const endpoint = `/api/public/properties${query ? `?${query}` : ''}`;
+    
+    const response = await this.request<{ success: boolean; data: { items: any[]; lastKey?: string } }>(endpoint, {}, false); // No auth required
+    // Handle nested response structure - the API returns { success: true, data: { items: [...] } }
+    const responseData = response.data || response;
+    // Ensure each property matches our Property interface
+    return {
+      ...responseData,
+      items: (responseData.items || []).map(item => ({
+        ...item,
+        type: item.type as PropertyType,
+        status: item.status as PropertyStatus,
+      })),
+    };
+  }
+
+  async getPublicProperty(id: string): Promise<Property> {
+    const response = await this.request<any>(`/api/public/properties/${id}`, {}, false); // No auth required
+    // Handle nested response structure - extract data from response.data
+    const propertyData = response.data || response;
+    // Ensure the response matches our Property interface
+    return {
+      ...propertyData,
+      type: propertyData.type as PropertyType,
+      status: propertyData.status as PropertyStatus,
     };
   }
 
@@ -201,58 +258,45 @@ class PropertyService {
   }
 
   async deleteProperty(id: string): Promise<void> {
-    const url = `${API_BASE_URL}/api/properties/${id}`;
-    console.log('Making DELETE API call to:', url)
+    const endpoint = `/api/properties/${id}`;
     
     const config: RequestInit = {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
     };
 
     try {
-      console.log('DELETE request config:', config)
-      const response = await fetch(url, config);
-      console.log('DELETE response status:', response.status)
-      
-      // 204 No Content is a successful delete - don't try to parse JSON
-      if (response.status === 204) {
-        console.log('Property deleted successfully (204 No Content)')
-        return;
-      }
-      
-      // For other status codes, try to parse error response
-      if (!response.ok) {
-        console.error('DELETE response not OK:', response.status, response.statusText)
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch {
-          // Ignore JSON parsing errors for error responses
-        }
-        throw new Error(errorMessage);
-      }
-      
-      // If there's content, parse it
-      const text = await response.text();
-      if (text) {
-        const data = JSON.parse(text);
-        console.log('DELETE response data:', data)
-      }
+      await this.request<void>(endpoint, config, true); // Auth required
     } catch (error) {
-      console.error('DELETE fetch error:', error)
       throw error;
     }
   }
 
-  async searchProperties(query: string, limit?: number): Promise<{ items: Property[] }> {
+  async searchProperties(query: string, limit?: number, sortBy?: 'price' | 'area' | 'date' | 'views', sortOrder?: 'asc' | 'desc'): Promise<{ items: Property[] }> {
+    const searchParams = new URLSearchParams();
+    searchParams.append('q', query);
+    if (limit) searchParams.append('limit', limit.toString());
+    if (sortBy) searchParams.append('sortBy', sortBy);
+    if (sortOrder) searchParams.append('sortOrder', sortOrder);
+
+    const response = await this.request<{ success: boolean; data: { items: any[] } }>(`/api/public/search?${searchParams.toString()}`, {}, false); // No auth required
+    // Handle nested response structure - the API returns { success: true, data: { items: [...] } }
+    const responseData = response.data || response;
+    // Ensure each property matches our Property interface
+    return {
+      items: (responseData.items || []).map(item => ({
+        ...item,
+        type: item.type as PropertyType,
+        status: item.status as PropertyStatus,
+      })),
+    };
+  }
+
+  async searchUserProperties(query: string, limit?: number): Promise<{ items: Property[] }> {
     const searchParams = new URLSearchParams();
     searchParams.append('q', query);
     if (limit) searchParams.append('limit', limit.toString());
 
-    const response = await this.request<{ success: boolean; data: { items: any[] } }>(`/api/properties/search?${searchParams.toString()}`);
+    const response = await this.request<{ success: boolean; data: { items: any[] } }>(`/api/properties/search?${searchParams.toString()}`, {}, true); // Auth required
     // Handle nested response structure - the API returns { success: true, data: { items: [...] } }
     const responseData = response.data || response;
     // Ensure each property matches our Property interface
@@ -281,6 +325,8 @@ class PropertyService {
     };
     query?: string;
     limit?: number;
+    sortBy?: 'price' | 'area' | 'date' | 'views';
+    sortOrder?: 'asc' | 'desc';
   }): Promise<{ items: Property[] }> {
     const searchParams = new URLSearchParams();
     
@@ -308,10 +354,14 @@ class PropertyService {
       if (filters.features.security !== undefined) searchParams.append('security', filters.features.security.toString());
     }
     
+    // Add sorting parameters
+    if (filters.sortBy) searchParams.append('sortBy', filters.sortBy);
+    if (filters.sortOrder) searchParams.append('sortOrder', filters.sortOrder);
+    
     // Add limit
     if (filters.limit) searchParams.append('limit', filters.limit.toString());
 
-    const response = await this.request<{ success: boolean; data: { items: any[] } }>(`/api/properties/search?${searchParams.toString()}`);
+    const response = await this.request<{ success: boolean; data: { items: any[] } }>(`/api/public/search?${searchParams.toString()}`, {}, false); // No auth required
     // Handle nested response structure - the API returns { success: true, data: { items: [...] } }
     const responseData = response.data || response;
     // Ensure each property matches our Property interface
@@ -329,7 +379,7 @@ class PropertyService {
     
     for (const imageKey of imageKeys) {
       try {
-        const response = await this.request<{ success: boolean; data: { viewUrl: string } }>(`/api/properties/${propertyId}/images/view-url?imageKey=${encodeURIComponent(imageKey)}`);
+        const response = await this.request<{ success: boolean; data: { viewUrl: string } }>(`/api/properties/${propertyId}/images/view-url?imageKey=${encodeURIComponent(imageKey)}`, {}, true); // Auth required
         urls[imageKey] = response.data?.viewUrl || imageKey;
       } catch (error) {
         console.error(`Failed to get presigned URL for image ${imageKey}:`, error);
@@ -395,13 +445,13 @@ class PropertyService {
     searchParams.append('contentType', contentType);
 
     return this.request<{ uploadUrl: string; key: string }>(
-      `/api/properties/${propertyId}/images/upload-url?${searchParams.toString()}`
+      `/api/properties/${propertyId}/images/upload-url?${searchParams.toString()}`, {}, true // Auth required
     );
   }
 
   async getAllPropertyIds(): Promise<string[]> {
     try {
-      const response = await this.request<{ items: Property[] }>('/api/properties?limit=100');
+      const response = await this.request<{ items: Property[] }>('/api/properties?limit=100', {}, true); // Auth required
       return response.items?.map((property: Property) => property.id) || [];
     } catch (error) {
       console.error('Error fetching property IDs:', error);

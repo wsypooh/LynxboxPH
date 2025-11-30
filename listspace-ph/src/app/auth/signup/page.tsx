@@ -79,16 +79,15 @@ export default function SignUpPage() {
     setDebugInfo(debugData);
     
     // Check if user is already authenticated
-    const checkAuth = async () => {
+    const checkAuthStatus = async () => {
       try {
         const user = await getCurrentUser();
-        console.log('Current user:', user);
       } catch (error) {
-        console.log('No authenticated user:', error);
+        // No authenticated user
       }
     };
     
-    checkAuth();
+    checkAuthStatus();
   }, []);
 
   const {

@@ -27,7 +27,7 @@ export function usePresignedImages(propertyId: string, imageKeys: string[]) {
     };
 
     fetchImageUrls();
-  }, [propertyId, imageKeys.join(',')]);
+  }, [propertyId, imageKeys]);
 
   const getImageUrl = (imageKey: string): string => {
     return imageUrls[imageKey] || '';

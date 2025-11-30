@@ -40,6 +40,8 @@ import { z } from 'zod';
 import { PropertyInput, PropertyType, PropertyStatus, Property, propertyService } from '@/services/propertyService';
 import { validateImageFile, convertFileToBase64, extractBase64Data } from '@/lib/utils';
 import { CloseIcon, AddIcon } from '@chakra-ui/icons';
+import { useAuth } from '@/features/auth/AuthContext';
+import { getCurrentUserId } from '@/lib/auth';
 
 // Import API_BASE_URL for environment detection
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.execute-api.ap-southeast-1.amazonaws.com/dev';
@@ -93,6 +95,7 @@ export function PropertyForm({
   isEditing = false,
   propertyId,
 }: PropertyFormProps) {
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -251,12 +254,32 @@ export function PropertyForm({
           : undefined
       };
 
+      // Get user ID from JWT for new properties
+      let userId = null;
+      if (!isEditing) {
+        try {
+          userId = await getCurrentUserId();
+        } catch (error) {
+          console.error('Error getting user ID from JWT:', error);
+          toast({
+            title: 'Authentication Error',
+            description: 'Unable to get user information. Please log in again.',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+          });
+          return;
+        }
+      }
+
       const propertyData: PropertyInput = {
         ...data,
         location: locationWithCoordinates,
         base64Images, // Include images for both local and production APIs
         defaultImageIndex: imagePreviews.length > 0 ? defaultImageIndex : undefined,
         ...(removedImages.length > 0 && { removeImages: removedImages }), // Include removed images if any
+        // Add owner ID when creating a new property
+        ...(!isEditing && userId && { ownerId: userId }),
       };
 
       console.log('Update data:', {
@@ -359,6 +382,19 @@ export function PropertyForm({
                       </Select>
                       <Text color="red.500" fontSize="sm">
                         {errors.type?.message}
+                      </Text>
+                    </FormControl>
+
+                    <FormControl isInvalid={!!errors.status}>
+                      <FormLabel>Property Status</FormLabel>
+                      <Select {...register('status')}>
+                        <option value="available">Available</option>
+                        <option value="rented">Rented</option>
+                        <option value="sold">Sold</option>
+                        <option value="maintenance">Under Maintenance</option>
+                      </Select>
+                      <Text color="red.500" fontSize="sm">
+                        {errors.status?.message}
                       </Text>
                     </FormControl>
 

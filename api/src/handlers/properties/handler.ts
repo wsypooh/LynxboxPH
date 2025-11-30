@@ -42,13 +42,26 @@ export class PropertyHandler {
         return ApiResponse.error(`Missing required fields: ${missingFields.join(', ')}`, 400);
       }
 
-      // Extract user ID from request context (JWT disabled for testing)
-      const userId = 'test-user-id'; // Fixed user ID for testing
-      // JWT authorization temporarily disabled
-      // const userId = event.requestContext.authorizer?.claims?.sub || 'test-user-id';
-      // if (!userId) {
-      //   return ApiResponse.unauthorized('User ID not found in request');
-      // }
+      // Extract user ID from authentication claims
+      let userId: string;
+      
+      // Check for JWT claims first (always prioritize JWT)
+      if (event.requestContext.authorizer?.claims?.sub) {
+        userId = event.requestContext.authorizer.claims.sub;
+        console.log('createProperty: Using user ID from JWT claims:', userId);
+      } 
+      // Fallback to Cognito User ID from authorizer context
+      else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
+        userId = event.requestContext.authorizer.claims['cognito:username'];
+        console.log('createProperty: Using user ID from cognito:username:', userId);
+      }
+      // Development fallback (when no auth is present)
+      else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
+        userId = 'test-user-id';
+        console.log('createProperty: Development mode: using fallback userId:', userId);
+      } else {
+        return ApiResponse.unauthorized('User authentication required');
+      }
 
       // Remove base64Images from the data before storing - only keep S3 URLs
       const { base64Images, ...cleanPropertyData } = propertyData;
@@ -154,6 +167,69 @@ export class PropertyHandler {
     }
 
     return uploadedImages;
+  }
+
+  static async getPublicProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const id = event.pathParameters?.id;
+      
+      if (!id) {
+        return ApiResponse.error('Property ID is required', 400);
+      }
+
+      const property = await PropertyRepository.findById(id);
+      if (!property) {
+        return ApiResponse.notFound('Property not found');
+      }
+
+      // Only show available properties to the public
+      if (property.status !== 'available') {
+        return ApiResponse.error('Property not available', 404);
+      }
+
+      // Increment view count for public views
+      await PropertyRepository.incrementViewCount(id);
+
+      return ApiResponse.success(property);
+
+    } catch (error) {
+      console.error('Error fetching public property:', error);
+      return ApiResponse.error('Failed to fetch property', 500);
+    }
+  }
+
+  static async listPublicProperties(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const params = event.queryStringParameters || {};
+      const type = params.type;
+      const city = params.city;
+      const limit = parseInt(params.limit || '10');
+      const lastEvaluatedKey = params.lastKey 
+        ? JSON.parse(decodeURIComponent(params.lastKey))
+        : undefined;
+      const sortBy = params.sortBy as 'price' | 'area' | 'date' | 'views';
+      const sortOrder = params.sortOrder as 'asc' | 'desc';
+
+      let result;
+      if (type || city) {
+        // Filter by type and/or city for public browsing
+        result = await PropertyRepository.listPublicProperties({ type, city, limit, lastEvaluatedKey, sortBy, sortOrder });
+      } else {
+        // List all available properties
+        result = await PropertyRepository.listAllAvailableProperties(limit, lastEvaluatedKey, sortBy, sortOrder);
+      }
+
+      const response: any = { items: result.items };
+      if (result.lastEvaluatedKey) {
+        response.lastKey = encodeURIComponent(JSON.stringify(result.lastEvaluatedKey));
+      }
+
+      return ApiResponse.success(response);
+
+    } catch (error) {
+      console.error('Error listing public properties:', error);
+      return ApiResponse.error('Failed to list properties', 500);
+    }
   }
 
   static async getProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -284,6 +360,33 @@ export class PropertyHandler {
     }
   }
 
+  static async listPropertiesByOwner(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const ownerId = event.queryStringParameters?.ownerId;
+      const limit = parseInt(event.queryStringParameters?.limit || '10');
+      const lastEvaluatedKey = event.queryStringParameters?.lastKey 
+        ? JSON.parse(decodeURIComponent(event.queryStringParameters.lastKey))
+        : undefined;
+
+      if (!ownerId) {
+        return ApiResponse.error('Owner ID is required', 400);
+      }
+
+      const result = await PropertyRepository.listByOwner(ownerId, limit, lastEvaluatedKey);
+
+      const response: any = { items: result.items };
+      if (result.lastEvaluatedKey) {
+        response.lastKey = encodeURIComponent(JSON.stringify(result.lastEvaluatedKey));
+      }
+
+      return ApiResponse.success(response);
+
+    } catch (error) {
+      console.error('Error listing properties by owner:', error);
+      return ApiResponse.error('Failed to list properties by owner', 500);
+    }
+  }
+
   static async listProperties(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
     const type = event.queryStringParameters?.type;
@@ -291,27 +394,37 @@ export class PropertyHandler {
     const lastEvaluatedKey = event.queryStringParameters?.lastKey 
       ? JSON.parse(decodeURIComponent(event.queryStringParameters.lastKey))
       : undefined;
+    const sortBy = event.queryStringParameters?.sortBy as 'price' | 'area' | 'date' | 'views';
+    const sortOrder = event.queryStringParameters?.sortOrder as 'asc' | 'desc';
+
+    // Extract user ID from authentication claims
+    let userId: string;
+    
+    // Check for JWT claims first (always prioritize JWT)
+    if (event.requestContext.authorizer?.claims?.sub) {
+      userId = event.requestContext.authorizer.claims.sub;
+      console.log('Using user ID from JWT claims:', userId);
+    } 
+    // Fallback to Cognito User ID from authorizer context
+    else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
+      userId = event.requestContext.authorizer.claims['cognito:username'];
+      console.log('Using user ID from cognito:username:', userId);
+    }
+    // Development fallback (when no auth is present)
+    else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
+      userId = event.queryStringParameters?.ownerId || 'test-user-id';
+      console.log('Development mode: using fallback userId:', userId);
+    } else {
+      return ApiResponse.unauthorized('User authentication required');
+    }
 
     let result;
     if (type) {
-      // List properties by type
-      result = await PropertyRepository.listByType(type, limit, lastEvaluatedKey);
+      // List properties by type for the authenticated user
+      result = await PropertyRepository.listByTypeAndOwner(type, userId, limit, lastEvaluatedKey, sortBy, sortOrder);
     } else {
-      // List all properties (using a scan operation - be careful with large datasets)
-      const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new ScanCommand({
-        TableName: process.env.DYNAMODB_TABLE || 'listspace-ph-dev',
-        FilterExpression: 'begins_with(PK, :pkPrefix)',
-        ExpressionAttributeValues: {
-          ':pkPrefix': 'PROPERTY#'
-        },
-        Limit: limit,
-        ExclusiveStartKey: lastEvaluatedKey
-      }));
-      
-      result = {
-        items: Items as Property[],
-        lastEvaluatedKey: LastEvaluatedKey
-      };
+      // List properties for the authenticated user only
+      result = await PropertyRepository.listByOwner(userId, limit, lastEvaluatedKey, sortBy, sortOrder);
     }
 
     const response: any = { items: result.items };
@@ -331,6 +444,27 @@ export class PropertyHandler {
     try {
       const params = event.queryStringParameters || {};
       const limit = parseInt(params.limit || '10');
+      const sortBy = params.sortBy as 'price' | 'area' | 'date' | 'views';
+      const sortOrder = params.sortOrder as 'asc' | 'desc';
+      
+      // Extract user ID from authentication claims
+      let userId: string;
+      
+      // Check for JWT claims first (production)
+      if (event.requestContext.authorizer?.claims?.sub) {
+        userId = event.requestContext.authorizer.claims.sub;
+      } 
+      // Fallback to Cognito User ID from authorizer context
+      else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
+        userId = event.requestContext.authorizer.claims['cognito:username'];
+      }
+      // Development fallback (when auth is disabled)
+      else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
+        userId = 'test-user-id';
+        console.log('Development mode: using fallback userId:', userId);
+      } else {
+        return ApiResponse.unauthorized('User authentication required');
+      }
       
       // Build unified filters object
       const filters: any = {};
@@ -366,10 +500,17 @@ export class PropertyHandler {
         filters.features = features;
       }
       
+      // Add sorting parameters
+      if (sortBy) filters.sortBy = sortBy;
+      if (sortOrder) filters.sortOrder = sortOrder;
+      
+      // Add user filter - only search user's own properties
+      filters.ownerId = userId;
+      
       // Add limit
       filters.limit = limit;
       
-      // Use unified filter method for all scenarios
+      // Use unified filter method for user-specific search
       const properties = await PropertyRepository.filter(filters);
       
       return ApiResponse.success({
@@ -379,6 +520,71 @@ export class PropertyHandler {
 
     } catch (error) {
       console.error('Error searching properties:', error);
+      return ApiResponse.error('Failed to search properties', 500);
+    }
+  }
+
+  static async searchPublicProperties(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const params = event.queryStringParameters || {};
+      const limit = parseInt(params.limit || '10');
+      const sortBy = params.sortBy as 'price' | 'area' | 'date' | 'views';
+      const sortOrder = params.sortOrder as 'asc' | 'desc';
+      
+      // Build unified filters object
+      const filters: any = {};
+      
+      // Handle search query (accept both 'q' and 'query' parameters)
+      const searchQuery = params.q || params.query;
+      if (searchQuery) {
+        filters.query = searchQuery;
+      }
+      
+      // Handle type array (e.g., type=apartment&type=house)
+      if (params.type) {
+        filters.type = Array.isArray(params.type) ? params.type : [params.type];
+      }
+      
+      // Handle numeric filters
+      if (params.priceMin) filters.priceMin = parseInt(params.priceMin);
+      if (params.priceMax) filters.priceMax = parseInt(params.priceMax);
+      if (params.minArea) filters.minArea = parseInt(params.minArea);
+      if (params.maxArea) filters.maxArea = parseInt(params.maxArea);
+      
+      // Handle string filters
+      if (params.location) filters.location = params.location;
+      
+      // Handle feature filters
+      const features: any = {};
+      if (params.parking !== undefined) features.parking = params.parking === 'true';
+      if (params.furnished !== undefined) features.furnished = params.furnished === 'true';
+      if (params.aircon !== undefined) features.aircon = params.aircon === 'true';
+      if (params.wifi !== undefined) features.wifi = params.wifi === 'true';
+      if (params.security !== undefined) features.security = params.security === 'true';
+      if (Object.keys(features).length > 0) {
+        filters.features = features;
+      }
+      
+      // Add sorting parameters
+      if (sortBy) filters.sortBy = sortBy;
+      if (sortOrder) filters.sortOrder = sortOrder;
+      
+      // Only search available properties for public access
+      filters.status = 'available';
+      
+      // Add limit
+      filters.limit = limit;
+      
+      // Use unified filter method for public search
+      const properties = await PropertyRepository.filter(filters);
+      
+      return ApiResponse.success({
+        items: properties,
+        count: properties.length
+      });
+
+    } catch (error) {
+      console.error('Error searching public properties:', error);
       return ApiResponse.error('Failed to search properties', 500);
     }
   }
@@ -560,8 +766,8 @@ export class PropertyHandler {
 // Lambda handler function
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const httpMethod = event.httpMethod;
-  // Get the path from the request context (REST API v1)
-  const path = event.resource;
+  // Use path instead of resource for better local development compatibility
+  const path = event.path || event.resource;
 
   try {
     // Handle CORS preflight requests
@@ -581,8 +787,17 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Route the request to the appropriate handler method
     // More specific routes first
-    if (httpMethod === 'GET' && path.includes('/api/properties/search')) {
+    if (httpMethod === 'GET' && path.includes('/api/public/search')) {
+      return PropertyHandler.searchPublicProperties(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/public/properties') && path.split('/').length === 5) {
+      // Matches /api/public/properties/{id}
+      return PropertyHandler.getPublicProperty(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/public/properties')) {
+      return PropertyHandler.listPublicProperties(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/properties/search')) {
       return PropertyHandler.searchProperties(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/properties/by-owner')) {
+      return PropertyHandler.listPropertiesByOwner(event);
     } else if (httpMethod === 'POST' && path.endsWith('/api/properties')) {
       return PropertyHandler.createProperty(event);
     } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.split('/').length === 4) {
@@ -595,7 +810,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Matches /api/properties/{id}
       return PropertyHandler.deleteProperty(event);
     } else if (httpMethod === 'GET' && (path.endsWith('/api/properties') || path.includes('/api/properties?'))) {
-      // Matches /api/properties or /api/properties?param=value
+      // Matches /api/properties or /api/properties?param=value (authenticated)
       return PropertyHandler.listProperties(event);
     } else if (httpMethod === 'POST' && path.includes('/api/properties/') && path.includes('/images')) {
       // Matches /api/properties/{id}/images

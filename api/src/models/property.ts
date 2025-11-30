@@ -57,8 +57,8 @@ export function createProperty(data: PropertyInput): Property {
     // Base entity fields
     PK: `PROPERTY#${id}`,
     SK: `PROPERTY#${id}`,
-    GSI1PK: `PROPERTY#${data.type.toUpperCase()}`,
-    GSI1SK: `CREATED_AT#${now}`,
+    GSI1PK: `USER#${data.ownerId}`,  // Primary: User queries
+    GSI1SK: `PROPERTY#${id}`,        // Primary: User queries
     entityType: EntityType.PROPERTY,
     id,
     viewCount: 0,  // Default value

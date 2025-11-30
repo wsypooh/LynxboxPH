@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -49,12 +49,16 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
   const [isDeleting, setIsDeleting] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
+  const isLoadingRef = useRef(false);
 
   const fetchProperty = useCallback(async () => {
+    if (isLoadingRef.current) return;
+    
     try {
+      isLoadingRef.current = true;
       setLoading(true);
       setError(null);
-      const data = await propertyService.getProperty(propertyId);
+      const data = await propertyService.getPublicProperty(propertyId);
       setProperty(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch property');
@@ -67,6 +71,7 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
       });
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
   }, [propertyId, toast]);
 
@@ -96,6 +101,11 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handlePropertyUpdate = (updatedProperty: Property) => {
+    setProperty(updatedProperty);
+    onEdit?.(updatedProperty);
   };
 
   if (loading) {
@@ -272,8 +282,16 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
                   
                   <HStack justify="space-between">
                     <Text fontWeight="medium">Status</Text>
-                    <Badge colorScheme={property.status === 'available' ? 'green' : 'orange'}>
-                      {property.status}
+                    <Badge colorScheme={
+                      property.status === 'available' ? 'green' :
+                      property.status === 'rented' ? 'blue' :
+                      property.status === 'sold' ? 'red' :
+                      property.status === 'maintenance' ? 'orange' : 'gray'
+                    }>
+                      {property.status === 'available' ? 'Available' :
+                       property.status === 'rented' ? 'Rented' :
+                       property.status === 'sold' ? 'Sold' :
+                       property.status === 'maintenance' ? 'Under Maintenance' : property.status}
                     </Badge>
                   </HStack>
                   

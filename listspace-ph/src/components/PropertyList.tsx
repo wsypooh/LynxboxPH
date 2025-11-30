@@ -25,6 +25,8 @@ import {
 import { Property, propertyService } from '@/services/propertyService';
 import { EditIcon, DeleteIcon, ViewIcon, PlusSquareIcon } from '@chakra-ui/icons';
 import { formatCurrency } from '@/lib/utils';
+import { useAuth } from '@/features/auth/AuthContext';
+import { PropertyStatusUpdater } from './PropertyStatusUpdater';
 
 interface PropertyListProps {
   onEdit?: (property: Property) => void;
@@ -41,6 +43,7 @@ export function PropertyList({
   onAddNew,
   refreshTrigger = 0,
 }: PropertyListProps) {
+  const { user } = useAuth();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,15 +56,18 @@ export function PropertyList({
       setLoading(true);
       setError(null);
 
+      // Use the existing listProperties endpoint - it now automatically filters by authenticated user
       const response = await propertyService.listProperties({
         limit: 10,
         lastKey: append ? lastKey : undefined,
       });
 
+      const allProperties = response.items || [];
+
       if (append) {
-        setProperties(prev => [...prev, ...response.items]);
+        setProperties(prev => [...prev, ...allProperties]);
       } else {
-        setProperties(response.items);
+        setProperties(allProperties);
       }
 
       setHasMore(!!response.lastKey);
@@ -83,6 +89,11 @@ export function PropertyList({
   useEffect(() => {
     fetchProperties();
   }, [refreshTrigger, fetchProperties]);
+
+  const handleStatusUpdate = (updatedProperty: Property) => {
+    // Update the property in the local state
+    setProperties(prev => prev.map(p => p.id === updatedProperty.id ? updatedProperty : p));
+  };
 
   const handleDelete = async (property: Property) => {
     if (!onDelete) return;
@@ -233,6 +244,19 @@ export function PropertyList({
                     <Text>🪑 Furnished</Text>
                   )}
                 </HStack>
+
+                <Divider />
+
+                {/* Quick Status Update */}
+                <Box w="full">
+                  <Text fontSize="xs" fontWeight="medium" color="gray.600" mb={2}>
+                    Quick Status Update:
+                  </Text>
+                  <PropertyStatusUpdater 
+                    property={property} 
+                    onStatusUpdate={handleStatusUpdate}
+                  />
+                </Box>
 
                 <Divider />
 

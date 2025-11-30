@@ -3,6 +3,7 @@
 import { Box, Container, Heading, Text, Button, VStack, HStack, SimpleGrid, Card, CardBody, Icon } from '@chakra-ui/react'
 import { Building2, Search, FileText, Users } from 'lucide-react'
 import Link from 'next/link'
+import { route } from '@/utils/routing'
 
 export default function Home() {
   return (
@@ -85,7 +86,7 @@ export default function Home() {
             >
               <Button 
                 as={Link} 
-                href="/auth/signup" 
+                href={route('/auth/signup')} 
                 size={['md', 'lg']} 
                 variant="outline" 
                 color="white" 
@@ -102,7 +103,7 @@ export default function Home() {
               </Button>
               <Button 
                 as={Link} 
-                href="/properties.html" 
+                href={route('/properties')} 
                 size={['md', 'lg']} 
                 variant="outline" 
                 color="white" 
@@ -211,7 +212,7 @@ export default function Home() {
                       <Text>• 7-day listing duration</Text>
                       <Text>• Basic search visibility</Text>
                     </VStack>
-                    <Button as={Link} href="/auth/signup" colorScheme="primary" size="lg" w="full">
+                    <Button as={Link} href={route('/auth/signup')} colorScheme="primary" size="lg" w="full">
                       Get Started
                     </Button>
                   </VStack>
@@ -249,7 +250,7 @@ export default function Home() {
                       <Text>• Analytics dashboard</Text>
                       <Text>• Invoice generation</Text>
                     </VStack>
-                    <Button as={Link} href="/auth/signup" colorScheme="primary" size="lg" w="full">
+                    <Button as={Link} href={route('/auth/signup')} colorScheme="primary" size="lg" w="full">
                       Start Free Trial
                     </Button>
                   </VStack>
@@ -272,7 +273,7 @@ export default function Home() {
                       <Text>• Custom branding</Text>
                       <Text>• Advanced analytics</Text>
                     </VStack>
-                    <Button as={Link} href="/contact" variant="outline" size="lg" w="full">
+                    <Button as={Link} href={route('/contact')} variant="outline" size="lg" w="full">
                       Contact Sales
                     </Button>
                   </VStack>
@@ -291,7 +292,7 @@ export default function Home() {
             <Text fontSize="lg" maxW="2xl">
               Join hundreds of property owners who are already using ListSpace PH to manage their commercial properties
             </Text>
-            <Button as={Link} href="/auth/signup" size="lg" colorScheme="white" variant="solid">
+            <Button as={Link} href={route('/auth/signup')} size="lg" colorScheme="white" variant="solid">
               Create Your Free Account
             </Button>
           </VStack>

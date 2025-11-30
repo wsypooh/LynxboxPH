@@ -28,22 +28,64 @@ import {
 } from '@chakra-ui/react';
 import { FiSettings, FiLogOut, FiHome, FiUsers, FiFileText, FiPlus, FiUser } from 'react-icons/fi';
 import { useAuth } from '@/features/auth/AuthContext';
+import { getManagePropertyUrl } from '@/utils/routing';
+import { propertyService } from '@/services/propertyService';
 
 export default function DashboardPage() {
   const { user, signOut, isLoading } = useAuth();
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
   
-  // Sample stats data - in a real app, this would come from your API
-  const [stats] = useState({
-    totalProperties: 5,
-    activeListings: 3,
-    totalRevenue: 12500,
-    occupancyRate: 75,
-    totalInquiries: 12,
-    totalViews: 245
+  // Dynamic stats data based on user's properties
+  const [stats, setStats] = useState({
+    totalProperties: 0,
+    activeListings: 0,
+    totalRevenue: 0,
+    occupancyRate: 0,
+    totalInquiries: 0,
+    totalViews: 0
   });
+
+  // Fetch user's property stats
+  useEffect(() => {
+    const fetchPropertyStats = async () => {
+      if (!user?.userId) return;
+      
+      try {
+        setStatsLoading(true);
+        // Use the existing listProperties endpoint - it now automatically filters by authenticated user
+        const response = await propertyService.listProperties({ limit: 100 });
+        const properties = response.items || [];
+        
+        // Calculate stats from user's properties (already filtered by backend)
+        const totalProperties = properties.length;
+        const activeListings = properties.filter(p => p.status === 'available').length;
+        const totalViews = properties.reduce((sum, p) => sum + (p.viewCount || 0), 0);
+        
+        setStats(prev => ({
+          ...prev,
+          totalProperties,
+          activeListings,
+          totalViews
+        }));
+      } catch (error) {
+        console.error('Error fetching property stats:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load property statistics',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchPropertyStats();
+  }, [user?.userId, toast]);
 
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -133,7 +175,9 @@ export default function DashboardPage() {
             <CardBody>
               <Stat>
                 <StatLabel>Total Properties</StatLabel>
-                <StatNumber>{stats.totalProperties}</StatNumber>
+                <StatNumber>
+                  {statsLoading ? <Spinner size="sm" /> : stats.totalProperties}
+                </StatNumber>
                 <StatHelpText>All your properties</StatHelpText>
               </Stat>
             </CardBody>
@@ -143,7 +187,9 @@ export default function DashboardPage() {
             <CardBody>
               <Stat>
                 <StatLabel>Active Listings</StatLabel>
-                <StatNumber color="green.500">{stats.activeListings}</StatNumber>
+                <StatNumber color="green.500">
+                  {statsLoading ? <Spinner size="sm" /> : stats.activeListings}
+                </StatNumber>
                 <StatHelpText>Available for rent</StatHelpText>
               </Stat>
             </CardBody>
@@ -175,7 +221,7 @@ export default function DashboardPage() {
         <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
           <Card 
             as={Link} 
-            href="/dashboard/properties/new" 
+            href={getManagePropertyUrl()} 
             _hover={{ transform: 'translateY(-2px)', shadow: 'md', textDecoration: 'none' }} 
             transition="all 0.2s"
             bg={cardBg}
@@ -187,8 +233,8 @@ export default function DashboardPage() {
                 <Box p={3} bg="blue.50" borderRadius="full" color="blue.600">
                   <Icon as={FiHome} boxSize={6} />
                 </Box>
-                <Heading size="md">Add Property</Heading>
-                <Text color="gray.600">List a new property for rent or sale</Text>
+                <Heading size="md">Manage Property</Heading>
+                <Text color="gray.600">View and manage your property listings</Text>
               </VStack>
             </CardBody>
           </Card>

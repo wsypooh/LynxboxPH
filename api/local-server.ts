@@ -55,6 +55,44 @@ const createApiGatewayEvent = (req: express.Request): APIGatewayProxyEvent => {
   // For local development, add a mock user ID
   const headers = { ...req.headers } as { [name: string]: string };
   
+  // Check if this is a public endpoint (no authentication required)
+  const isPublicEndpoint = req.path.startsWith('/api/public/');
+  
+  // Extract user ID from Authorization header if present (for real Cognito auth)
+  let userId = 'local-test-user-123'; // Default fallback
+  let username = 'local-test-user';
+  let email = 'test@example.com';
+  
+  if (req.headers.authorization && !isPublicEndpoint) {
+    try {
+      // Try to parse JWT token to get actual user info
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        
+        // Decode JWT token to get user ID
+        try {
+          // JWT tokens are base64 encoded, split by '.' and decode the payload
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+            
+            // Extract user ID from JWT payload
+            if (payload.sub) {
+              userId = payload.sub;
+              username = payload['cognito:username'] || payload.username || 'unknown';
+              email = payload.email || payload['cognito:email'] || 'unknown@example.com';
+            }
+          }
+        } catch (decodeError) {
+          // Use fallback values on decode error
+        }
+      }
+    } catch (error) {
+      // Use fallback values on parse error
+    }
+  }
+  
   return {
     httpMethod: req.method || 'GET',
     path: req.path,
@@ -83,11 +121,11 @@ const createApiGatewayEvent = (req: express.Request): APIGatewayProxyEvent => {
         userAgent: req.get('user-agent') || '',
         userArn: null,
       },
-      authorizer: {
+      authorizer: isPublicEndpoint ? null : {
         claims: {
-          sub: 'local-test-user-123', // Mock user ID for local testing
-          'cognito:username': 'local-test-user',
-          email: 'test@example.com'
+          sub: userId, // Use the determined user ID
+          'cognito:username': username,
+          email: email
         }
       },
       path: req.path,
@@ -110,6 +148,19 @@ app.all('/api/properties', async (req, res) => {
 });
 
 app.all('/api/properties/:id', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+// Public endpoints (no authentication required)
+app.all('/api/public/properties', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+app.all('/api/public/properties/:id', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+app.all('/api/public/search', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
