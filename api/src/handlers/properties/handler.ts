@@ -326,17 +326,56 @@ export class PropertyHandler {
     return ApiResponse.error('Failed to list properties', 500);
   }
 }
+
   static async searchProperties(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
-      const query = event.queryStringParameters?.q;
-      if (!query) {
-        return ApiResponse.error('Search query is required', 400);
+      const params = event.queryStringParameters || {};
+      const limit = parseInt(params.limit || '10');
+      
+      // Build unified filters object
+      const filters: any = {};
+      
+      // Handle search query (accept both 'q' and 'query' parameters)
+      const searchQuery = params.q || params.query;
+      if (searchQuery) {
+        filters.query = searchQuery;
       }
-
-      const limit = parseInt(event.queryStringParameters?.limit || '10');
-      const properties = await PropertyRepository.search(query, limit);
-
-      return ApiResponse.success({ items: properties });
+      
+      // Handle type array (e.g., type=apartment&type=house)
+      if (params.type) {
+        filters.type = Array.isArray(params.type) ? params.type : [params.type];
+      }
+      
+      // Handle numeric filters
+      if (params.priceMin) filters.priceMin = parseInt(params.priceMin);
+      if (params.priceMax) filters.priceMax = parseInt(params.priceMax);
+      if (params.minArea) filters.minArea = parseInt(params.minArea);
+      if (params.maxArea) filters.maxArea = parseInt(params.maxArea);
+      
+      // Handle string filters
+      if (params.location) filters.location = params.location;
+      
+      // Handle feature filters
+      const features: any = {};
+      if (params.parking !== undefined) features.parking = params.parking === 'true';
+      if (params.furnished !== undefined) features.furnished = params.furnished === 'true';
+      if (params.aircon !== undefined) features.aircon = params.aircon === 'true';
+      if (params.wifi !== undefined) features.wifi = params.wifi === 'true';
+      if (params.security !== undefined) features.security = params.security === 'true';
+      if (Object.keys(features).length > 0) {
+        filters.features = features;
+      }
+      
+      // Add limit
+      filters.limit = limit;
+      
+      // Use unified filter method for all scenarios
+      const properties = await PropertyRepository.filter(filters);
+      
+      return ApiResponse.success({
+        items: properties,
+        count: properties.length
+      });
 
     } catch (error) {
       console.error('Error searching properties:', error);
@@ -541,7 +580,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Route the request to the appropriate handler method
-    if (httpMethod === 'POST' && path.endsWith('/api/properties')) {
+    // More specific routes first
+    if (httpMethod === 'GET' && path.includes('/api/properties/search')) {
+      return PropertyHandler.searchProperties(event);
+    } else if (httpMethod === 'POST' && path.endsWith('/api/properties')) {
       return PropertyHandler.createProperty(event);
     } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.split('/').length === 4) {
       // Matches /api/properties/{id}
@@ -555,8 +597,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } else if (httpMethod === 'GET' && (path.endsWith('/api/properties') || path.includes('/api/properties?'))) {
       // Matches /api/properties or /api/properties?param=value
       return PropertyHandler.listProperties(event);
-    } else if (httpMethod === 'GET' && path.includes('/api/properties/search')) {
-      return PropertyHandler.searchProperties(event);
     } else if (httpMethod === 'POST' && path.includes('/api/properties/') && path.includes('/images')) {
       // Matches /api/properties/{id}/images
       return PropertyHandler.uploadPropertyImage(event);

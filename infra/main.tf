@@ -73,7 +73,7 @@ locals {
     domain_name = var.domain_name != "" ? var.domain_name : ""
     bucket_name = local.resource_names.frontend_bucket
   }
-  
+
   # API configuration
   api_config = {
     name        = local.resource_names.api_gateway
@@ -100,9 +100,9 @@ module "auth" {
   cognito_domain = local.resource_names.cognito_domain
   callback_urls  = var.cognito_callback_urls
   logout_urls    = var.cognito_logout_urls
-  
+
   # Enable TOTP MFA (Authenticator App)
-  enable_mfa       = true
+  enable_mfa        = true
   mfa_configuration = "OPTIONAL"
 
   # Password policy
@@ -132,63 +132,63 @@ module "database" {
 
 # S3 Module for Image Storage
 module "s3" {
-  source          = "./modules/s3"
-  project_name    = var.project_name
-  environment     = var.environment
-  aws_region      = var.aws_region
-  common_tags     = local.common_tags
+  source           = "./modules/s3"
+  project_name     = var.project_name
+  environment      = var.environment
+  aws_region       = var.aws_region
+  common_tags      = local.common_tags
   lambda_role_name = module.api.lambda_role_name
 }
 
 # API Module
 module "api" {
   source = "./modules/api"
-  
+
   project_name = var.project_name
   environment  = var.environment
-  aws_region  = var.aws_region
-  
+  aws_region   = var.aws_region
+
   # Get the DynamoDB table name and policy ARN from the database module
   dynamodb_table_name = module.database.table_name
   dynamodb_policy_arn = module.database.dynamodb_policy_arn
-  
+
   # Cognito User Pool and Client IDs
-  user_pool_id       = module.auth.user_pool_id
+  user_pool_id        = module.auth.user_pool_id
   user_pool_client_id = module.auth.user_pool_client_id
-  
+
   # Tags
   common_tags = local.common_tags
-  
+
   # Cognito User Pool Client ID
   cognito_user_pool_client_id = module.auth.user_pool_client_id
   cognito_user_pool_endpoint  = "cognito-idp.${var.aws_region}.amazonaws.com/${module.auth.user_pool_id}"
-  domain_name           = var.domain_name
-  s3_bucket_name        = module.s3.bucket_name
-  
+  domain_name                 = var.domain_name
+  s3_bucket_name              = module.s3.bucket_name
+
   # API Gateway settings
-  api_gateway_name      = "${var.project_name}-api-${var.environment}"
-  api_stage_name        = var.environment
-  
+  api_gateway_name = "${var.project_name}-api-${var.environment}"
+  api_stage_name   = var.environment
+
   # Lambda function settings
-  lambda_runtime        = "nodejs24.x"
-  lambda_memory_size    = 256
-  lambda_timeout        = 30
-  
+  lambda_runtime     = "nodejs24.x"
+  lambda_memory_size = 256
+  lambda_timeout     = 30
+
   # Environment variables for Lambda
   environment_variables = {
-    NODE_ENV                 = var.environment
-    TABLE_NAME               = local.resource_names.dynamodb_table
-    USER_POOL_ID             = module.auth.user_pool_id
-    CLIENT_ID                = module.auth.user_pool_client_id
-    S3_BUCKET_NAME           = module.s3.bucket_name
+    NODE_ENV                   = var.environment
+    TABLE_NAME                 = local.resource_names.dynamodb_table
+    USER_POOL_ID               = module.auth.user_pool_id
+    CLIENT_ID                  = module.auth.user_pool_client_id
+    S3_BUCKET_NAME             = module.s3.bucket_name
     CLOUDFRONT_DISTRIBUTION_ID = module.frontend.cloudfront_distribution_id
   }
-  
+
   # CORS settings
   cors_allowed_origins = local.auth_config.callback_urls
-  
+
   # Enable Cognito authentication
-  enable_cognito_auth  = true
+  enable_cognito_auth = true
 }
 
 # Frontend Module

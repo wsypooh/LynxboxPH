@@ -88,8 +88,23 @@ export default function PropertiesPage() {
       
       // Use the real API service
       let result;
-      if (searchParams.query) {
-        // If there's a search query, use search
+      if (searchParams.filters && hasActiveFilters()) {
+        // If there are active filters, use the filter API
+        const filterData = {
+          ...searchParams.filters,
+          query: searchParams.query,
+          limit: searchParams.limit
+        };
+        result = await propertyService.filterProperties(filterData);
+        console.log('Filter result:', result);
+        
+        // Ensure result has items property
+        const items = result?.items || [];
+        setProperties(items);
+        setTotal(items.length);
+        setTotalPages(Math.ceil(items.length / (searchParams.limit || 12)));
+      } else if (searchParams.query) {
+        // If there's a search query but no filters, use search
         result = await propertyService.searchProperties(searchParams.query, searchParams.limit);
         console.log('Search result:', result);
         
@@ -194,15 +209,20 @@ export default function PropertiesPage() {
   };
 
   const hasActiveFilters = (): boolean => {
-    return Object.keys(filters).length > 0 && 
-      (Boolean(filters.type?.length) || 
-       filters.priceMin !== undefined || 
-       filters.priceMax !== undefined || 
-       filters.minArea !== undefined || 
-       filters.maxArea !== undefined || 
-       Boolean(filters.location) ||
-       (filters.features ? Object.values(filters.features).some(Boolean) : false)
-      );
+    const currentFilters = searchParams.filters;
+    if (!currentFilters || Object.keys(currentFilters).length === 0) {
+      return false;
+    }
+    
+    const hasTypeFilter = Boolean(currentFilters.type?.length);
+    const hasPriceFilters = currentFilters.priceMin !== undefined || currentFilters.priceMax !== undefined;
+    const hasAreaFilters = currentFilters.minArea !== undefined || currentFilters.maxArea !== undefined;
+    const hasLocationFilter = Boolean(currentFilters.location);
+    const hasFeatureFilters = currentFilters.features ? 
+      Object.values(currentFilters.features).some((value): value is boolean => value === true) : 
+      false;
+    
+    return hasTypeFilter || hasPriceFilters || hasAreaFilters || hasLocationFilter || hasFeatureFilters;
   };
 
   const handleContact = (property: Property) => {
@@ -211,12 +231,9 @@ export default function PropertiesPage() {
   }
 
   const propertyTypes: { value: PropertyType; label: string }[] = [
-    { value: 'apartment', label: 'Apartment' },
-    { value: 'house', label: 'House' },
-    { value: 'condo', label: 'Condo' },
+    { value: 'office', label: 'Office' },
     { value: 'commercial', label: 'Commercial' },
     { value: 'land', label: 'Land' },
-    { value: 'office', label: 'Office' },
   ]
 
   return (
@@ -323,16 +340,16 @@ export default function PropertiesPage() {
                     Clear Filters
                   </Button>
                   <Badge colorScheme="primary" variant="solid">
-                    {Object.entries(filters).filter(([key, value]) => {
+                    {searchParams.filters ? Object.entries(searchParams.filters).filter(([key, value]) => {
                       if (!value) return false;
                       if (key === 'features') {
-                        return Object.values(value).some(Boolean);
+                        return Object.values(value).some((featureValue): featureValue is boolean => featureValue === true);
                       }
                       if (Array.isArray(value)) {
                         return value.length > 0;
                       }
                       return true;
-                    }).length} Active
+                    }).length : 0} Active
                   </Badge>
                 </HStack>
               )}

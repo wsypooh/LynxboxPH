@@ -38,10 +38,24 @@ resource "aws_apigatewayv2_route" "list_properties" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Unified search and filter properties route
+resource "aws_apigatewayv2_route" "search_properties" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /api/properties/search"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 # OPTIONS route for CORS preflight requests
 resource "aws_apigatewayv2_route" "options_properties" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "OPTIONS /api/properties"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# OPTIONS route for unified search endpoint
+resource "aws_apigatewayv2_route" "options_search" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /api/properties/search"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 

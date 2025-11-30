@@ -113,6 +113,11 @@ app.all('/api/properties/:id', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
+// Unified search and filter route
+app.all('/api/properties/search', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
 // Image endpoints
 app.all('/api/properties/:id/images', async (req, res) => {
   await handlePropertyRequest(req, res);

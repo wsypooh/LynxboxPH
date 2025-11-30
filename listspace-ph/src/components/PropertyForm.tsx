@@ -47,7 +47,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.exec
 const propertySchema = z.object({
   title: z.string().min(1, 'Title is required').max(100, 'Title must be less than 100 characters'),
   description: z.string().min(1, 'Description is required').max(1000, 'Description must be less than 1000 characters'),
-  type: z.enum(['apartment', 'house', 'condo', 'commercial', 'land', 'office'] as const),
+  type: z.enum(['office', 'commercial', 'land'] as const),
   price: z.number().min(0, 'Price must be a positive number'),
   currency: z.string().default('PHP'),
   location: z.object({
@@ -114,7 +114,7 @@ export function PropertyForm({
     defaultValues: {
       title: '',
       description: '',
-      type: 'apartment',
+      type: 'office',
       price: 0,
       currency: 'PHP',
       location: {
@@ -353,12 +353,9 @@ export function PropertyForm({
                     <FormControl isInvalid={!!errors.type}>
                       <FormLabel>Property Type</FormLabel>
                       <Select {...register('type')}>
-                        <option value="apartment">Apartment</option>
-                        <option value="house">House</option>
-                        <option value="condo">Condo</option>
+                        <option value="office">Office</option>
                         <option value="commercial">Commercial</option>
                         <option value="land">Land</option>
-                        <option value="office">Office</option>
                       </Select>
                       <Text color="red.500" fontSize="sm">
                         {errors.type?.message}

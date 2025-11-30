@@ -291,16 +291,7 @@ if ($functionExists) {
     # Update existing function
     ExecOrFail "aws lambda update-function-code --function-name '$LambdaFunctionName' --zip-file 'fileb://$zipPath' --region '$AwsRegion'" "Failed to update Lambda function"
     
-    # Update handler only (without touching other configuration)
-    Write-Host "Setting handler to index.handler..." -ForegroundColor Yellow
-    try {
-        ExecOrFail "aws lambda update-function-configuration --function-name '$LambdaFunctionName' --handler 'index.handler' --region '$AwsRegion'" "Failed to update Lambda handler"
-        Write-Host "✓ Updated Lambda handler to index.handler" -ForegroundColor Green
-    } catch {
-        Write-Host "WARNING: Failed to update handler, but code was updated" -ForegroundColor Yellow
-        Write-Host "Current handler may not be 'index.handler'. Check AWS Lambda console." -ForegroundColor Yellow
-        Write-Host "Lambda function code was successfully updated." -ForegroundColor Green
-    }
+    # Handler update removed - Lambda is working with current configuration
     
     Write-Host "✓ Updated Lambda function code" -ForegroundColor Green
 } else {

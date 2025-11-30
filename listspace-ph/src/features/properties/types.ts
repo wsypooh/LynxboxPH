@@ -39,11 +39,8 @@ export interface Property {
 
 export type PropertyType = 
   | 'office'
-  | 'warehouse'
-  | 'retail'
-  | 'restaurant'
-  | 'industrial'
-  | 'mixed-use'
+  | 'commercial'
+  | 'land'
 
 export type PropertyStatus = 
   | 'available'

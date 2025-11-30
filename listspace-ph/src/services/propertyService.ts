@@ -25,7 +25,7 @@ export interface PropertyContactInfo {
 }
 
 export type PropertyStatus = 'available' | 'rented' | 'sold' | 'maintenance';
-export type PropertyType = 'apartment' | 'house' | 'condo' | 'commercial' | 'land' | 'office';
+export type PropertyType = 'office' | 'commercial' | 'land';
 
 export interface Property {
   id: string;
@@ -251,6 +251,65 @@ class PropertyService {
     const searchParams = new URLSearchParams();
     searchParams.append('q', query);
     if (limit) searchParams.append('limit', limit.toString());
+
+    const response = await this.request<{ success: boolean; data: { items: any[] } }>(`/api/properties/search?${searchParams.toString()}`);
+    // Handle nested response structure - the API returns { success: true, data: { items: [...] } }
+    const responseData = response.data || response;
+    // Ensure each property matches our Property interface
+    return {
+      items: (responseData.items || []).map(item => ({
+        ...item,
+        type: item.type as PropertyType,
+        status: item.status as PropertyStatus,
+      })),
+    };
+  }
+
+  async filterProperties(filters: {
+    type?: PropertyType[];
+    priceMin?: number;
+    priceMax?: number;
+    minArea?: number;
+    maxArea?: number;
+    location?: string;
+    features?: {
+      parking?: boolean;
+      furnished?: boolean;
+      aircon?: boolean;
+      wifi?: boolean;
+      security?: boolean;
+    };
+    query?: string;
+    limit?: number;
+  }): Promise<{ items: Property[] }> {
+    const searchParams = new URLSearchParams();
+    
+    // Add type filters
+    if (filters.type && filters.type.length > 0) {
+      filters.type.forEach(type => searchParams.append('type', type));
+    }
+    
+    // Add numeric filters
+    if (filters.priceMin !== undefined) searchParams.append('priceMin', filters.priceMin.toString());
+    if (filters.priceMax !== undefined) searchParams.append('priceMax', filters.priceMax.toString());
+    if (filters.minArea !== undefined) searchParams.append('minArea', filters.minArea.toString());
+    if (filters.maxArea !== undefined) searchParams.append('maxArea', filters.maxArea.toString());
+    
+    // Add string filters
+    if (filters.location) searchParams.append('location', filters.location);
+    if (filters.query) searchParams.append('query', filters.query);
+    
+    // Add feature filters
+    if (filters.features) {
+      if (filters.features.parking !== undefined) searchParams.append('parking', filters.features.parking.toString());
+      if (filters.features.furnished !== undefined) searchParams.append('furnished', filters.features.furnished.toString());
+      if (filters.features.aircon !== undefined) searchParams.append('aircon', filters.features.aircon.toString());
+      if (filters.features.wifi !== undefined) searchParams.append('wifi', filters.features.wifi.toString());
+      if (filters.features.security !== undefined) searchParams.append('security', filters.features.security.toString());
+    }
+    
+    // Add limit
+    if (filters.limit) searchParams.append('limit', filters.limit.toString());
 
     const response = await this.request<{ success: boolean; data: { items: any[] } }>(`/api/properties/search?${searchParams.toString()}`);
     // Handle nested response structure - the API returns { success: true, data: { items: [...] } }
