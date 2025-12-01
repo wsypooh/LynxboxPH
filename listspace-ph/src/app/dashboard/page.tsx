@@ -26,13 +26,13 @@ import {
   AlertIcon,
   useToast
 } from '@chakra-ui/react';
-import { FiSettings, FiLogOut, FiHome, FiUsers, FiFileText, FiPlus, FiUser } from 'react-icons/fi';
+import { FiHome, FiUsers, FiFileText, FiPlus } from 'react-icons/fi';
 import { useAuth } from '@/features/auth/AuthContext';
 import { getManagePropertyUrl } from '@/utils/routing';
 import { propertyService } from '@/services/propertyService';
 
 export default function DashboardPage() {
-  const { user, signOut, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
@@ -99,22 +99,6 @@ export default function DashboardPage() {
     }
   }, [user, isLoading, router]);
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      router.push('/');
-    } catch (error) {
-      console.error('Failed to sign out:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to sign out. Please try again.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
-
   if (isLoading || loading) {
     return (
       <Container maxW="container.xl" py={8} display="flex" justifyContent="center" alignItems="center" minH="60vh">
@@ -141,32 +125,6 @@ export default function DashboardPage() {
             </Heading>
             <Text color="gray.600">Here&apos;s what&apos;s happening with your properties</Text>
           </Box>
-          <Flex ml="auto" gap={3}>
-            <Button
-              leftIcon={<FiUser />}
-              variant="outline"
-              as={Link}
-              href="/dashboard/profile"
-            >
-              Profile
-            </Button>
-            <Button
-              leftIcon={<FiSettings />}
-              variant="outline"
-              as={Link}
-              href="/dashboard/settings"
-            >
-              Settings
-            </Button>
-            <Button
-              leftIcon={<FiLogOut />}
-              colorScheme="red"
-              variant="outline"
-              onClick={handleSignOut}
-            >
-              Sign Out
-            </Button>
-          </Flex>
         </Flex>
 
         {/* Stats */}

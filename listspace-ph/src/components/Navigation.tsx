@@ -68,7 +68,7 @@ export function Navigation() {
             {user ? (
               <>
                 <Link href={route('/dashboard/profile')}>
-                  <Button variant="outline" colorScheme="white" size="sm">
+                  <Button variant="solid" bg="blue.600" color="white" size="sm" _hover={{ bg: 'blue.700' }}>
                     My Account
                   </Button>
                 </Link>

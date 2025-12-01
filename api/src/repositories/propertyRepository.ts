@@ -168,9 +168,6 @@ export class PropertyRepository {
     sortBy?: 'price' | 'area' | 'date' | 'views',
     sortOrder?: 'asc' | 'desc'
   ): Promise<{ items: Property[]; lastEvaluatedKey?: Record<string, any> }> {
-    console.log('listByOwner called with ownerId:', ownerId);
-    console.log('Querying GSI1PK = USER#' + ownerId);
-    
     // Default sort is by date (most recent first)
     let scanIndexForward = false;
     
@@ -199,8 +196,6 @@ export class PropertyRepository {
       // If sorting by date ascending, reverse the default descending order
       items = items.reverse();
     }
-
-    console.log('Query returned', items.length, 'items');
 
     return {
       items,

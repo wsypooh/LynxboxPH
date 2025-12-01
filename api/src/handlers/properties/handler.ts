@@ -48,17 +48,14 @@ export class PropertyHandler {
       // Check for JWT claims first (always prioritize JWT)
       if (event.requestContext.authorizer?.claims?.sub) {
         userId = event.requestContext.authorizer.claims.sub;
-        console.log('createProperty: Using user ID from JWT claims:', userId);
       } 
       // Fallback to Cognito User ID from authorizer context
       else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
         userId = event.requestContext.authorizer.claims['cognito:username'];
-        console.log('createProperty: Using user ID from cognito:username:', userId);
       }
       // Development fallback (when no auth is present)
       else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
         userId = 'test-user-id';
-        console.log('createProperty: Development mode: using fallback userId:', userId);
       } else {
         return ApiResponse.unauthorized('User authentication required');
       }
@@ -403,17 +400,14 @@ export class PropertyHandler {
     // Check for JWT claims first (always prioritize JWT)
     if (event.requestContext.authorizer?.claims?.sub) {
       userId = event.requestContext.authorizer.claims.sub;
-      console.log('Using user ID from JWT claims:', userId);
     } 
     // Fallback to Cognito User ID from authorizer context
     else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
       userId = event.requestContext.authorizer.claims['cognito:username'];
-      console.log('Using user ID from cognito:username:', userId);
     }
     // Development fallback (when no auth is present)
     else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
       userId = event.queryStringParameters?.ownerId || 'test-user-id';
-      console.log('Development mode: using fallback userId:', userId);
     } else {
       return ApiResponse.unauthorized('User authentication required');
     }
