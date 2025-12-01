@@ -357,33 +357,6 @@ export class PropertyHandler {
     }
   }
 
-  static async listPropertiesByOwner(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      const ownerId = event.queryStringParameters?.ownerId;
-      const limit = parseInt(event.queryStringParameters?.limit || '10');
-      const lastEvaluatedKey = event.queryStringParameters?.lastKey 
-        ? JSON.parse(decodeURIComponent(event.queryStringParameters.lastKey))
-        : undefined;
-
-      if (!ownerId) {
-        return ApiResponse.error('Owner ID is required', 400);
-      }
-
-      const result = await PropertyRepository.listByOwner(ownerId, limit, lastEvaluatedKey);
-
-      const response: any = { items: result.items };
-      if (result.lastEvaluatedKey) {
-        response.lastKey = encodeURIComponent(JSON.stringify(result.lastEvaluatedKey));
-      }
-
-      return ApiResponse.success(response);
-
-    } catch (error) {
-      console.error('Error listing properties by owner:', error);
-      return ApiResponse.error('Failed to list properties by owner', 500);
-    }
-  }
-
   static async listProperties(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
     const type = event.queryStringParameters?.type;
@@ -763,6 +736,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   // Use path instead of resource for better local development compatibility
   const path = event.path || event.resource;
 
+  // Add detailed logging for debugging
+  console.log('=== REQUEST DEBUG ===');
+  console.log('HTTP Method:', httpMethod);
+  console.log('Path:', path);
+  console.log('Resource:', event.resource);
+  console.log('Path Parameters:', event.pathParameters);
+  console.log('Query Parameters:', event.queryStringParameters);
+  console.log('Headers:', event.headers);
+  console.log('===================');
+
   try {
     // Handle CORS preflight requests
     if (httpMethod === 'OPTIONS') {
@@ -780,29 +763,27 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Route the request to the appropriate handler method
-    // More specific routes first
+    // More specific routes first - ID routes before generic routes
     if (httpMethod === 'GET' && path.includes('/api/public/search')) {
       return PropertyHandler.searchPublicProperties(event);
-    } else if (httpMethod === 'GET' && path.match(/^\/api\/public\/properties\/[^\/]+$/)) {
-      // Matches /api/public/properties/{id} - regex ensures there's an ID after the path
+    } else if (httpMethod === 'GET' && path.includes('/api/public/properties') && event.pathParameters?.id) {
+      // Matches /api/public/properties/{id} - check for path parameter
       return PropertyHandler.getPublicProperty(event);
     } else if (httpMethod === 'GET' && path.includes('/api/public/properties')) {
       return PropertyHandler.listPublicProperties(event);
     } else if (httpMethod === 'GET' && path.includes('/api/properties/search')) {
       return PropertyHandler.searchProperties(event);
-    } else if (httpMethod === 'GET' && path.includes('/api/properties/by-owner')) {
-      return PropertyHandler.listPropertiesByOwner(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/properties') && event.pathParameters?.id) {
+      // Matches /api/properties/{id} - check for path parameter
+      return PropertyHandler.getProperty(event);
+    } else if (httpMethod === 'PUT' && path.includes('/api/properties') && event.pathParameters?.id) {
+      // Matches /api/properties/{id} - check for path parameter
+      return PropertyHandler.updateProperty(event);
+    } else if (httpMethod === 'DELETE' && path.includes('/api/properties') && event.pathParameters?.id) {
+      // Matches /api/properties/{id} - check for path parameter
+      return PropertyHandler.deleteProperty(event);
     } else if (httpMethod === 'POST' && path.endsWith('/api/properties')) {
       return PropertyHandler.createProperty(event);
-    } else if (httpMethod === 'GET' && path.match(/^\/api\/properties\/[^\/]+$/)) {
-      // Matches /api/properties/{id} - regex ensures there's an ID after the path
-      return PropertyHandler.getProperty(event);
-    } else if (httpMethod === 'PUT' && path.match(/^\/api\/properties\/[^\/]+$/)) {
-      // Matches /api/properties/{id} - regex ensures there's an ID after the path
-      return PropertyHandler.updateProperty(event);
-    } else if (httpMethod === 'DELETE' && path.match(/^\/api\/properties\/[^\/]+$/)) {
-      // Matches /api/properties/{id} - regex ensures there's an ID after the path
-      return PropertyHandler.deleteProperty(event);
     } else if (httpMethod === 'GET' && (path.endsWith('/api/properties') || path.includes('/api/properties?'))) {
       // Matches /api/properties or /api/properties?param=value (authenticated)
       return PropertyHandler.listProperties(event);
@@ -816,7 +797,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Matches /api/properties/{id}/images/view-url
       return PropertyHandler.getPresignedViewUrl(event);
     } else {
-      console.log('No route found for:', { httpMethod, path });
+      console.log('No route found for:', { httpMethod, path, resource: event.resource, pathParameters: event.pathParameters });
       return ApiResponse.error('Not Found', 404);
     }
   } catch (error) {

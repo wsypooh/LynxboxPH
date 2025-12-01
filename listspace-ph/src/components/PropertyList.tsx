@@ -38,7 +38,8 @@ import {
   Collapse,
   useDisclosure,
 } from '@chakra-ui/react';
-import { SearchIcon, FilterIcon, ChevronDownIcon, ChevronUpIcon } from '@chakra-ui/icons';
+import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from '@chakra-ui/icons';
+import { Filter } from 'lucide-react';
 import { Property, propertyService } from '@/services/propertyService';
 import { EditIcon, DeleteIcon, ViewIcon, PlusSquareIcon } from '@chakra-ui/icons';
 import { formatCurrency } from '@/lib/utils';
@@ -197,36 +198,31 @@ export function PropertyList({
         }
         
         // Apply sorting
-        filteredProperties.sort((a, b) => {
+        filteredProperties.sort((a, b): number => {
           let aValue: number | string;
           let bValue: number | string;
           
           switch (filters.sortBy) {
             case 'price':
-              aValue = a.price;
-              bValue = b.price;
+              aValue = a.price as number;
+              bValue = b.price as number;
               break;
             case 'area':
-              aValue = a.features.area;
-              bValue = b.features.area;
+              aValue = a.features.area as number;
+              bValue = b.features.area as number;
               break;
             case 'views':
-              aValue = a.viewCount || 0;
-              bValue = b.viewCount || 0;
+              aValue = (a.viewCount || 0) as number;
+              bValue = (b.viewCount || 0) as number;
               break;
             case 'date':
             default:
-              aValue = new Date(a.createdAt).getTime();
-              bValue = new Date(b.createdAt).getTime();
+              aValue = new Date(a.createdAt).getTime() as number;
+              bValue = new Date(b.createdAt).getTime() as number;
               break;
           }
           
-          if (typeof aValue === 'string' && typeof bValue === 'string') {
-            return filters.sortOrder === 'asc' 
-              ? aValue.localeCompare(bValue)
-              : bValue.localeCompare(aValue);
-          }
-          
+          // Since all our sort fields are numeric, we can use numeric comparison
           return filters.sortOrder === 'asc' 
             ? (aValue as number) - (bValue as number)
             : (bValue as number) - (aValue as number);
@@ -486,7 +482,7 @@ export function PropertyList({
           </Select>
           
           <Button
-            leftIcon={<FilterIcon />}
+            leftIcon={<Filter size={16} />}
             variant="outline"
             onClick={onFilterToggle}
             rightIcon={isFilterOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}

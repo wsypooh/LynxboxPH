@@ -503,7 +503,7 @@ export default function PropertiesPage() {
         {!loading && !hasMore && properties.length > 0 && (
           <Flex justify="center" py={4}>
             <Text color="gray.500" fontSize="sm">
-              You've reached the end of the available properties
+              You&apos;ve reached the end of the available properties
             </Text>
           </Flex>
         )}

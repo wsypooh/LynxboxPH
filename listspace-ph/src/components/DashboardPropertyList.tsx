@@ -80,6 +80,11 @@ interface PropertySearchParams {
   filters?: FilterState;
 }
 
+interface TableSortState {
+  sortBy: 'price' | 'area' | 'date' | 'views' | 'status';
+  sortOrder: 'asc' | 'desc';
+}
+
 interface DashboardPropertyListProps {
   onView?: (property: Property) => void;
   onEdit?: (property: Property) => void;
@@ -124,6 +129,7 @@ export function DashboardPropertyList({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchParams, setSearchParams] = useState<PropertySearchParams>(initializeSearchParams)
+  const [tableSort, setTableSort] = useState<TableSortState>({ sortBy: 'date', sortOrder: 'desc' })
   const [hasMore, setHasMore] = useState(false)
   const [lastKey, setLastKey] = useState<string | undefined>()
   const [totalCount, setTotalCount] = useState(0)
@@ -141,6 +147,98 @@ export function DashboardPropertyList({
       console.error('Error saving search params to localStorage:', error);
     }
   }, [searchParams]);
+
+  // Apply table sorting when switching to table view or changing table sort
+  useEffect(() => {
+    if (viewMode === 'table' && properties.length > 0) {
+      const sortedProperties = [...properties].sort((a, b) => {
+        let aValue: string | number;
+        let bValue: string | number;
+        
+        switch (tableSort.sortBy) {
+          case 'price':
+            aValue = a.price;
+            bValue = b.price;
+            break;
+          case 'area':
+            aValue = a.features.area;
+            bValue = b.features.area;
+            break;
+          case 'views':
+            aValue = a.viewCount || 0;
+            bValue = b.viewCount || 0;
+            break;
+          case 'status':
+            aValue = a.status;
+            bValue = b.status;
+            break;
+          case 'date':
+          default:
+            aValue = new Date(a.createdAt).getTime();
+            bValue = new Date(b.createdAt).getTime();
+            break;
+        }
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return tableSort.sortOrder === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+        
+        return tableSort.sortOrder === 'asc' 
+          ? (aValue as number) - (bValue as number)
+          : (bValue as number) - (aValue as number);
+      });
+      
+      setProperties(sortedProperties);
+    }
+  }, [tableSort]);
+
+  // Apply table sorting when switching to table view
+  useEffect(() => {
+    if (viewMode === 'table' && properties.length > 0) {
+      const sortedProperties = [...properties].sort((a, b) => {
+        let aValue: string | number;
+        let bValue: string | number;
+        
+        switch (tableSort.sortBy) {
+          case 'price':
+            aValue = a.price;
+            bValue = b.price;
+            break;
+          case 'area':
+            aValue = a.features.area;
+            bValue = b.features.area;
+            break;
+          case 'views':
+            aValue = a.viewCount || 0;
+            bValue = b.viewCount || 0;
+            break;
+          case 'status':
+            aValue = a.status;
+            bValue = b.status;
+            break;
+          case 'date':
+          default:
+            aValue = new Date(a.createdAt).getTime();
+            bValue = new Date(b.createdAt).getTime();
+            break;
+        }
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return tableSort.sortOrder === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+        
+        return tableSort.sortOrder === 'asc' 
+          ? (aValue as number) - (bValue as number)
+          : (bValue as number) - (aValue as number);
+      });
+      
+      setProperties(sortedProperties);
+    }
+  }, [viewMode]);
 
   // Sync ref with state
   useEffect(() => {
@@ -481,6 +579,11 @@ export function DashboardPropertyList({
     loadProperties(true) // Always reset pagination for new searches/filters
   }, [searchParams.query, searchParams.filters, hasActiveFilters])
 
+  // Handle sort by dropdown changes
+  useEffect(() => {
+    loadProperties(true) // Reset pagination when sort changes
+  }, [searchParams.sortBy, searchParams.sortOrder]);
+
   useEffect(() => {
     loadProperties(true) // Reset when refreshTrigger changes
   }, [refreshTrigger]);
@@ -514,16 +617,15 @@ export function DashboardPropertyList({
   }
 
   const handleTableSort = (field: 'price' | 'area' | 'date' | 'views' | 'status') => {
-    const newSortOrder = searchParams.sortBy === field && searchParams.sortOrder === 'asc' ? 'desc' : 'asc'
+    const newSortOrder = tableSort.sortBy === field && tableSort.sortOrder === 'asc' ? 'desc' : 'asc'
     
-    // Update search params without triggering useEffect
-    setSearchParams(prev => ({
-      ...prev,
+    // Update table sort state only
+    setTableSort({
       sortBy: field,
       sortOrder: newSortOrder
-    }))
+    })
     
-    // Sort existing properties immediately
+    // Sort existing properties immediately using table sort
     const sortedProperties = [...properties].sort((a, b) => {
       let aValue: string | number;
       let bValue: string | number;
@@ -567,8 +669,8 @@ export function DashboardPropertyList({
   }
 
   const getSortIcon = (field: 'price' | 'area' | 'date' | 'views' | 'status') => {
-    if (searchParams.sortBy !== field) return null
-    return searchParams.sortOrder === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+    if (tableSort.sortBy !== field) return null
+    return tableSort.sortOrder === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
   }
 
   const [filters, setFilters] = useState<FilterState>(
@@ -1152,7 +1254,7 @@ export function DashboardPropertyList({
       {!loading && !hasMore && properties.length > 0 && (
         <Flex justify="center" py={4}>
           <Text color="gray.500" fontSize="sm">
-            You've reached the end of your properties
+            You&apos;ve reached the end of your properties
           </Text>
         </Flex>
       )}
