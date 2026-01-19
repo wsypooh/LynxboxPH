@@ -139,62 +139,70 @@ if (-not $SkipBuild) {
 
     Push-Location $AppPath
     try {
-        # Create environment-specific .env file from Terraform outputs
-        $envFile = ".env.$Environment"
+        # Backup .env.local if it exists and temporarily rename it to ensure .env.dev is used
+        $envLocalPath = ".env.local"
+        $envLocalBackup = ".env.local.backup"
+        $envLocalExists = Test-Path $envLocalPath
         
-        Write-Host "Creating $envFile from Terraform outputs..." -ForegroundColor Cyan
+        if ($envLocalExists) {
+            Write-Host "Temporarily backing up .env.local to ensure .env is used for build..." -ForegroundColor Yellow
+            Rename-Item -Path $envLocalPath -NewName $envLocalBackup
+        }
         
-        # Get additional Terraform outputs for environment variables
-        $apiUrl = ""
         try {
-            $apiUrl = (terraform output -raw api_url) 2>$null
-        } catch {}
-        $apiUrl = $apiUrl.Trim()
-        
-        $cognitoDomain = ""
-        try {
-            $cognitoDomain = (terraform output -raw cognito_domain) 2>$null
-        } catch {}
-        $cognitoDomain = $cognitoDomain.Trim()
-        
-        # Create environment file with Terraform outputs
-        $envContent = @"
-# Environment: $Environment (injected from Terraform)
-NEXT_PUBLIC_ENV=$Environment
-NEXT_PUBLIC_API_URL=$apiUrl
-NEXT_PUBLIC_APP_URL=$frontendUrl
-NEXT_PUBLIC_COGNITO_DOMAIN=$cognitoDomain
-
-# AWS Configuration (from Terraform)
-NEXT_PUBLIC_AWS_REGION=$AwsRegion
-NEXT_PUBLIC_AWS_USER_POOL_ID=$(terraform output -raw user_pool_id 2>$null)
-NEXT_PUBLIC_AWS_USER_POOL_WEB_CLIENT_ID=$(terraform output -raw user_pool_client_id 2>$null)
-NEXT_PUBLIC_AWS_IDENTITY_POOL_ID=$(terraform output -raw identity_pool_id 2>$null)
-
-# DynamoDB Configuration (from Terraform)
-NEXT_PUBLIC_AWS_DYNAMODB_TABLE_PROPERTIES=$(terraform output -raw dynamodb_table_properties 2>$null)
-NEXT_PUBLIC_AWS_DYNAMODB_TABLE_USERS=$(terraform output -raw dynamodb_table_users 2>$null)
-NEXT_PUBLIC_AWS_DYNAMODB_TABLE_INVOICES=$(terraform output -raw dynamodb_table_invoices 2>$null)
-
-# S3 Configuration (from Terraform)
-NEXT_PUBLIC_AWS_S3_BUCKET=$(terraform output -raw s3_bucket_name 2>$null)
-"@
-        
-        $envContent | Out-File -FilePath $envFile -Encoding UTF8
-        Write-Host "✓ Created $envFile with Terraform outputs" -ForegroundColor Green
+            # Create environment-specific .env file from Terraform outputs
+            Write-Host "Creating .env from Terraform outputs for $Environment..." -ForegroundColor Cyan
+            
+            # Use the update-env-files.ps1 script to generate the environment file properly
+            Write-Host "Generating environment file using update-env-files.ps1..." -ForegroundColor Cyan
+            $updateEnvScript = Join-Path $PSScriptRoot "update-env-files.ps1"
+            $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+            ExecOrFail "& `"$updateEnvScript`" -Environment `"$Environment`" -ProjectRoot `"$projectRoot`"" "Failed to generate environment file"
         
         $useYarn = Test-Path "yarn.lock"
         $usePnpm = Test-Path "pnpm-lock.yaml"
-        $useNpm  = (Test-Path "package-lock.json") -or (-not $useYarn -and -not $usePnpm)
 
         if ($useYarn) {
             ExecOrFail "yarn install --frozen-lockfile" "yarn install failed"
+            # Explicitly load environment variables from .env before build
+            Write-Host "Loading environment variables from .env..." -ForegroundColor Cyan
+            Get-Content ".env" | ForEach-Object {
+                if ($_ -match '^NEXT_PUBLIC_(.+)=(.*)$') {
+                    $name = $matches[1]
+                    $value = $matches[2]
+                    $envName = "NEXT_PUBLIC_$name"
+                    Write-Host "Setting $envName=$value" -ForegroundColor DarkGray
+                    [System.Environment]::SetEnvironmentVariable($envName, $value)
+                }
+            }
             ExecOrFail "yarn build" "yarn build failed"
         } elseif ($usePnpm) {
             ExecOrFail "pnpm install --frozen-lockfile" "pnpm install failed"
+            # Explicitly load environment variables from .env before build
+            Write-Host "Loading environment variables from .env..." -ForegroundColor Cyan
+            Get-Content ".env" | ForEach-Object {
+                if ($_ -match '^NEXT_PUBLIC_(.+)=(.*)$') {
+                    $name = $matches[1]
+                    $value = $matches[2]
+                    $envName = "NEXT_PUBLIC_$name"
+                    Write-Host "Setting $envName=$value" -ForegroundColor DarkGray
+                    [System.Environment]::SetEnvironmentVariable($envName, $value)
+                }
+            }
             ExecOrFail "pnpm build" "pnpm build failed"
         } else {
             ExecOrFail "npm ci" "npm ci failed"
+            # Explicitly load environment variables from .env before build
+            Write-Host "Loading environment variables from .env..." -ForegroundColor Cyan
+            Get-Content ".env" | ForEach-Object {
+                if ($_ -match '^NEXT_PUBLIC_(.+)=(.*)$') {
+                    $name = $matches[1]
+                    $value = $matches[2]
+                    $envName = "NEXT_PUBLIC_$name"
+                    Write-Host "Setting $envName=$value" -ForegroundColor DarkGray
+                    [System.Environment]::SetEnvironmentVariable($envName, $value)
+                }
+            }
             ExecOrFail "npm run build" "npm run build failed"
         }
 
@@ -203,9 +211,24 @@ NEXT_PUBLIC_AWS_S3_BUCKET=$(terraform output -raw s3_bucket_name 2>$null)
             throw "Could not find static export directory '$artifactDir'. Ensure next.config.js has output: 'export' and that 'next build' succeeded."
         }
         Write-Host "Build artifact: $artifactDir"
-    } finally {
-        Pop-Location
-    }
+        } finally {
+            # Restore .env.local if it was backed up
+            if ($envLocalExists -and (Test-Path $envLocalBackup)) {
+                Write-Host "Restoring .env.local from backup..." -ForegroundColor Yellow
+                Rename-Item -Path $envLocalBackup -NewName $envLocalPath
+            }
+            Pop-Location
+        }
+        } catch {
+            Write-Host "Build failed: $_" -ForegroundColor Red
+            # Ensure .env.local is restored even on error
+            if ($envLocalExists -and (Test-Path $envLocalBackup)) {
+                Write-Host "Restoring .env.local from backup after error..." -ForegroundColor Yellow
+                Rename-Item -Path $envLocalBackup -NewName $envLocalPath
+            }
+            Pop-Location
+            throw
+        }
 } else {
     Write-Host "Skipping build as requested (-SkipBuild)." -ForegroundColor Yellow
 }

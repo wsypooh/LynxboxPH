@@ -12,11 +12,11 @@ resource "aws_s3_bucket" "objects" {
 resource "aws_s3_bucket_public_access_block" "objects" {
   bucket = aws_s3_bucket.objects.id
 
-  # Allow public access to the bucket
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  # Block all public access to the bucket
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 
   # Ensure the bucket owner has full control
   depends_on = [aws_s3_bucket_ownership_controls.objects]
@@ -79,25 +79,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "objects" {
   }
 }
 
-resource "aws_s3_bucket_policy" "public_read" {
-  bucket = aws_s3_bucket.objects.id
-
-  # Ensure the bucket policy is applied after the public access block
-  depends_on = [aws_s3_bucket_public_access_block.objects]
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid       = "PublicReadGetObject"
-        Effect    = "Allow"
-        Principal = "*"
-        Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.objects.arn}/*"
-      }
-    ]
-  })
-}
+# Note: Public bucket policy removed - access is now restricted to authenticated users only
+# Images will be served through the API with proper authentication
 
 # IAM policy to allow the API to access the S3 bucket
 data "aws_iam_policy_document" "s3_access" {

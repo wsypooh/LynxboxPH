@@ -11,19 +11,22 @@ interface SecureImageProps {
   onError?: (error: any) => void;
   cacheUrls?: boolean; // Whether to cache URLs in the hook
   onClick?: () => void; // Add onClick handler
+  usePublicEndpoint?: boolean; // Whether to use public endpoint (no auth)
 }
 
-export const SecureImage: React.FC<SecureImageProps> = ({
-  propertyId,
-  imageKey,
-  alt,
-  className = '',
-  fallbackClassName = '',
-  onLoad,
-  onError,
-  cacheUrls = true,
-  onClick
-}) => {
+export const SecureImage: React.FC<SecureImageProps> = (props) => {
+  const {
+    propertyId,
+    imageKey,
+    alt,
+    className = '',
+    fallbackClassName = '',
+    onLoad,
+    onError,
+    cacheUrls = true,
+    usePublicEndpoint,
+    onClick
+  } = props;
   const [imageUrl, setImageUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -39,7 +42,13 @@ export const SecureImage: React.FC<SecureImageProps> = ({
       
       // Use secure temporary URL with 1-hour expiration
       try {
-        const imageUrls = await propertyService.getPropertyImageUrls(propertyId, [imageKey]);
+        // Default to public endpoint for property detail pages (safer default)
+        // Also force public endpoint if propertyId exists (likely property detail page)
+        const usePublic = usePublicEndpoint === true || usePublicEndpoint === undefined || propertyId;
+        
+        const imageUrls = usePublic 
+          ? await propertyService.getPublicPropertyImageUrls(propertyId, [imageKey])
+          : await propertyService.getPropertyImageUrls(propertyId, [imageKey]);
         const temporaryUrl = imageUrls[imageKey];
         
         // Validate that we got a proper URL

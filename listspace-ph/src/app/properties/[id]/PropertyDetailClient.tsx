@@ -174,6 +174,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
               imageKey={property?.images?.[currentImageIndex] || ''}
               alt={property?.title || 'Property'}
               className="w-full h-full object-cover rounded-lg"
+              usePublicEndpoint={true}
             />
           </AspectRatio>
           
@@ -197,6 +198,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
                     alt={`${property?.title || 'Property'} - Image ${index + 1}`}
                     className="w-full h-full object-cover"
                     onClick={() => setCurrentImageIndex(index)}
+                    usePublicEndpoint={true}
                   />
                 </Box>
               ))}

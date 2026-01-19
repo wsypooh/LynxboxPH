@@ -399,6 +399,26 @@ class PropertyService {
     return urls;
   }
 
+  async getPublicPropertyImageUrls(propertyId: string, imageKeys: string[]): Promise<{ [key: string]: string }> {
+    const urls: { [key: string]: string } = {};
+    
+    for (const imageKey of imageKeys) {
+      try {
+        const endpoint = `/api/public/properties/${propertyId}/images/view-url?imageKey=${encodeURIComponent(imageKey)}`;
+        
+        const response = await this.request<{ success: boolean; data: { viewUrl: string } }>(endpoint, {}, false); // No auth required
+        
+        urls[imageKey] = response.data?.viewUrl || imageKey;
+      } catch (error) {
+        console.error(`Failed to get public presigned URL for image ${imageKey}:`, error);
+        // Fallback to direct URL
+        urls[imageKey] = imageKey;
+      }
+    }
+    
+    return urls;
+  }
+
   async uploadPropertyImage(
     propertyId: string,
     file: File,

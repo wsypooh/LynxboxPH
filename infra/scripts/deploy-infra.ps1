@@ -75,69 +75,6 @@ function Select-Workspace {
     }
 }
 
-# Function to generate .env.local file with Terraform outputs
-function Generate-EnvFile {
-    param (
-        [string]$Environment,
-        [string]$ProjectRoot = "$PSScriptRoot\..\.."
-    )
-    
-    Write-Host "`nGenerating .env.local file..." -ForegroundColor Cyan
-    
-    try {
-        # Get Terraform outputs as JSON
-        $tfOutput = terraform output -json
-        if ($LASTEXITCODE -ne 0) {
-            Write-Warning "Failed to get Terraform outputs. .env.local file will not be generated."
-            return
-        }
-        
-        $outputs = $tfOutput | ConvertFrom-Json -AsHashtable
-        
-        # Define the path to the .env.local file
-        $envFile = "$ProjectRoot\listspace-ph\.env.local"
-        
-        # Create the directory if it doesn't exist
-        $envDir = Split-Path -Path $envFile -Parent
-        if (-not (Test-Path $envDir)) {
-            New-Item -ItemType Directory -Path $envDir -Force | Out-Null
-        }
-        
-        # Create the .env.local content
-        $envContent = @"
-# AWS Configuration
-NEXT_PUBLIC_AWS_REGION=ap-southeast-1
-NEXT_PUBLIC_AWS_USER_POOL_ID=$($outputs.cognito_user_pool_id.value)
-NEXT_PUBLIC_AWS_USER_POOL_WEB_CLIENT_ID=$($outputs.cognito_user_pool_client_id.value)
-NEXT_PUBLIC_AWS_IDENTITY_POOL_ID=$($outputs.cognito_identity_pool_id.value)
-
-# DynamoDB Configuration
-NEXT_PUBLIC_AWS_DYNAMODB_TABLE_PROPERTIES=$($outputs.dynamodb_table_name.value)
-NEXT_PUBLIC_AWS_DYNAMODB_TABLE_USERS=$($outputs.dynamodb_table_name.value)-users
-NEXT_PUBLIC_AWS_DYNAMODB_TABLE_INVOICES=$($outputs.dynamodb_table_name.value)-invoices
-
-# S3 Configuration
-NEXT_PUBLIC_AWS_S3_BUCKET=$($outputs.s3_bucket_name.value)
-
-# API Configuration
-NEXT_PUBLIC_API_URL=$($outputs.api_gateway_url.value)
-NEXT_PUBLIC_APP_URL=$($outputs.frontend_url.value)
-NEXT_PUBLIC_COGNITO_DOMAIN=$($outputs.cognito_user_pool_domain.value).auth.ap-southeast-1.amazoncognito.com
-
-# Environment
-NEXT_PUBLIC_ENV=$Environment
-"@
-
-        # Write to .env.local
-        $envContent | Out-File -FilePath $envFile -Encoding utf8 -Force
-        
-        Write-Host "Successfully generated .env.local file at: $envFile" -ForegroundColor Green
-        
-    } catch {
-        Write-Warning "Error generating .env.local file: $_"
-    }
-}
-
 # Main execution
 try {
     # Check requirements
@@ -203,8 +140,9 @@ try {
     # Output any important information
     Write-Host "`nDeployment completed successfully!" -ForegroundColor Green
     
-    # Generate .env.local file after successful deployment
-    Generate-EnvFile -Environment $Environment
+    # Update environment files after successful deployment
+    Write-Host "`nUpdating environment files..." -ForegroundColor Cyan
+    & "$PSScriptRoot\update-env-files.ps1" -Environment $Environment
     
 } catch {
     Write-Error "Deployment failed: $_"

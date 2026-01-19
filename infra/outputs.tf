@@ -9,6 +9,11 @@ output "s3_bucket_name" {
   value       = module.frontend.s3_bucket_name
 }
 
+output "s3_objects_bucket_name" {
+  description = "Name of the S3 bucket for objects/images"
+  value       = module.s3.bucket_name
+}
+
 # Cognito Outputs
 output "cognito_user_pool_id" {
   description = "ID of the Cognito User Pool"

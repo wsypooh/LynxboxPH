@@ -115,6 +115,13 @@ resource "aws_apigatewayv2_route" "search_public_properties" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Public Property Image View URL Route (No Authentication)
+resource "aws_apigatewayv2_route" "get_public_view_url" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /api/public/properties/{id}/images/view-url"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 # OPTIONS routes for public endpoints
 resource "aws_apigatewayv2_route" "options_public_properties" {
   api_id    = aws_apigatewayv2_api.main.id

@@ -7,6 +7,13 @@ import { handler } from './dist/handlers/properties/handler';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
+// Log environment variables for debugging
+console.log('=== ENVIRONMENT DEBUG ===');
+console.log('S3_BUCKET_NAME:', process.env.S3_BUCKET_NAME);
+console.log('DYNAMODB_TABLE:', process.env.DYNAMODB_TABLE);
+console.log('AWS_REGION:', process.env.AWS_REGION);
+console.log('========================');
+
 // Force AWS SDK to use credentials from environment variables
 process.env.AWS_SDK_LOAD_CONFIG = 'true';
 
@@ -179,6 +186,10 @@ app.all('/api/properties/:id/images/upload-url', async (req, res) => {
 });
 
 app.all('/api/properties/:id/images/view-url', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+app.all('/api/public/properties/:id/images/view-url', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 

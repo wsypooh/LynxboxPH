@@ -79,7 +79,7 @@ try {
     $outputs = $tfOutput | ConvertFrom-Json -AsHashtable
     
     # Define the path to the environment file
-    $envFile = "$ProjectRoot\listspace-ph\.env.$Environment"
+    $envFile = "$ProjectRoot\listspace-ph\.env"
     
     # Create the directory if it doesn't exist
     $envDir = Split-Path -Path $envFile -Parent
@@ -104,7 +104,7 @@ NEXT_PUBLIC_AWS_DYNAMODB_TABLE_USERS=$($outputs.dynamodb_table_name.value)-users
 NEXT_PUBLIC_AWS_DYNAMODB_TABLE_INVOICES=$($outputs.dynamodb_table_name.value)-invoices
 
 # S3 Configuration
-NEXT_PUBLIC_AWS_S3_BUCKET=$($outputs.s3_bucket_name.value)
+NEXT_PUBLIC_AWS_S3_BUCKET=$($outputs.s3_objects_bucket_name.value)
 
 # API Configuration
 NEXT_PUBLIC_API_URL=$($outputs.api_gateway_url.value)
