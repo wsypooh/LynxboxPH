@@ -817,7 +817,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Route the request to the appropriate handler method
-    // More specific routes first - ID routes before generic routes
+    // More specific routes first - Image routes before generic property routes
     if (httpMethod === 'GET' && path.includes('/api/public/search')) {
       return PropertyHandler.searchPublicProperties(event);
     } else if (httpMethod === 'GET' && path.includes('/api/public/properties') && event.pathParameters?.id) {
@@ -827,6 +827,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return PropertyHandler.listPublicProperties(event);
     } else if (httpMethod === 'GET' && path.includes('/api/properties/search')) {
       return PropertyHandler.searchProperties(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.includes('/images/view-url')) {
+      // Matches /api/properties/{id}/images/view-url - MUST come before generic /api/properties/{id}
+      return PropertyHandler.getPresignedViewUrl(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.includes('/images/upload-url')) {
+      // Matches /api/properties/{id}/images/upload-url - MUST come before generic /api/properties/{id}
+      return PropertyHandler.getPresignedUploadUrl(event);
+    } else if (httpMethod === 'POST' && path.includes('/api/properties/') && path.includes('/images')) {
+      // Matches /api/properties/{id}/images - MUST come before generic /api/properties/{id}
+      return PropertyHandler.uploadPropertyImage(event);
     } else if (httpMethod === 'GET' && path.includes('/api/properties') && event.pathParameters?.id) {
       // Matches /api/properties/{id} - check for path parameter
       return PropertyHandler.getProperty(event);
@@ -841,15 +850,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } else if (httpMethod === 'GET' && (path.endsWith('/api/properties') || path.includes('/api/properties?'))) {
       // Matches /api/properties or /api/properties?param=value (authenticated)
       return PropertyHandler.listProperties(event);
-    } else if (httpMethod === 'POST' && path.includes('/api/properties/') && path.includes('/images')) {
-      // Matches /api/properties/{id}/images
-      return PropertyHandler.uploadPropertyImage(event);
-    } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.includes('/images/upload-url')) {
-      // Matches /api/properties/{id}/images/upload-url
-      return PropertyHandler.getPresignedUploadUrl(event);
-    } else if (httpMethod === 'GET' && path.includes('/api/properties/') && path.includes('/images/view-url')) {
-      // Matches /api/properties/{id}/images/view-url
-      return PropertyHandler.getPresignedViewUrl(event);
     } else {
       console.log('No route found for:', { httpMethod, path, resource: event.resource, pathParameters: event.pathParameters });
       return ApiResponse.error('Not Found', 404);

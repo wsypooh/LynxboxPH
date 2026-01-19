@@ -382,15 +382,11 @@ class PropertyService {
   async getPropertyImageUrls(propertyId: string, imageKeys: string[]): Promise<{ [key: string]: string }> {
     const urls: { [key: string]: string } = {};
     
-    console.log(`Getting image URLs for property: ${propertyId}, imageKeys: ${imageKeys}`);
-    
     for (const imageKey of imageKeys) {
       try {
         const endpoint = `/api/properties/${propertyId}/images/view-url?imageKey=${encodeURIComponent(imageKey)}`;
-        console.log(`Making request to: ${API_BASE_URL}${endpoint}`);
         
         const response = await this.request<{ success: boolean; data: { viewUrl: string } }>(endpoint, {}, true); // Auth required
-        console.log(`Response for imageKey ${imageKey}:`, response);
         
         urls[imageKey] = response.data?.viewUrl || imageKey;
       } catch (error) {
@@ -400,7 +396,6 @@ class PropertyService {
       }
     }
     
-    console.log(`Final URLs:`, urls);
     return urls;
   }
 

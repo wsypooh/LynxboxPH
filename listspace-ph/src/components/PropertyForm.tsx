@@ -211,21 +211,16 @@ export function PropertyForm({
 
   const removeImage = useCallback((index: number) => {
     const removedImage = imagePreviews[index];
-    console.log('Removing image at index:', index, 'removedImage:', removedImage);
-    console.log('selectedImages length:', selectedImages.length);
     
     // For new images, remove from both selectedImages and imagePreviews
     if (index < selectedImages.length) {
-      console.log('Removing new image');
       setSelectedImages(prev => prev.filter((_, i) => i !== index));
       setImagePreviews(prev => prev.filter((_, i) => i !== index));
     } else {
       // For existing images, add to removedImages list and remove from previews
-      console.log('Removing existing image, adding to removedImages');
       if (removedImage) {
         setRemovedImages(prev => {
           const updated = [...prev, removedImage];
-          console.log('Updated removedImages:', updated);
           return updated;
         });
       }
@@ -249,25 +244,11 @@ export function PropertyForm({
   // Load existing images when editing
   useEffect(() => {
     if (isEditing && initialData?.images) {
-      console.log('Loading existing images for editing:', initialData.images);
       setImagePreviews(initialData.images);
       setDefaultImageIndex(initialData.defaultImageIndex ?? 0);
     }
   }, [isEditing, initialData]);
 
-  // Debug imagePreviews changes
-  useEffect(() => {
-    console.log('imagePreviews state updated:', {
-      length: imagePreviews.length,
-      previews: imagePreviews.map((p, i) => ({
-        index: i,
-        type: typeof p,
-        isDataUrl: p.startsWith?.('data:image/'),
-        isS3Key: p.includes('/') && !p.startsWith?.('data:'),
-        preview: p.substring(0, 50) + (p.length > 50 ? '...' : '')
-      }))
-    });
-  }, [imagePreviews]);
 
   const onSubmit = async (data: PropertyFormData) => {
     try {
@@ -325,11 +306,6 @@ export function PropertyForm({
         ...(!isEditing && userId && { ownerId: userId }),
       };
 
-      console.log('Update data:', {
-        base64ImagesCount: base64Images.length,
-        removedImagesCount: removedImages.length,
-        removedImages: removedImages,
-      });
 
       let result;
       if (isEditing && propertyId) {
@@ -691,8 +667,8 @@ export function PropertyForm({
                                     propertyId={propertyId}
                                     imageKey={preview}
                                     alt={`Preview ${index + 1}`}
-                                    className="w-full h-full object-cover"
-                                    fallbackClassName="w-full h-full bg-gray-100"
+                                    className="w-[150px] h-[150px] object-cover"
+                                    fallbackClassName="w-[150px] h-[150px] bg-gray-100"
                                     onError={(error) => {
                                       console.error(`SecureImage error for index ${index}:`, error);
                                     }}
@@ -710,7 +686,7 @@ export function PropertyForm({
                                       console.error('Error event:', e);
                                     }}
                                     onLoad={() => {
-                                      console.log(`Image preview loaded successfully for index ${index}:`, preview.substring(0, 50) + '...');
+                                      // Image loaded successfully
                                     }}
                                   />
                                 )}

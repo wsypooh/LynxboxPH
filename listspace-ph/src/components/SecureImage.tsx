@@ -37,25 +37,31 @@ export const SecureImage: React.FC<SecureImageProps> = ({
       setIsLoading(true);
       setHasError(false);
       
-      console.log(`=== SECURE IMAGE DEBUG ===`);
-      console.log(`Fetching image URL for property: ${propertyId}, imageKey: ${imageKey}, attempt: ${attempt + 1}`);
-      console.log(`API_BASE_URL: ${process.env.NEXT_PUBLIC_API_URL}`);
+      // Use secure temporary URL with 1-hour expiration
+      try {
+        const imageUrls = await propertyService.getPropertyImageUrls(propertyId, [imageKey]);
+        const temporaryUrl = imageUrls[imageKey];
+        
+        // Validate that we got a proper URL
+        if (!temporaryUrl || temporaryUrl === imageKey || !temporaryUrl.startsWith('http')) {
+          console.warn(`Invalid temporary URL received: ${temporaryUrl}, falling back to direct S3 URL`);
+          // Fallback to direct S3 URL
+          const directS3Url = `https://listspace-ph-objects-dev-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/${imageKey}`;
+          setImageUrl(directS3Url);
+        } else {
+          setImageUrl(temporaryUrl);
+        }
+      } catch (apiError) {
+        console.error(`API call failed, falling back to direct S3 URL:`, apiError);
+        // Fallback to direct S3 URL
+        const directS3Url = `https://listspace-ph-objects-dev-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/${imageKey}`;
+        setImageUrl(directS3Url);
+      }
       
-      // TEMPORARY: Use direct S3 URL for testing
-      const directS3Url = `https://listspace-ph-objects-dev-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/${imageKey}`;
-      console.log(`Using direct S3 URL: ${directS3Url}`);
-      
-      setImageUrl(directS3Url);
       setIsLoading(false); // Explicitly set loading to false
       
     } catch (error: any) {
       console.error(`Error fetching image URL (attempt ${attempt + 1}):`, error);
-      console.error(`Error details:`, {
-        message: error?.message || 'Unknown error',
-        stack: error?.stack,
-        propertyId,
-        imageKey
-      });
       
       // Retry logic
       if (attempt < maxRetries - 1) {
@@ -77,17 +83,12 @@ export const SecureImage: React.FC<SecureImageProps> = ({
   }, [propertyId, imageKey, retryCount]);
 
   const handleImageLoad = () => {
-    console.log('=== IMAGE LOADED SUCCESSFULLY ===');
-    console.log(`Image URL: ${imageUrl}`);
     setIsLoading(false);
     setHasError(false);
     onLoad?.();
   };
 
   const handleImageError = (error: any) => {
-    console.log('=== IMAGE LOAD ERROR ===');
-    console.log(`Image URL: ${imageUrl}`);
-    console.log(`Error event:`, error);
     setIsLoading(false);
     setHasError(true);
     onError?.(error);
@@ -130,11 +131,6 @@ export const SecureImage: React.FC<SecureImageProps> = ({
   }
 
   // Success state
-  console.log('=== RENDERING IMAGE ===');
-  console.log(`Image URL: ${imageUrl}`);
-  console.log(`Loading state: ${isLoading}`);
-  console.log(`Error state: ${hasError}`);
-  
   return (
     <img
       src={imageUrl}
