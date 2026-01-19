@@ -383,7 +383,14 @@ export class PropertyRepository {
     status?: string;   // For status filtering (e.g., 'available')
     sortBy?: 'price' | 'area' | 'date' | 'views';
     sortOrder?: 'asc' | 'desc';
-  }): Promise<Property[]> {
+    lastKey?: any;     // For pagination
+  }): Promise<{ items: Property[]; lastKey?: any }> {
+    console.log('=== PROPERTY FILTER DEBUG ===');
+    console.log('Received filters:', JSON.stringify(filters, null, 2));
+    console.log('DynamoDB scan limit:', (filters.limit || 50) * 5);
+    console.log('Filtering for types:', filters.type);
+    console.log('Filtering for status:', filters.status);
+    
     // Build filter expression based on provided filters
     let filterExpression = 'begins_with(PK, :pkPrefix)';
     let expressionAttributeNames: Record<string, string> = {};
@@ -406,28 +413,42 @@ export class PropertyRepository {
 
     // For now, we'll get filtered properties and apply complex filters in memory
     // DynamoDB FilterExpression has limitations with nested attributes
-    const { Items = [] } = await ddbDocClient.send(new ScanCommand({
+    const scanParams: any = {
       TableName: TABLE_NAME,
       FilterExpression: filterExpression,
       ExpressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
       ExpressionAttributeValues: expressionAttributeValues,
-      Limit: (filters.limit || 50) * 2 // Get more items for in-memory filtering
-    }));
+      Limit: (filters.limit || 50) * 5 // Get more items for in-memory filtering
+    };
+    
+    // Add pagination if lastKey is provided
+    if (filters.lastKey) {
+      scanParams.ExclusiveStartKey = filters.lastKey;
+    }
+    
+    const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new ScanCommand(scanParams));
 
     const properties = Items as Property[];
+    console.log(`DynamoDB returned ${properties.length} items`);
+    console.log('LastEvaluatedKey:', LastEvaluatedKey ? 'Present (more items available)' : 'Null (no more items)');
+    
     const filteredProperties = properties.filter(property => {
       let hasSearchMatch = true;
       let hasFilterMatch = true;
       
-      // Text search filter (must match if provided)
+      // Text search filter (AND logic across all words in query)
       if (filters.query) {
-        const queryLower = filters.query.toLowerCase();
-        const titleMatch = property.title?.toLowerCase().includes(queryLower);
-        const descriptionMatch = property.description?.toLowerCase().includes(queryLower);
-        const addressMatch = property.location?.address?.toLowerCase().includes(queryLower);
-        const cityMatch = property.location?.city?.toLowerCase().includes(queryLower);
-        const provinceMatch = property.location?.province?.toLowerCase().includes(queryLower);
-        hasSearchMatch = titleMatch || descriptionMatch || addressMatch || cityMatch || provinceMatch;
+        const queryWords = filters.query.toLowerCase().split(' ').filter(word => word.length > 0);
+        const searchableText = [
+          property.title,
+          property.description,
+          property.location?.address,
+          property.location?.city,
+          property.location?.province
+        ].filter(Boolean).join(' ').toLowerCase();
+        
+        // All words must be found in the searchable text
+        hasSearchMatch = queryWords.every(word => searchableText.includes(word));
       }
       
       // Check if any filters are provided (excluding search)
@@ -447,7 +468,9 @@ export class PropertyRepository {
         
         // Type filter (OR logic within types)
         if (filters.type && filters.type.length > 0) {
-          filterMatches.push(filters.type.includes(property.type));
+          const typeMatch = filters.type.includes(property.type);
+          filterMatches.push(typeMatch);
+          console.log(`Type filter: property.type=${property.type}, filters.type=${JSON.stringify(filters.type)}, match=${typeMatch}`);
         }
         
         // Price filters (OR logic between min and max)
@@ -535,14 +558,20 @@ export class PropertyRepository {
       }
     });
 
+    console.log(`After filtering: ${filteredProperties.length} items`);
+    
     let finalItems = filteredProperties.slice(0, filters.limit || 50);
+    console.log(`After final limit (${filters.limit || 50}): ${finalItems.length} items`);
     
     // Apply in-memory sorting
     if (filters.sortBy) {
       finalItems = this.sortProperties(finalItems, filters.sortBy, filters.sortOrder);
     }
     
-    return finalItems;
+    return {
+      items: finalItems,
+      lastKey: LastEvaluatedKey
+    };
   }
 
   static async incrementViewCount(id: string): Promise<void> {

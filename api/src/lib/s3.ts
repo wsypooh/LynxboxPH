@@ -1,10 +1,16 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsCommand, DeleteObjectsCommand, GetObjectCommand, ObjectCannedACL } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { S3RequestPresigner } from '@aws-sdk/s3-request-presigner';
+import { HttpRequest } from '@aws-sdk/protocol-http';
+import { parseUrl } from '@aws-sdk/url-parser';
+import { formatUrl } from '@aws-sdk/util-format-url';
 import { v4 as uuidv4 } from 'uuid';
 
-export interface UploadImageResult {
+export interface UploadResult {
   url: string;
   key: string;
+  contentType: string;
+  size: number;
 }
 
 export class S3Service {
@@ -15,13 +21,37 @@ export class S3Service {
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION || 'ap-southeast-1',
     });
-    // Use the correct bucket name for images
-    this.bucketName = 'listspace-ph-images-dev-ap-southeast-1';
+    this.bucketName = 'listspace-ph-objects-dev-ap-southeast-1';
+    console.log('S3 Bucket Name:', this.bucketName);
   }
 
-  async uploadImage(file: Buffer, fileName: string, contentType: string): Promise<UploadImageResult> {
-    const fileExtension = fileName.split('.').pop();
-    const key = `properties/images/${uuidv4()}.${fileExtension}`;
+  /**
+   * Uploads a file to S3
+   * @param file File buffer to upload
+   * @param fileName Original file name
+   * @param contentType MIME type of the file
+   * @param options Additional upload options
+   * @returns UploadResult with URL, key, and metadata
+   */
+  async uploadFile(
+    file: Buffer,
+    fileName: string,
+    contentType: string,
+    options: {
+      propertyId?: string;
+      folder?: string;
+      prefix?: string;
+      acl?: ObjectCannedACL;
+      metadata?: Record<string, string>;
+    } = {}
+  ): Promise<UploadResult> {
+    const { propertyId, folder = 'files', prefix = '', acl = 'private', metadata = {} } = options;
+    
+    const fileExtension = fileName.split('.').pop()?.toLowerCase();
+    const propertyFolder = propertyId ? `properties/${propertyId}` : 'common';
+    const key = `${propertyFolder}/${folder}${prefix ? `/${prefix}` : ''}/${uuidv4()}${fileExtension ? `.${fileExtension}` : ''}`;
+    
+    console.log(`S3 Upload - propertyId: ${propertyId || 'none'}, folder: ${folder}, key: ${key}`);
 
     try {
       const command = new PutObjectCommand({
@@ -29,23 +59,125 @@ export class S3Service {
         Key: key,
         Body: file,
         ContentType: contentType,
+        ACL: acl,
+        Metadata: metadata,
+        ContentLength: file.length,
       });
 
       await this.s3Client.send(command);
-
-      const url = `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'ap-southeast-1'}.amazonaws.com/${key}`;
-
-      return {
-        url,
-        key,
+      
+      // Generate a presigned URL for the uploaded file
+      const url = await this.getSignedUrl(key, 'getObject');
+      
+      return { 
+        url, 
+        key, 
+        contentType,
+        size: file.length 
       };
     } catch (error) {
-      console.error('Error uploading image to S3:', error);
-      throw new Error('Failed to upload image to S3');
+      console.error('Error uploading file to S3:', error);
+      throw error;
     }
   }
 
+  /**
+   * Uploads an image file with additional image-specific handling
+   * This is a convenience method that wraps uploadFile with image-specific defaults
+   */
+  async getSignedUrl(key: string, operation: 'getObject' | 'putObject' = 'getObject'): Promise<string> {
+    const url = parseUrl(`https://${this.bucketName}.s3.${process.env.AWS_REGION || 'ap-southeast-1'}.amazonaws.com/${key}`);
+    const presigner = new S3RequestPresigner({
+      credentials: this.s3Client.config.credentials,
+      region: this.s3Client.config.region,
+      sha256: this.s3Client.config.sha256,
+    });
+
+    const signedUrl = await presigner.presign(new HttpRequest({
+      ...url,
+      method: 'GET',
+    }));
+
+    return formatUrl(signedUrl);
+  }
+
   async deleteImage(key: string): Promise<void> {
+    const command = new DeleteObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+    await this.s3Client.send(command);
+  }
+
+  async uploadImage(
+    file: Buffer,
+    fileName: string,
+    contentType: string,
+    propertyId?: string
+  ): Promise<UploadResult> {
+    return this.uploadFile(file, fileName, contentType, {
+      propertyId,
+      folder: 'images',
+      metadata: {
+        'upload-type': 'image',
+        'original-filename': fileName
+      }
+    });
+  }
+
+  async deletePropertyImages(propertyId: string): Promise<void> {
+    console.log(`Deleting all images for property: ${propertyId}`);
+    
+    const prefix = `properties/${propertyId}/images/`;
+    
+    try {
+      // List all objects in the property folder
+      const listCommand = new ListObjectsCommand({
+        Bucket: this.bucketName,
+        Prefix: prefix
+      });
+      
+      const listResult = await this.s3Client.send(listCommand);
+      const objects = listResult.Contents || [];
+      
+      if (objects.length === 0) {
+        console.log(`No images found for property ${propertyId}`);
+        return;
+      }
+      
+      console.log(`Found ${objects.length} images to delete for property ${propertyId}`);
+      
+      // Delete all objects
+      const deleteKeys = objects.map(obj => ({ Key: obj.Key! }));
+      
+      if (deleteKeys.length > 0) {
+        const deleteCommand = new DeleteObjectsCommand({
+          Bucket: this.bucketName,
+          Delete: {
+            Objects: deleteKeys
+          }
+        });
+        
+        const deleteResult = await this.s3Client.send(deleteCommand);
+        console.log(`Deleted ${deleteResult.Deleted?.length || 0} images for property ${propertyId}`);
+        
+        if (deleteResult.Errors && deleteResult.Errors.length > 0) {
+          console.error(`Errors deleting images:`, deleteResult.Errors);
+        }
+      }
+      
+    } catch (error) {
+      console.error(`Error deleting images for property ${propertyId}:`, error);
+      throw new Error(`Failed to delete images for property ${propertyId}`);
+    }
+  }
+
+  /**
+   * Deletes an object from S3
+   * @param key The S3 object key to delete
+   * @returns Promise that resolves when the object is deleted
+   */
+  async deleteObject(key: string): Promise<void> {
     try {
       const command = new DeleteObjectCommand({
         Bucket: this.bucketName,
@@ -54,14 +186,17 @@ export class S3Service {
 
       await this.s3Client.send(command);
     } catch (error) {
-      console.error('Error deleting image from S3:', error);
+      console.error('Error deleting object from S3:', error);
       throw new Error('Failed to delete image from S3');
     }
   }
 
-  async getPresignedUploadUrl(fileName: string, contentType: string): Promise<{ url: string; key: string }> {
+  async getPresignedUploadUrl(fileName: string, contentType: string, propertyId?: string): Promise<{ url: string; key: string }> {
     const fileExtension = fileName.split('.').pop();
-    const key = `properties/images/${uuidv4()}.${fileExtension}`;
+    const propertyFolder = propertyId ? `properties/${propertyId}` : 'properties';
+    const key = `${propertyFolder}/images/${uuidv4()}.${fileExtension}`;
+    
+    console.log(`S3 Presigned URL - propertyId: ${propertyId}, folder: ${propertyFolder}, key: ${key}`);
 
     try {
       const command = new PutObjectCommand({

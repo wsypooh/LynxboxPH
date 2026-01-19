@@ -5,11 +5,16 @@ import { ApiResponse } from '../../lib/apiResponse';
 import { Property, PropertyFeatures, PropertyLocation, PropertyContactInfo } from '../../models/property';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../../lib/dynamodb';
+import { v4 as uuidv4 } from 'uuid';
 import { S3Service } from '../../lib/s3';
 
 export class PropertyHandler {
   static async createProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    console.log('CREATE PROPERTY CALLED!');
     try {
+      console.log('=== CREATE PROPERTY START ===');
+      console.log('Content-Type:', event.headers['content-type'] || event.headers['Content-Type']);
+      
       if (!event.body) {
         return ApiResponse.error('Request body is required', 400);
       }
@@ -18,19 +23,29 @@ export class PropertyHandler {
       let propertyData: any;
       let uploadedImages: string[] = [];
 
+      let propertyId: string;
+
       // Handle multipart form data (files + property data)
       if (contentType && contentType.includes('multipart/form-data')) {
+        console.log('Using multipart upload path');
         const { property, images } = await this.handleMultipartPropertyCreation(event);
         propertyData = property;
         uploadedImages = images;
+        propertyId = property.id; // Use the ID generated in multipart handler
       } else {
+        console.log('Using JSON upload path');
         // Handle JSON data with base64 images
         const body = JSON.parse(event.body);
         propertyData = body;
 
+        // Generate property ID first for S3 folder structure
+        propertyId = uuidv4();
+        console.log('Generated propertyId:', propertyId);
+      
         // Handle base64 images if present
         if (body.base64Images && Array.isArray(body.base64Images)) {
-          uploadedImages = await this.handleBase64Images(body.base64Images);
+          console.log('Processing base64 images:', body.base64Images.length);
+          uploadedImages = await this.handleBase64Images(body.base64Images, propertyId);
         }
       }
 
@@ -65,6 +80,7 @@ export class PropertyHandler {
 
       const finalPropertyData = {
         ...cleanPropertyData,
+        id: propertyId, // Use the pre-generated ID
         ownerId: userId,
         currency: 'PHP', // Default currency
         status: 'available', // Default status
@@ -86,6 +102,9 @@ export class PropertyHandler {
     if (!contentType || !contentType.includes('multipart/form-data')) {
       throw new Error('Content-Type must be multipart/form-data');
     }
+    
+    // Generate property ID first for S3 folder structure
+    const propertyId = uuidv4();
     
     const boundary = contentType.split('boundary=')[1];
     if (!boundary) {
@@ -127,7 +146,8 @@ export class PropertyHandler {
           // Handle file upload
           s3Service.validateImageFile(fileName, fileContentType, Buffer.from(value, 'base64').length);
           const fileBuffer = Buffer.from(value, 'base64');
-          const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType);
+          // Use the generated propertyId for uploads during creation
+          const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType, propertyId);
           uploadedImages.push(uploadResult.url);
         } else if (name && value && !fileName) {
           // Handle form field (JSON property data)
@@ -140,10 +160,10 @@ export class PropertyHandler {
       }
     }
 
-    return { property: propertyData, images: uploadedImages };
+    return { property: { ...propertyData, id: propertyId }, images: uploadedImages };
   }
 
-  private static async handleBase64Images(base64Images: any[]): Promise<string[]> {
+  private static async handleBase64Images(base64Images: any[], propertyId?: string): Promise<string[]> {
     const uploadedImages: string[] = [];
     const s3Service = new S3Service();
 
@@ -159,7 +179,7 @@ export class PropertyHandler {
       const fileBuffer = Buffer.from(base64Data, 'base64');
 
       s3Service.validateImageFile(fileName, contentType, fileBuffer.length);
-      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, contentType);
+      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, contentType, propertyId);
       uploadedImages.push(uploadResult.url);
     }
 
@@ -270,7 +290,7 @@ export class PropertyHandler {
       // Handle new image uploads
       let uploadedImages: string[] = [];
       if (updates.base64Images && Array.isArray(updates.base64Images)) {
-        uploadedImages = await this.handleBase64Images(updates.base64Images);
+        uploadedImages = await this.handleBase64Images(updates.base64Images, id);
       }
 
       // Combine existing images (minus removed ones) with new uploads
@@ -344,6 +364,16 @@ export class PropertyHandler {
       //   return ApiResponse.forbidden('You do not have permission to delete this property');
       // }
 
+      // Delete S3 images first
+      const s3Service = new S3Service();
+      try {
+        await s3Service.deletePropertyImages(id);
+      } catch (s3Error) {
+        console.error('Failed to delete S3 images:', s3Error);
+        // Continue with property deletion even if S3 cleanup fails
+        // In production, you might want to handle this differently
+      }
+
       const success = await PropertyRepository.delete(id);
       if (!success) {
         return ApiResponse.error('Failed to delete property', 500);
@@ -414,23 +444,27 @@ export class PropertyHandler {
       const sortBy = params.sortBy as 'price' | 'area' | 'date' | 'views';
       const sortOrder = params.sortOrder as 'asc' | 'desc';
       
-      // Extract user ID from authentication claims
-      let userId: string;
+      // Check if this is a public endpoint (no authentication required)
+      const isPublicEndpoint = event.path.startsWith('/api/public/');
       
-      // Check for JWT claims first (production)
-      if (event.requestContext.authorizer?.claims?.sub) {
-        userId = event.requestContext.authorizer.claims.sub;
-      } 
-      // Fallback to Cognito User ID from authorizer context
-      else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
-        userId = event.requestContext.authorizer.claims['cognito:username'];
-      }
-      // Development fallback (when auth is disabled)
-      else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
-        userId = 'test-user-id';
-        console.log('Development mode: using fallback userId:', userId);
-      } else {
-        return ApiResponse.unauthorized('User authentication required');
+      // Extract user ID only for non-public endpoints
+      let userId: string | undefined;
+      if (!isPublicEndpoint) {
+        // Check for JWT claims first (production)
+        if (event.requestContext.authorizer?.claims?.sub) {
+          userId = event.requestContext.authorizer.claims.sub;
+        } 
+        // Fallback to Cognito User ID from authorizer context
+        else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
+          userId = event.requestContext.authorizer.claims['cognito:username'];
+        }
+        // Development fallback (when auth is disabled)
+        else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
+          userId = 'test-user-id';
+          console.log('Development mode: using fallback userId:', userId);
+        } else {
+          return ApiResponse.unauthorized('User authentication required');
+        }
       }
       
       // Build unified filters object
@@ -471,18 +505,34 @@ export class PropertyHandler {
       if (sortBy) filters.sortBy = sortBy;
       if (sortOrder) filters.sortOrder = sortOrder;
       
-      // Add user filter - only search user's own properties
-      filters.ownerId = userId;
+      // Add pagination support
+      if (params.lastKey) {
+        try {
+          filters.lastKey = JSON.parse(decodeURIComponent(params.lastKey));
+        } catch (error) {
+          console.error('Error parsing lastKey:', error);
+          // Continue without lastKey if parsing fails
+        }
+      }
+      
+      // Add user filter - only search user's own properties (for non-public endpoints)
+      if (!isPublicEndpoint) {
+        filters.ownerId = userId;
+      } else {
+        // For public endpoints, only show available properties
+        filters.status = 'available';
+      }
       
       // Add limit
       filters.limit = limit;
       
-      // Use unified filter method for user-specific search
-      const properties = await PropertyRepository.filter(filters);
+      // Use unified filter method for search
+      const result = await PropertyRepository.filter(filters);
       
       return ApiResponse.success({
-        items: properties,
-        count: properties.length
+        items: result.items,
+        count: result.items.length,
+        lastKey: result.lastKey ? encodeURIComponent(JSON.stringify(result.lastKey)) : undefined
       });
 
     } catch (error) {
@@ -543,11 +593,12 @@ export class PropertyHandler {
       filters.limit = limit;
       
       // Use unified filter method for public search
-      const properties = await PropertyRepository.filter(filters);
+      const result = await PropertyRepository.filter(filters);
       
       return ApiResponse.success({
-        items: properties,
-        count: properties.length
+        items: result.items,
+        count: result.items.length,
+        lastKey: result.lastKey ? encodeURIComponent(JSON.stringify(result.lastKey)) : undefined
       });
 
     } catch (error) {
@@ -621,7 +672,7 @@ export class PropertyHandler {
       s3Service.validateImageFile(fileName, fileContentType, fileBuffer.length);
 
       // Upload to S3
-      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType);
+      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType, propertyId);
 
       // Update property with new image URL
       const property = await PropertyRepository.findById(propertyId);
@@ -715,7 +766,7 @@ export class PropertyHandler {
       const s3Service = new S3Service();
       s3Service.validateImageFile(fileName, contentType, 0); // Size validation skipped for presigned URL
 
-      const { url, key } = await s3Service.getPresignedUploadUrl(fileName, contentType);
+      const { url, key } = await s3Service.getPresignedUploadUrl(fileName, contentType, propertyId);
 
       return ApiResponse.success({
         uploadUrl: url,

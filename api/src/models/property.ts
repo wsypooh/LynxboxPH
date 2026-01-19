@@ -45,12 +45,14 @@ export interface Property extends BaseEntity {
   contactInfo: PropertyContactInfo;
 }
 
-// Type for creating a new property (excludes auto-generated fields)
-export type PropertyInput = Omit<Property, keyof BaseEntity | 'id' | 'viewCount' | 'PK' | 'SK' | 'GSI1PK' | 'GSI1SK' | 'entityType' | 'createdAt' | 'updatedAt'>;
+// Type for creating a new property (excludes auto-generated fields, but allows optional id)
+export type PropertyInput = Omit<Property, keyof BaseEntity | 'viewCount' | 'PK' | 'SK' | 'GSI1PK' | 'GSI1SK' | 'entityType' | 'createdAt' | 'updatedAt'> & { id?: string };
 
 export function createProperty(data: PropertyInput): Property {
+  console.log('=== CREATE PROPERTY MODEL === data.id:', data.id);
   const now = new Date().toISOString();
-  const id = uuidv4();
+  const id = data.id || uuidv4(); // Use provided ID or generate new one
+  console.log('=== CREATE PROPERTY MODEL === final id:', id);
 
   // Create the property with all required fields
   const property: Property = {

@@ -740,16 +740,8 @@ export function DashboardPropertyList({
 
     try {
       await propertyService.deleteProperty(property.id);
-      onDelete(property);
+      onDelete(property); // Let the parent component handle the success toast
       setProperties(prev => prev.filter(p => p.id !== property.id));
-      
-      toast({
-        title: 'Property deleted',
-        description: 'Property has been deleted successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
     } catch (err) {
       toast({
         title: 'Error',

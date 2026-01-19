@@ -327,7 +327,8 @@ class PropertyService {
     limit?: number;
     sortBy?: 'price' | 'area' | 'date' | 'views';
     sortOrder?: 'asc' | 'desc';
-  }): Promise<{ items: Property[] }> {
+    lastKey?: string;
+  }): Promise<{ items: Property[]; lastKey?: string }> {
     const searchParams = new URLSearchParams();
     
     // Add type filters
@@ -360,9 +361,12 @@ class PropertyService {
     
     // Add limit
     if (filters.limit) searchParams.append('limit', filters.limit.toString());
+    
+    // Add pagination
+    if (filters.lastKey) searchParams.append('lastKey', filters.lastKey);
 
-    const response = await this.request<{ success: boolean; data: { items: any[] } }>(`/api/public/search?${searchParams.toString()}`, {}, false); // No auth required
-    // Handle nested response structure - the API returns { success: true, data: { items: [...] } }
+    const response = await this.request<{ success: boolean; data: { items: any[]; lastKey?: string } }>(`/api/public/search?${searchParams.toString()}`, {}, false); // No auth required
+    // Handle nested response structure - the API returns { success: true, data: { items: [...], lastKey?: string } }
     const responseData = response.data || response;
     // Ensure each property matches our Property interface
     return {
@@ -371,6 +375,7 @@ class PropertyService {
         type: item.type as PropertyType,
         status: item.status as PropertyStatus,
       })),
+      lastKey: responseData.lastKey
     };
   }
 

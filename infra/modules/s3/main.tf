@@ -1,25 +1,37 @@
-resource "aws_s3_bucket" "images" {
-  bucket = "${var.project_name}-images-${var.environment}-${var.aws_region}"
+resource "aws_s3_bucket" "objects" {
+  bucket = "${var.project_name}-objects-${var.environment}-${var.aws_region}"
 
   tags = merge(
     var.common_tags,
     {
-      Name = "${var.project_name}-images-${var.environment}"
+      Name = "${var.project_name}-objects-${var.environment}"
     }
   )
 }
 
-resource "aws_s3_bucket_public_access_block" "images" {
-  bucket = aws_s3_bucket.images.id
+resource "aws_s3_bucket_public_access_block" "objects" {
+  bucket = aws_s3_bucket.objects.id
 
+  # Allow public access to the bucket
   block_public_acls       = false
   block_public_policy     = false
   ignore_public_acls      = false
   restrict_public_buckets = false
+
+  # Ensure the bucket owner has full control
+  depends_on = [aws_s3_bucket_ownership_controls.objects]
 }
 
-resource "aws_s3_bucket_cors_configuration" "images" {
-  bucket = aws_s3_bucket.images.id
+# Enable bucket owner preferred to ensure the bucket owner has full control
+resource "aws_s3_bucket_ownership_controls" "objects" {
+  bucket = aws_s3_bucket.objects.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_cors_configuration" "objects" {
+  bucket = aws_s3_bucket.objects.id
 
   cors_rule {
     allowed_headers = ["*"]
@@ -30,15 +42,15 @@ resource "aws_s3_bucket_cors_configuration" "images" {
   }
 }
 
-resource "aws_s3_bucket_versioning" "images" {
-  bucket = aws_s3_bucket.images.id
+resource "aws_s3_bucket_versioning" "objects" {
+  bucket = aws_s3_bucket.objects.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "images" {
-  bucket = aws_s3_bucket.images.id
+resource "aws_s3_bucket_lifecycle_configuration" "objects" {
+  bucket = aws_s3_bucket.objects.id
 
   rule {
     id     = "abort-incomplete-multipart-upload"
@@ -68,7 +80,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "images" {
 }
 
 resource "aws_s3_bucket_policy" "public_read" {
-  bucket = aws_s3_bucket.images.id
+  bucket = aws_s3_bucket.objects.id
+
+  # Ensure the bucket policy is applied after the public access block
+  depends_on = [aws_s3_bucket_public_access_block.objects]
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -78,7 +93,7 @@ resource "aws_s3_bucket_policy" "public_read" {
         Effect    = "Allow"
         Principal = "*"
         Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.images.arn}/*"
+        Resource  = "${aws_s3_bucket.objects.arn}/*"
       }
     ]
   })
@@ -94,8 +109,8 @@ data "aws_iam_policy_document" "s3_access" {
       "s3:ListBucket"
     ]
     resources = [
-      aws_s3_bucket.images.arn,
-      "${aws_s3_bucket.images.arn}/*"
+      aws_s3_bucket.objects.arn,
+      "${aws_s3_bucket.objects.arn}/*"
     ]
   }
 }
