@@ -139,6 +139,50 @@ if (-not $SkipBuild) {
 
     Push-Location $AppPath
     try {
+        # Create environment-specific .env file from Terraform outputs
+        $envFile = ".env.$Environment"
+        
+        Write-Host "Creating $envFile from Terraform outputs..." -ForegroundColor Cyan
+        
+        # Get additional Terraform outputs for environment variables
+        $apiUrl = ""
+        try {
+            $apiUrl = (terraform output -raw api_url) 2>$null
+        } catch {}
+        $apiUrl = $apiUrl.Trim()
+        
+        $cognitoDomain = ""
+        try {
+            $cognitoDomain = (terraform output -raw cognito_domain) 2>$null
+        } catch {}
+        $cognitoDomain = $cognitoDomain.Trim()
+        
+        # Create environment file with Terraform outputs
+        $envContent = @"
+# Environment: $Environment (injected from Terraform)
+NEXT_PUBLIC_ENV=$Environment
+NEXT_PUBLIC_API_URL=$apiUrl
+NEXT_PUBLIC_APP_URL=$frontendUrl
+NEXT_PUBLIC_COGNITO_DOMAIN=$cognitoDomain
+
+# AWS Configuration (from Terraform)
+NEXT_PUBLIC_AWS_REGION=$AwsRegion
+NEXT_PUBLIC_AWS_USER_POOL_ID=$(terraform output -raw user_pool_id 2>$null)
+NEXT_PUBLIC_AWS_USER_POOL_WEB_CLIENT_ID=$(terraform output -raw user_pool_client_id 2>$null)
+NEXT_PUBLIC_AWS_IDENTITY_POOL_ID=$(terraform output -raw identity_pool_id 2>$null)
+
+# DynamoDB Configuration (from Terraform)
+NEXT_PUBLIC_AWS_DYNAMODB_TABLE_PROPERTIES=$(terraform output -raw dynamodb_table_properties 2>$null)
+NEXT_PUBLIC_AWS_DYNAMODB_TABLE_USERS=$(terraform output -raw dynamodb_table_users 2>$null)
+NEXT_PUBLIC_AWS_DYNAMODB_TABLE_INVOICES=$(terraform output -raw dynamodb_table_invoices 2>$null)
+
+# S3 Configuration (from Terraform)
+NEXT_PUBLIC_AWS_S3_BUCKET=$(terraform output -raw s3_bucket_name 2>$null)
+"@
+        
+        $envContent | Out-File -FilePath $envFile -Encoding UTF8
+        Write-Host "✓ Created $envFile with Terraform outputs" -ForegroundColor Green
+        
         $useYarn = Test-Path "yarn.lock"
         $usePnpm = Test-Path "pnpm-lock.yaml"
         $useNpm  = (Test-Path "package-lock.json") -or (-not $useYarn -and -not $usePnpm)

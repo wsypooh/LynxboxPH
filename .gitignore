@@ -25,6 +25,7 @@ listspace-ph/lerna-debug.log*
 # Env files
 listspace-ph/.env
 listspace-ph/.env*.local
+listspace-ph/.env*
 
 # Local editor settings (keep recommended settings files)
 listspace-ph/.vscode/*
