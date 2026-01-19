@@ -33,10 +33,27 @@ export function usePresignedImages(propertyId: string, imageKeys: string[]) {
     return imageUrls[imageKey] || '';
   };
 
+  const refreshImageUrls = async () => {
+    if (propertyId && imageKeys.length > 0) {
+      try {
+        setLoading(true);
+        setError(null);
+        const urls = await propertyService.getPropertyImageUrls(propertyId, imageKeys);
+        setImageUrls(urls);
+      } catch (err: any) {
+        setError(err.message || 'Failed to refresh image URLs');
+        console.error('Error refreshing presigned image URLs:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   return {
     imageUrls,
     loading,
     error,
     getImageUrl,
+    refreshImageUrls,
   };
 }

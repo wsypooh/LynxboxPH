@@ -21,7 +21,7 @@ export class S3Service {
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION || 'ap-southeast-1',
     });
-    this.bucketName = 'listspace-ph-objects-dev-ap-southeast-1';
+    this.bucketName = process.env.S3_BUCKET_NAME || 'listspace-ph-objects-dev-ap-southeast-1';
     console.log('S3 Bucket Name:', this.bucketName);
   }
 
@@ -66,11 +66,9 @@ export class S3Service {
 
       await this.s3Client.send(command);
       
-      // Generate a presigned URL for the uploaded file
-      const url = await this.getSignedUrl(key, 'getObject');
-      
+      // Return only the S3 key, not a URL
       return { 
-        url, 
+        url: '', // Empty URL - we'll generate signed URLs on demand
         key, 
         contentType,
         size: file.length 
@@ -85,28 +83,45 @@ export class S3Service {
    * Uploads an image file with additional image-specific handling
    * This is a convenience method that wraps uploadFile with image-specific defaults
    */
-  async getSignedUrl(key: string, operation: 'getObject' | 'putObject' = 'getObject'): Promise<string> {
-    const url = parseUrl(`https://${this.bucketName}.s3.${process.env.AWS_REGION || 'ap-southeast-1'}.amazonaws.com/${key}`);
-    const presigner = new S3RequestPresigner({
-      credentials: this.s3Client.config.credentials,
-      region: this.s3Client.config.region,
-      sha256: this.s3Client.config.sha256,
-    });
+  async getSignedUrl(key: string, operation: 'getObject' | 'putObject' = 'getObject', expiresIn: number = 3600): Promise<string> {
+    try {
+      let command;
+      
+      if (operation === 'getObject') {
+        command = new GetObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+        });
+      } else {
+        command = new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+        });
+      }
 
-    const signedUrl = await presigner.presign(new HttpRequest({
-      ...url,
-      method: 'GET',
-    }));
-
-    return formatUrl(signedUrl);
+      const signedUrl = await getSignedUrl(this.s3Client, command, { expiresIn });
+      return signedUrl;
+    } catch (error) {
+      console.error(`Error generating signed URL for ${operation}:`, error);
+      throw new Error(`Failed to generate signed URL for ${operation}`);
+    }
   }
 
   async deleteImage(key: string): Promise<void> {
+    console.log(`S3 Delete Attempt - Bucket: ${this.bucketName}, Key: ${key}`);
+    
     const command = new DeleteObjectCommand({
       Bucket: this.bucketName,
       Key: key,
     });
-    await this.s3Client.send(command);
+    
+    try {
+      const result = await this.s3Client.send(command);
+      console.log(`S3 Delete Success - Key: ${key}, Result:`, result);
+    } catch (error) {
+      console.error(`S3 Delete Failed - Key: ${key}, Error:`, error);
+      throw error;
+    }
   }
 
   async uploadImage(
@@ -214,14 +229,13 @@ export class S3Service {
     }
   }
 
-  async getPresignedViewUrl(key: string): Promise<{ url: string }> {
+  async getPresignedViewUrl(key: string, expiresIn: number = 3600): Promise<{ url: string }> {
     try {
-      // Return public URL since bucket is now public
-      const url = `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'ap-southeast-1'}.amazonaws.com/${key}`;
+      const url = await this.getSignedUrl(key, 'getObject', expiresIn);
       return { url };
     } catch (error) {
-      console.error('Error generating public view URL:', error);
-      throw new Error('Failed to generate public view URL');
+      console.error('Error generating presigned view URL:', error);
+      throw new Error('Failed to generate presigned view URL');
     }
   }
 

@@ -42,6 +42,7 @@ import { validateImageFile, convertFileToBase64, extractBase64Data } from '@/lib
 import { CloseIcon, AddIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/features/auth/AuthContext';
 import { getCurrentUserId } from '@/lib/auth';
+import { SecureImage } from '@/components/SecureImage';
 
 // Import API_BASE_URL for environment detection
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.execute-api.ap-southeast-1.amazonaws.com/dev';
@@ -162,21 +163,48 @@ export function PropertyForm({
       return true;
     });
 
+    if (validFiles.length === 0) return;
+
     setSelectedImages(prev => [...prev, ...validFiles]);
 
-    // Create previews
+    // Create previews for all valid files
     validFiles.forEach(file => {
       const reader = new FileReader();
+      
       reader.onload = (e) => {
-        setImagePreviews(prev => {
-          const newPreviews = [...prev, e.target?.result as string];
-          // If this is the first image and no default is set, set it as default
-          if (newPreviews.length === 1 && defaultImageIndex === undefined) {
-            setDefaultImageIndex(0);
-          }
-          return newPreviews;
+        const result = e.target?.result as string;
+        if (result && result.startsWith('data:image/')) {
+          setImagePreviews(prev => {
+            const newPreviews = [...prev, result];
+            // If this is the first image and no default is set, set it as default
+            if (newPreviews.length === 1 && defaultImageIndex === undefined) {
+              setDefaultImageIndex(0);
+            }
+            return newPreviews;
+          });
+        } else {
+          console.error('Invalid image data URL generated:', result);
+          toast({
+            title: 'Image Processing Error',
+            description: 'Failed to process image file',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+          });
+        }
+      };
+
+      reader.onerror = () => {
+        console.error('FileReader error for file:', file.name);
+        toast({
+          title: 'Image Reading Error',
+          description: `Failed to read image file: ${file.name}`,
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
         });
       };
+
       reader.readAsDataURL(file);
     });
   }, [toast, defaultImageIndex]);
@@ -221,10 +249,25 @@ export function PropertyForm({
   // Load existing images when editing
   useEffect(() => {
     if (isEditing && initialData?.images) {
+      console.log('Loading existing images for editing:', initialData.images);
       setImagePreviews(initialData.images);
       setDefaultImageIndex(initialData.defaultImageIndex ?? 0);
     }
   }, [isEditing, initialData]);
+
+  // Debug imagePreviews changes
+  useEffect(() => {
+    console.log('imagePreviews state updated:', {
+      length: imagePreviews.length,
+      previews: imagePreviews.map((p, i) => ({
+        index: i,
+        type: typeof p,
+        isDataUrl: p.startsWith?.('data:image/'),
+        isS3Key: p.includes('/') && !p.startsWith?.('data:'),
+        preview: p.substring(0, 50) + (p.length > 50 ? '...' : '')
+      }))
+    });
+  }, [imagePreviews]);
 
   const onSubmit = async (data: PropertyFormData) => {
     try {
@@ -627,66 +670,93 @@ export function PropertyForm({
                         </Text>
                       </FormControl>
                       <Grid templateColumns="repeat(auto-fill, minmax(150px, 1fr))" gap={4}>
-                        {imagePreviews.map((preview, index) => (
-                          <Box key={index} position="relative">
-                            <Box
-                              position="relative"
-                              borderWidth={defaultImageIndex === index ? "3px" : "1px"}
-                              borderColor={defaultImageIndex === index ? "blue.500" : "gray.200"}
-                              borderRadius="md"
-                              overflow="hidden"
-                              cursor="pointer"
-                              onClick={() => handleDefaultImageSelect(index)}
-                            >
-                              <Image
-                                src={preview}
-                                alt={`Preview ${index + 1}`}
-                                w="150px"
-                                h="150px"
-                                objectFit="cover"
-                              />
-                              {defaultImageIndex === index && (
+                        {imagePreviews.map((preview, index) => {
+                          // Check if this is a new image (data URL) or existing image (S3 key)
+                          const isNewImage = preview.startsWith('data:image/');
+                          const isExistingImage = !isNewImage && preview.includes('/');
+                          
+                          return (
+                            <Box key={index} position="relative">
+                              <Box
+                                position="relative"
+                                borderWidth={defaultImageIndex === index ? "3px" : "1px"}
+                                borderColor={defaultImageIndex === index ? "blue.500" : "gray.200"}
+                                borderRadius="md"
+                                overflow="hidden"
+                                cursor="pointer"
+                                onClick={() => handleDefaultImageSelect(index)}
+                              >
+                                {isExistingImage && propertyId ? (
+                                  <SecureImage
+                                    propertyId={propertyId}
+                                    imageKey={preview}
+                                    alt={`Preview ${index + 1}`}
+                                    className="w-full h-full object-cover"
+                                    fallbackClassName="w-full h-full bg-gray-100"
+                                    onError={(error) => {
+                                      console.error(`SecureImage error for index ${index}:`, error);
+                                    }}
+                                  />
+                                ) : (
+                                  <Box
+                                    as="img"
+                                    src={preview}
+                                    alt={`Preview ${index + 1}`}
+                                    w="150px"
+                                    h="150px"
+                                    objectFit="cover"
+                                    onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                                      console.error(`Image preview error for index ${index}:`, preview);
+                                      console.error('Error event:', e);
+                                    }}
+                                    onLoad={() => {
+                                      console.log(`Image preview loaded successfully for index ${index}:`, preview.substring(0, 50) + '...');
+                                    }}
+                                  />
+                                )}
+                                {defaultImageIndex === index && (
+                                  <Box
+                                    position="absolute"
+                                    top={1}
+                                    left={1}
+                                    bg="blue.500"
+                                    color="white"
+                                    borderRadius="full"
+                                    p={1}
+                                  >
+                                    <Box w={3} h={3} borderRadius="full" bg="white" />
+                                  </Box>
+                                )}
                                 <Box
                                   position="absolute"
-                                  top={1}
-                                  left={1}
-                                  bg="blue.500"
+                                  bottom={0}
+                                  left={0}
+                                  right={0}
+                                  bg="rgba(0,0,0,0.6)"
                                   color="white"
-                                  borderRadius="full"
                                   p={1}
+                                  textAlign="center"
+                                  fontSize="xs"
                                 >
-                                  <Box w={3} h={3} borderRadius="full" bg="white" />
+                                  {defaultImageIndex === index ? "Default" : "Set as default"}
                                 </Box>
-                              )}
-                              <Box
-                                position="absolute"
-                                bottom={0}
-                                left={0}
-                                right={0}
-                                bg="rgba(0,0,0,0.6)"
-                                color="white"
-                                p={1}
-                                textAlign="center"
-                                fontSize="xs"
-                              >
-                                {defaultImageIndex === index ? "Default" : "Set as default"}
                               </Box>
+                              <IconButton
+                                icon={<CloseIcon />}
+                                size="sm"
+                                position="absolute"
+                                top={-2}
+                                right={-2}
+                                colorScheme="red"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeImage(index);
+                                }}
+                                aria-label="Remove image"
+                              />
                             </Box>
-                            <IconButton
-                              icon={<CloseIcon />}
-                              size="sm"
-                              position="absolute"
-                              top={-2}
-                              right={-2}
-                              colorScheme="red"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeImage(index);
-                              }}
-                              aria-label="Remove image"
-                            />
-                          </Box>
-                        ))}
+                          );
+                        })}
                       </Grid>
                     </Box>
                   )}

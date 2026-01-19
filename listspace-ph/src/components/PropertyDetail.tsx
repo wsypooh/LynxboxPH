@@ -5,7 +5,6 @@ import {
   Box,
   Card,
   CardBody,
-  Image,
   Text,
   Heading,
   Stack,
@@ -34,6 +33,7 @@ import {
 import { Property, propertyService } from '@/services/propertyService';
 import { formatCurrency } from '@/lib/utils';
 import { EditIcon, DeleteIcon, ArrowBackIcon, PhoneIcon, EmailIcon } from '@chakra-ui/icons';
+import { ImageGallery } from '@/components/ImageGallery';
 
 interface PropertyDetailProps {
   propertyId: string;
@@ -105,7 +105,7 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
 
   const handlePropertyUpdate = (updatedProperty: Property) => {
     setProperty(updatedProperty);
-    onEdit?.(updatedProperty);
+    onEdit && onEdit(updatedProperty);
   };
 
   if (loading) {
@@ -141,7 +141,7 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
             <Button
               leftIcon={<EditIcon />}
               colorScheme="blue"
-              onClick={() => onEdit(property)}
+              onClick={() => onEdit?.(property)}
             >
               Edit
             </Button>
@@ -166,53 +166,13 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
           {/* Images */}
           <Card>
             <CardBody p={0}>
-              {property.images.length > 0 ? (
-                <Box>
-                  {/* Main Image */}
-                  <Image
-                    src={property.images[property.defaultImageIndex ?? 0]}
-                    alt={property.title}
-                    w="100%"
-                    h="400px"
-                    objectFit="cover"
-                    borderRadius="lg"
-                  />
-                  
-                  {/* Thumbnail Gallery */}
-                  {property.images.length > 1 && (
-                    <SimpleGrid columns={4} spacing={2} p={4}>
-                      {property.images
-                        .filter((_, index) => index !== (property.defaultImageIndex ?? 0))
-                        .map((image, index) => (
-                          <Image
-                            key={index}
-                            src={image}
-                            alt={`${property.title} - Image ${index + 2}`}
-                            w="100%"
-                          h="80px"
-                          objectFit="cover"
-                          borderRadius="md"
-                          cursor="pointer"
-                          onClick={() => {
-                            // In a real app, you might want to open a lightbox
-                          }}
-                        />
-                      ))}
-                    </SimpleGrid>
-                  )}
-                </Box>
-              ) : (
-                <Box
-                  h="400px"
-                  bg="gray.200"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  borderRadius="lg"
-                >
-                  <Text color="gray.500">No images available</Text>
-                </Box>
-              )}
+              <ImageGallery
+                propertyId={property.id}
+                imageKeys={property.images}
+                className="w-full"
+                imageClassName="w-full h-96 object-cover"
+                fallbackClassName="w-full h-96"
+              />
             </CardBody>
           </Card>
 

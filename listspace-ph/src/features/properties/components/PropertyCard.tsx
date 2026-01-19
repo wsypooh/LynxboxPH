@@ -3,7 +3,6 @@
 import {
   Card,
   CardBody,
-  Image,
   Stack,
   Heading,
   Text,
@@ -19,6 +18,7 @@ import {
 import { MapPin, Square, Car, Eye, Phone, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { Property } from '@/services/propertyService'
+import { SecureImage } from '@/components/SecureImage'
 
 interface PropertyCardProps {
   property: Property
@@ -60,18 +60,29 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
   return (
     <Card maxW="sm" overflow="hidden" shadow="md" _hover={{ shadow: 'lg', transform: 'translateY(-2px)' }} transition="all 0.2s">
       <Box position="relative">
-        <Image
-          src={
-            property.images.length > 0
-              ? property.images[property.defaultImageIndex || 0] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPgogIDxyZWN0IHg9IjE1MCIgeT0iMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2QwZDBkMCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMjAwLDEyMCAxODAsMTQwIDE4MCwxNjAgMjIwLDE2MCAyMjAsMTQwIiBmaWxsPSIjYTBhMGEwIi8+CiAgPHRleHQgeD0iMjAwIiB5PSIyMjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+UHJvcGVydHkgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=='
-              : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPgogIDxyZWN0IHg9IjE1MCIgeT0iMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2QwZDBkMCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMjAwLDEyMCAxODAsMTQwIDE4MCwxNjAgMjIwLDE2MCAyMjAsMTQwIiBmaWxsPSIjYTBhMGEwIi8+CiAgPHRleHQgeD0iMjAwIiB5PSIyMjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+UHJvcGVydHkgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=='
-          }
-          alt={property.title}
-          h="200px"
-          w="full"
-          objectFit="cover"
-          fallbackStrategy="beforeLoadOrError"
-        />
+        {property.images.length > 0 && property.images[property.defaultImageIndex || 0] ? (
+          <SecureImage
+            propertyId={property.id}
+            imageKey={property.images[property.defaultImageIndex || 0]}
+            alt={property.title}
+            className="w-full h-48 object-cover"
+            fallbackClassName="w-full h-48 bg-gray-100"
+          />
+        ) : (
+          <Box 
+            h="200px" 
+            w="full" 
+            bg="gray.100" 
+            display="flex" 
+            alignItems="center" 
+            justifyContent="center"
+          >
+            <VStack color="gray.400">
+              <Icon as={MapPin} boxSize={12} />
+              <Text fontSize="sm">No Image Available</Text>
+            </VStack>
+          </Box>
+        )}
         <Badge
           position="absolute"
           top={2}

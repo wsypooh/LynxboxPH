@@ -22,6 +22,7 @@ import {
   Spinner,
   AspectRatio,
 } from '@chakra-ui/react'
+import { SecureImage } from '@/components/SecureImage';
 import {
   MapPin,
   Square,
@@ -168,11 +169,11 @@ export default function PropertyDetailClient({ id }: { id: string }) {
         {/* Property Images */}
         <Box>
           <AspectRatio ratio={16 / 9} mb={4}>
-            <Image
-              src={property?.images?.[currentImageIndex] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPgogIDxyZWN0IHg9IjE1MCIgeT0iMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2QwZDBkMCIvPgogIDxwb2x5Z29uIHBvaW50cz0iMjAwLDEyMCAxODAsMTQwIDE4MCwxNjAgMjIwLDE2MCAyMjAsMTQwIiBmaWxsPSIjYTBhMGEwIi8+CiAgPHRleHQgeD0iMjAwIiB5PSIyMjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+UHJvcGVydHkgSW1hZ2U8L3RleHQ+Cjwvc3ZnPg=='}
+            <SecureImage
+              propertyId={property?.id || ''}
+              imageKey={property?.images?.[currentImageIndex] || ''}
               alt={property?.title || 'Property'}
-              borderRadius="lg"
-              objectFit="cover"
+              className="w-full h-full object-cover rounded-lg"
             />
           </AspectRatio>
           
@@ -190,12 +191,12 @@ export default function PropertyDetailClient({ id }: { id: string }) {
                   borderRadius="md"
                   overflow="hidden"
                 >
-                  <Image
-                    src={image}
+                  <SecureImage
+                    propertyId={property?.id || ''}
+                    imageKey={image}
                     alt={`${property?.title || 'Property'} - Image ${index + 1}`}
-                    w="full"
-                    h="full"
-                    objectFit="cover"
+                    className="w-full h-full object-cover"
+                    onClick={() => setCurrentImageIndex(index)}
                   />
                 </Box>
               ))}

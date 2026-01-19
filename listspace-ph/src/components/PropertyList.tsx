@@ -45,6 +45,7 @@ import { EditIcon, DeleteIcon, ViewIcon, PlusSquareIcon } from '@chakra-ui/icons
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/features/auth/AuthContext';
 import { PropertyStatusUpdater } from './PropertyStatusUpdater';
+import { SecureImage } from './SecureImage';
 
 interface PropertyListProps {
   onEdit?: (property: Property) => void;
@@ -627,13 +628,11 @@ export function PropertyList({
           <Card key={property.id} borderRadius="lg" overflow="hidden" boxShadow="md">
             <Box position="relative">
               {property.images.length > 0 ? (
-                <Image
-                  src={property.images[property.defaultImageIndex ?? 0]}
+                <SecureImage
+                  propertyId={property.id}
+                  imageKey={property.images[property.defaultImageIndex ?? 0]}
                   alt={property.title}
-                  h="200px"
-                  w="100%"
-                  objectFit="cover"
-                  fallbackSrc="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UyZThmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZSBBdmFpbGFibGU8L3RleHQ+PC9zdmc+"
+                  className="w-full h-48 object-cover"
                 />
               ) : (
                 <Box h="200px" bg="gray.200" display="flex" alignItems="center" justifyContent="center">

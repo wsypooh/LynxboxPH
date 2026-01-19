@@ -148,7 +148,7 @@ export class PropertyHandler {
           const fileBuffer = Buffer.from(value, 'base64');
           // Use the generated propertyId for uploads during creation
           const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType, propertyId);
-          uploadedImages.push(uploadResult.url);
+          uploadedImages.push(uploadResult.key); // Store only the S3 key
         } else if (name && value && !fileName) {
           // Handle form field (JSON property data)
           try {
@@ -180,7 +180,7 @@ export class PropertyHandler {
 
       s3Service.validateImageFile(fileName, contentType, fileBuffer.length);
       const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, contentType, propertyId);
-      uploadedImages.push(uploadResult.url);
+      uploadedImages.push(uploadResult.key); // Store only the S3 key
     }
 
     return uploadedImages;
@@ -284,7 +284,11 @@ export class PropertyHandler {
       
       // Handle image removal and replacement
       if (updates.removeImages && Array.isArray(updates.removeImages)) {
+        console.log(`=== IMAGE DELETION TRIGGERED ===`);
+        console.log(`Property ID: ${id}`);
+        console.log(`Images to remove:`, updates.removeImages);
         await this.removePropertyImages(id, updates.removeImages);
+        console.log(`=== IMAGE DELETION COMPLETED ===`);
       }
 
       // Handle new image uploads
@@ -329,17 +333,16 @@ export class PropertyHandler {
   private static async removePropertyImages(propertyId: string, imageUrls: string[]): Promise<void> {
     const s3Service = new S3Service();
     
-    for (const imageUrl of imageUrls) {
+    for (const imageKey of imageUrls) {
       try {
-        // Extract key from URL
-        const urlParts = imageUrl.split('/');
-        const key = urlParts.slice(3).join('/'); // Remove https://bucket-name.s3.region.amazonaws.com/
+        console.log(`Deleting image with key: ${imageKey}`);
         
-        if (key) {
-          await s3Service.deleteImage(key);
+        // imageKey is now already the S3 key, not a URL
+        if (imageKey) {
+          await s3Service.deleteImage(imageKey);
         }
       } catch (error) {
-        console.error(`Failed to delete image ${imageUrl}:`, error);
+        console.error(`Failed to delete image ${imageKey}:`, error);
         // Continue with other images even if one fails
       }
     }

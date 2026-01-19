@@ -51,9 +51,10 @@ import {
 import { Search, Filter, Building2, X, Plus, Grid, List, ChevronUp, ChevronDown } from 'lucide-react'
 import { EditIcon, DeleteIcon, ViewIcon } from '@chakra-ui/icons'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Property, propertyService, PropertyType } from '@/services/propertyService'
+import { Property, propertyService, PropertyType } from '@/services/propertyService';
 import { formatCurrency } from '@/lib/utils';
 import { PropertyStatusUpdater } from './PropertyStatusUpdater';
+import { SecureImage } from '@/components/SecureImage';
 
 interface FilterState {
   type?: PropertyType[];
@@ -93,9 +94,10 @@ interface DashboardPropertyListProps {
   refreshTrigger?: number;
 }
 
+
 export function DashboardPropertyList({
   onView,
-  onEdit,
+  onEdit: handleEditProperty,
   onDelete,
   onAddNew,
   refreshTrigger = 0,
@@ -933,12 +935,12 @@ export function DashboardPropertyList({
                   {/* Property Image */}
                   <Box position="relative" h="200px">
                     {property.images.length > 0 ? (
-                      <Box
-                        h="200px"
-                        w="100%"
-                        bgImage={`url(${property.images[property.defaultImageIndex ?? 0]})`}
-                        bgSize="cover"
-                        bgPosition="center"
+                      <SecureImage
+                        propertyId={property.id}
+                        imageKey={property.images[property.defaultImageIndex ?? 0]}
+                        alt={property.title}
+                        className="w-full h-full object-cover"
+                        fallbackClassName="w-full h-full bg-gray-100"
                       />
                     ) : (
                       <Box h="200px" bg="gray.200" display="flex" alignItems="center" justifyContent="center">
@@ -1019,7 +1021,7 @@ export function DashboardPropertyList({
                           leftIcon={<EditIcon />}
                           size="sm"
                           colorScheme="blue"
-                          onClick={() => onEdit?.(property)}
+                          onClick={() => handleEditProperty?.(property)}
                           flex={1}
                         >
                           Edit
@@ -1181,7 +1183,7 @@ export function DashboardPropertyList({
                               icon={<EditIcon />}
                               size="xs"
                               colorScheme="blue"
-                              onClick={() => onEdit?.(property)}
+                              onClick={() => handleEditProperty?.(property)}
                               fontSize="xs"
                             />
                             <IconButton
