@@ -145,7 +145,7 @@ try {
     Write-Host "Using default DynamoDB table: $DynamoDbTable" -ForegroundColor Yellow
 }
 
-$LambdaFunctionName = "listspace-api-$Environment"
+$LambdaFunctionName = "listspace-ph-api-$Environment"
 try {
     $lambdaName = ExecOrFail "terraform output -raw lambda_function_name" "Failed to get Lambda function name" -ErrorAction SilentlyContinue
     if ($lambdaName) {
