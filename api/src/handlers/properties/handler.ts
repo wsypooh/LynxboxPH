@@ -7,14 +7,12 @@ import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../../lib/dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { S3Service } from '../../lib/s3';
+import { watermarkConfig, getWatermarkOptions } from '../../config/watermark';
 
 export class PropertyHandler {
   static async createProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    console.log('CREATE PROPERTY CALLED!');
+    
     try {
-      console.log('=== CREATE PROPERTY START ===');
-      console.log('Content-Type:', event.headers['content-type'] || event.headers['Content-Type']);
-      
       if (!event.body) {
         return ApiResponse.error('Request body is required', 400);
       }
@@ -44,7 +42,6 @@ export class PropertyHandler {
       
         // Handle base64 images if present
         if (body.base64Images && Array.isArray(body.base64Images)) {
-          console.log('Processing base64 images:', body.base64Images.length);
           uploadedImages = await this.handleBase64Images(body.base64Images, propertyId);
         }
       }
@@ -147,7 +144,8 @@ export class PropertyHandler {
           s3Service.validateImageFile(fileName, fileContentType, Buffer.from(value, 'base64').length);
           const fileBuffer = Buffer.from(value, 'base64');
           // Use the generated propertyId for uploads during creation
-          const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType, propertyId);
+          const watermarkOptions = watermarkConfig.enabled ? getWatermarkOptions() : undefined;
+          const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType, propertyId, watermarkOptions);
           uploadedImages.push(uploadResult.key); // Store only the S3 key
         } else if (name && value && !fileName) {
           // Handle form field (JSON property data)
@@ -179,7 +177,8 @@ export class PropertyHandler {
       const fileBuffer = Buffer.from(base64Data, 'base64');
 
       s3Service.validateImageFile(fileName, contentType, fileBuffer.length);
-      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, contentType, propertyId);
+      const watermarkOptions = watermarkConfig.enabled ? getWatermarkOptions() : undefined;
+      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, contentType, propertyId, watermarkOptions);
       uploadedImages.push(uploadResult.key); // Store only the S3 key
     }
 
@@ -674,8 +673,9 @@ export class PropertyHandler {
       const s3Service = new S3Service();
       s3Service.validateImageFile(fileName, fileContentType, fileBuffer.length);
 
-      // Upload to S3
-      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType, propertyId);
+      // Upload to S3 with watermark
+      const watermarkOptions = watermarkConfig.enabled ? getWatermarkOptions() : undefined;
+      const uploadResult = await s3Service.uploadImage(fileBuffer, fileName, fileContentType, propertyId, watermarkOptions);
 
       // Update property with new image URL
       const property = await PropertyRepository.findById(propertyId);

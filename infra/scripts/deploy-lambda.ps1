@@ -175,21 +175,27 @@ try {
     $LambdaRoleArn = New-LambdaExecutionRole -Environment $Environment -Region $AwsRegion
 }
 
-# 2) Build TypeScript (if not skipped)
+# 2) Install Sharp for Linux x64 and build TypeScript (if not skipped)
 if (-not $SkipBuild) {
-    Write-Host "`nBuilding TypeScript..." -ForegroundColor Cyan
-    
-    # Clean previous build
-    if (Test-Path "$ApiPath\dist") {
-        Remove-Item -Recurse -Force "$ApiPath\dist"
-    }
+    Write-Host "`nInstalling Sharp for Linux x64 and building TypeScript..." -ForegroundColor Cyan
     
     Push-Location $ApiPath
+    
+    # Install Sharp for Linux x64 target (required for AWS Lambda)
+    Write-Host "Installing Sharp for Linux x64 target..." -ForegroundColor Yellow
+    ExecOrFail "npm install --cpu=x64 --os=linux --libc=glibc sharp" "Sharp Linux installation failed"
+    
+    # Clean previous build
+    if (Test-Path "dist") {
+        Remove-Item -Recurse -Force "dist"
+    }
+    
+    # Build TypeScript
     ExecOrFail "npm run build" "TypeScript build failed"
     Pop-Location
-    Write-Host "✓ Build completed" -ForegroundColor Green
+    Write-Host "✓ Sharp installation and build completed" -ForegroundColor Green
 } else {
-    Write-Host "Skipping build" -ForegroundColor Yellow
+    Write-Host "Skipping build and Sharp installation" -ForegroundColor Yellow
 }
 
 # 3) Verify handler.js exists and create index.js
@@ -241,10 +247,23 @@ $deployDir = "temp-deploy-$Environment"
 if (Test-Path $deployDir) { Remove-Item -Recurse -Force $deployDir }
 New-Item -ItemType Directory -Path $deployDir | Out-Null
 
-# Copy dist and node_modules to temp directory
-Write-Host "Preparing files for compression..." -ForegroundColor Yellow
+# Copy ALL files for maximum compatibility
+Write-Host "Copying all files for comprehensive deployment..." -ForegroundColor Yellow
 Copy-Item -Path "$ApiPath\dist\*" -Destination "$deployDir\" -Recurse -Force
+Copy-Item -Path "$ApiPath\package.json" -Destination "$deployDir\" -Force
+Copy-Item -Path "$ApiPath\package-lock.json" -Destination "$deployDir\" -Force
 Copy-Item -Path "$ApiPath\node_modules" -Destination "$deployDir\" -Recurse -Force
+Copy-Item -Path "$ApiPath\src\config" -Destination "$deployDir\" -Recurse -Force
+
+# Also copy any additional config files that might be needed
+$configFiles = @(".env", ".env.example", "tsconfig.json")
+foreach ($configFile in $configFiles) {
+    $configPath = "$ApiPath\$configFile"
+    if (Test-Path $configPath) {
+        Copy-Item -Path $configPath -Destination "$deployDir\" -Force
+        Write-Host "✓ Copied config file: $configFile" -ForegroundColor Gray
+    }
+}
 
 # Use 7-Zip to create the package (much faster than Compress-Archive)
 Write-Host "Creating deployment package with 7-Zip..." -ForegroundColor Yellow
@@ -304,7 +323,9 @@ aws lambda create-function `
     --handler 'index.handler' `
     --zip-file 'fileb://$zipPath' `
     --region '$AwsRegion' `
-    --environment Variables='{DYNAMODB_TABLE=$DynamoDbTable}'
+    --environment Variables='{DYNAMODB_TABLE=$DynamoDbTable,S3_BUCKET_NAME=listspace-ph-objects-dev-ap-southeast-1,AWS_REGION=$AwsRegion,WATERMARK_ENABLED=true,WATERMARK_POSITION=bottom-right,WATERMARK_OPACITY=0.9,WATERMARK_SCALE=200,WATERMARK_MARGIN=20}' `
+    --memory-size 1024 `
+    --timeout 300
 "@
     
     ExecOrFail $createCommand "Failed to create Lambda function"

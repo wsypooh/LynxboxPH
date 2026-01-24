@@ -5,6 +5,8 @@ import { HttpRequest } from '@aws-sdk/protocol-http';
 import { parseUrl } from '@aws-sdk/url-parser';
 import { formatUrl } from '@aws-sdk/util-format-url';
 import { v4 as uuidv4 } from 'uuid';
+import { ImageProcessingService } from './imageProcessing';
+import { WatermarkOptions } from './watermark';
 
 export interface UploadResult {
   url: string;
@@ -16,13 +18,14 @@ export interface UploadResult {
 export class S3Service {
   private s3Client: S3Client;
   private bucketName: string;
+  private imageProcessor: ImageProcessingService;
 
   constructor() {
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION || 'ap-southeast-1',
     });
     this.bucketName = process.env.S3_BUCKET_NAME || 'listspace-ph-objects-dev-ap-southeast-1';
-    console.log('S3 Bucket Name:', this.bucketName);
+    this.imageProcessor = new ImageProcessingService();
   }
 
   /**
@@ -51,7 +54,6 @@ export class S3Service {
     const propertyFolder = propertyId ? `properties/${propertyId}` : 'common';
     const key = `${propertyFolder}/${folder}${prefix ? `/${prefix}` : ''}/${uuidv4()}${fileExtension ? `.${fileExtension}` : ''}`;
     
-    console.log(`S3 Upload - propertyId: ${propertyId || 'none'}, folder: ${folder}, key: ${key}`);
 
     try {
       const command = new PutObjectCommand({
@@ -108,7 +110,6 @@ export class S3Service {
   }
 
   async deleteImage(key: string): Promise<void> {
-    console.log(`S3 Delete Attempt - Bucket: ${this.bucketName}, Key: ${key}`);
     
     const command = new DeleteObjectCommand({
       Bucket: this.bucketName,
@@ -116,10 +117,8 @@ export class S3Service {
     });
     
     try {
-      const result = await this.s3Client.send(command);
-      console.log(`S3 Delete Success - Key: ${key}, Result:`, result);
+      await this.s3Client.send(command);
     } catch (error) {
-      console.error(`S3 Delete Failed - Key: ${key}, Error:`, error);
       throw error;
     }
   }
@@ -128,20 +127,53 @@ export class S3Service {
     file: Buffer,
     fileName: string,
     contentType: string,
-    propertyId?: string
+    propertyId?: string,
+    watermarkOptions?: WatermarkOptions,
+    skipProcessing: boolean = false
   ): Promise<UploadResult> {
-    return this.uploadFile(file, fileName, contentType, {
+    let processedFile = file;
+    let finalContentType = contentType;
+
+    // Process image if it's a supported format and processing is not skipped
+    if (!skipProcessing && this.isImageContentType(contentType)) {
+      try {
+        
+        // Validate image first
+        const validation = await this.imageProcessor.validateImage(file);
+        if (!validation.valid) {
+          throw new Error(`Invalid image: ${validation.error}`);
+        }
+
+        // Process image with 4:3 resize and watermark
+        const processedResult = await this.imageProcessor.processForPropertyUpload(
+          file, 
+          watermarkOptions
+        );
+        
+        processedFile = processedResult.buffer;
+        finalContentType = `image/${processedResult.format}`;
+        
+      } catch (error) {
+        throw new Error(`Image processing failed: ${error}`);
+      }
+    }
+
+    const result = await this.uploadFile(processedFile, fileName, finalContentType, {
       propertyId,
       folder: 'images',
       metadata: {
         'upload-type': 'image',
-        'original-filename': fileName
+        'original-filename': fileName,
+        'processed': (!skipProcessing && this.isImageContentType(contentType)).toString(),
+        'original-size': file.length.toString(),
+        'final-size': processedFile.length.toString()
       }
     });
+
+    return result;
   }
 
   async deletePropertyImages(propertyId: string): Promise<void> {
-    console.log(`Deleting all images for property: ${propertyId}`);
     
     const prefix = `properties/${propertyId}/images/`;
     
@@ -156,11 +188,8 @@ export class S3Service {
       const objects = listResult.Contents || [];
       
       if (objects.length === 0) {
-        console.log(`No images found for property ${propertyId}`);
         return;
       }
-      
-      console.log(`Found ${objects.length} images to delete for property ${propertyId}`);
       
       // Delete all objects
       const deleteKeys = objects.map(obj => ({ Key: obj.Key! }));
@@ -174,7 +203,6 @@ export class S3Service {
         });
         
         const deleteResult = await this.s3Client.send(deleteCommand);
-        console.log(`Deleted ${deleteResult.Deleted?.length || 0} images for property ${propertyId}`);
         
         if (deleteResult.Errors && deleteResult.Errors.length > 0) {
           console.error(`Errors deleting images:`, deleteResult.Errors);
@@ -211,7 +239,6 @@ export class S3Service {
     const propertyFolder = propertyId ? `properties/${propertyId}` : 'properties';
     const key = `${propertyFolder}/images/${uuidv4()}.${fileExtension}`;
     
-    console.log(`S3 Presigned URL - propertyId: ${propertyId}, folder: ${propertyFolder}, key: ${key}`);
 
     try {
       const command = new PutObjectCommand({
@@ -256,5 +283,13 @@ export class S3Service {
     if (size > maxSize) {
       throw new Error(`File size too large. Maximum size: 5MB`);
     }
+  }
+
+  /**
+   * Helper method to check if content type is a supported image format
+   */
+  private isImageContentType(contentType: string): boolean {
+    const supportedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    return supportedTypes.includes(contentType);
   }
 }
