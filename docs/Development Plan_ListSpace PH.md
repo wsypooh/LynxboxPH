@@ -1,4 +1,4 @@
-# ListSpace PH Development Plan with Windsurf Cascade
+# Lynxbox PH Development Plan with Windsurf Cascade
 
 ## 1\. Development Approach with Windsurf Cascade
 
@@ -42,7 +42,7 @@
 
 ## 3\. Project Structure
 
-listspace-ph/  
+lynxbox-ph/  
 ├── .github/                 \# GitHub workflows  
 ├── public/                  \# Static files  
 ├── src/  

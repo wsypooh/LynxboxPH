@@ -1,4 +1,4 @@
-# Naming convention module for ListSpace PH AWS resources
+# Naming convention module for Lynxbox PH AWS resources
 
 locals {
   # Standardized prefixes for AWS resources

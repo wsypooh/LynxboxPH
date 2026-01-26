@@ -117,8 +117,8 @@ module "auth" {
   # Email configuration
   email_configuration = {
     email_sending_account  = "COGNITO_DEFAULT"
-    from_email_address     = "no-reply@listspace.ph"
-    reply_to_email_address = "no-reply@listspace.ph"
+    from_email_address     = "no-reply@lynxbox.ph"
+    reply_to_email_address = "no-reply@lynxbox.ph"
   }
 }
 

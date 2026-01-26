@@ -1,6 +1,6 @@
 # Image Watermark Feature
 
-This document explains the watermark functionality that has been integrated into the ListSpace PH image upload system.
+This document explains the watermark functionality that has been integrated into the Lynxbox PH image upload system.
 
 ## Overview
 
@@ -54,7 +54,7 @@ If no environment variables are set, the system uses these defaults:
 ## Watermark Design
 
 The current watermark is a text-based logo featuring:
-- **listspace.ph** URL in gray
+- **lynxbox.ph** URL in gray
 - White semi-transparent background
 - Rounded corners
 

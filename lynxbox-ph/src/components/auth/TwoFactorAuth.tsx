@@ -214,7 +214,7 @@ export default function TwoFactorAuth() {
     if (!setupDetails) return null;
     
     const userEmail = user?.attributes?.email || user?.username || 'user@example.com';
-    const otpAuthUrl = setupDetails.getSetupUri('ListSpacePH', userEmail);
+    const otpAuthUrl = setupDetails.getSetupUri('LynxboxPH', userEmail);
     
     return (
       <VStack spacing={6} align="stretch">

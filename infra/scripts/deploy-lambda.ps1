@@ -63,7 +63,7 @@ function ExecOrFail {
 function New-LambdaExecutionRole {
     $Environment = $args[0]
     $Region = $args[1]
-    $RoleName = "listspace-lambda-role-$Environment"
+    $RoleName = "lynxbox-lambda-role-$Environment"
     
     Write-Host "Creating Lambda execution role: $RoleName" -ForegroundColor Cyan
     
@@ -132,7 +132,7 @@ function New-LambdaExecutionRole {
 # 1) Get Terraform outputs
 Write-Host "`nGetting Terraform outputs..." -ForegroundColor Cyan
 
-$DynamoDbTable = "listspace-ph-$Environment"
+$DynamoDbTable = "lynxbox-ph-$Environment"
 try {
     $dynamoDbTable = ExecOrFail "terraform output -raw dynamodb_table_name" "Failed to get DynamoDB table name" -ErrorAction SilentlyContinue
     if ($dynamoDbTable) {
@@ -145,7 +145,7 @@ try {
     Write-Host "Using default DynamoDB table: $DynamoDbTable" -ForegroundColor Yellow
 }
 
-$LambdaFunctionName = "listspace-ph-api-$Environment"
+$LambdaFunctionName = "lynxbox-ph-api-$Environment"
 try {
     $lambdaName = ExecOrFail "terraform output -raw lambda_function_name" "Failed to get Lambda function name" -ErrorAction SilentlyContinue
     if ($lambdaName) {
@@ -323,7 +323,7 @@ aws lambda create-function `
     --handler 'index.handler' `
     --zip-file 'fileb://$zipPath' `
     --region '$AwsRegion' `
-    --environment Variables='{DYNAMODB_TABLE=$DynamoDbTable,S3_BUCKET_NAME=listspace-ph-objects-dev-ap-southeast-1,AWS_REGION=$AwsRegion,WATERMARK_ENABLED=true,WATERMARK_POSITION=bottom-right,WATERMARK_OPACITY=0.9,WATERMARK_SCALE=200,WATERMARK_MARGIN=20}' `
+    --environment Variables='{DYNAMODB_TABLE=$DynamoDbTable,S3_BUCKET_NAME=lynxbox-ph-objects-dev-ap-southeast-1,AWS_REGION=$AwsRegion,WATERMARK_ENABLED=true,WATERMARK_POSITION=bottom-right,WATERMARK_OPACITY=0.9,WATERMARK_SCALE=200,WATERMARK_MARGIN=20}' `
     --memory-size 1024 `
     --timeout 300
 "@

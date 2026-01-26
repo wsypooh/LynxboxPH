@@ -123,7 +123,7 @@ export default function SignInPage() {
         <VStack spacing={2} textAlign="center">
           <Heading size="lg">Welcome Back</Heading>
           <Text color="gray.600">
-            Sign in to your ListSpace PH account
+            Sign in to your Lynxbox PH account
           </Text>
         </VStack>
 

@@ -41,7 +41,7 @@ if (typeof window !== 'undefined') {
       },
       API: {
         REST: {
-          listspaceAPI: {
+          lynxboxAPI: {
             endpoint: process.env.NEXT_PUBLIC_API_URL || '',
             region: process.env.NEXT_PUBLIC_AWS_REGION || 'ap-southeast-1',
           }

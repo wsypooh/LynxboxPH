@@ -15,7 +15,7 @@ export class AdminPropertyHandler {
       }
 
       const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new ScanCommand({
-        TableName: process.env.DYNAMODB_TABLE || 'listspace-ph-dev',
+        TableName: process.env.DYNAMODB_TABLE || 'lynxbox-ph-dev',
         FilterExpression: 'begins_with(PK, :pkPrefix)',
         ExpressionAttributeValues: {
           ':pkPrefix': 'PROPERTY#'

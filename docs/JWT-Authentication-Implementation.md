@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the JWT authentication implementation for the ListSpace PH application. The system uses AWS Cognito for authentication and JWT tokens for securing API endpoints.
+This document describes the JWT authentication implementation for the Lynxbox PH application. The system uses AWS Cognito for authentication and JWT tokens for securing API endpoints.
 
 ## Architecture
 

@@ -1,38 +1,38 @@
-# Root-level .gitignore for ListSpace PH
-# Covers Next.js frontend (listspace-ph/) and Terraform infra (infra/)
+# Root-level .gitignore for Lynxbox PH
+# Covers Next.js frontend (lynxbox-ph/) and Terraform infra (infra/)
 
 # -----------------------------
-# Node / Next.js (listspace-ph)
+# Node / Next.js (lynxbox-ph)
 # -----------------------------
-listspace-ph/node_modules/
-listspace-ph/.next/
-listspace-ph/.next/cache/
-listspace-ph/out/
-listspace-ph/.turbo/
-listspace-ph/.vercel/
-listspace-ph/coverage/
-listspace-ph/dist/
-listspace-ph/build/
-listspace-ph/.eslintcache
+lynxbox-ph/node_modules/
+lynxbox-ph/.next/
+lynxbox-ph/.next/cache/
+lynxbox-ph/out/
+lynxbox-ph/.turbo/
+lynxbox-ph/.vercel/
+lynxbox-ph/coverage/
+lynxbox-ph/dist/
+lynxbox-ph/build/
+lynxbox-ph/.eslintcache
 
 # Package manager logs
-listspace-ph/npm-debug.log*
-listspace-ph/yarn-debug.log*
-listspace-ph/yarn-error.log*
-listspace-ph/pnpm-debug.log*
-listspace-ph/lerna-debug.log*
+lynxbox-ph/npm-debug.log*
+lynxbox-ph/yarn-debug.log*
+lynxbox-ph/yarn-error.log*
+lynxbox-ph/pnpm-debug.log*
+lynxbox-ph/lerna-debug.log*
 
 # Env files
-listspace-ph/.env
-listspace-ph/.env*.local
-listspace-ph/.env*
+lynxbox-ph/.env
+lynxbox-ph/.env*.local
+lynxbox-ph/.env*
 
 # Local editor settings (keep recommended settings files)
-listspace-ph/.vscode/*
-!listspace-ph/.vscode/settings.json
-!listspace-ph/.vscode/tasks.json
-!listspace-ph/.vscode/launch.json
-!listspace-ph/.vscode/extensions.json
+lynxbox-ph/.vscode/*
+!lynxbox-ph/.vscode/settings.json
+!lynxbox-ph/.vscode/tasks.json
+!lynxbox-ph/.vscode/launch.json
+!lynxbox-ph/.vscode/extensions.json
 
 # -----------------------------
 # Terraform (infra)

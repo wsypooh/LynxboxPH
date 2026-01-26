@@ -4,7 +4,7 @@ param(
     [string]$Environment,
 
     [Parameter(Mandatory=$false)]
-    [string]$AppPath = "$PSScriptRoot\..\..\listspace-ph",
+    [string]$AppPath = "$PSScriptRoot\..\..\lynxbox-ph",
 
     [Parameter(Mandatory=$false)]
     [string]$AwsRegion = "ap-southeast-1",

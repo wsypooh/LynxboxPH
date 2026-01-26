@@ -68,7 +68,7 @@ export default function Home() {
             justify="center"
           >
             <Heading size={['2xl', '3xl', '4xl']} fontWeight="bold" lineHeight="1.2">
-              ListSpace PH
+              Lynxbox PH
             </Heading>
             <Text fontSize={['lg', 'xl', '2xl']} maxW="2xl" lineHeight="1.4" fontWeight="500">
               Helping Small Commercial Landlords Go Digital
@@ -127,7 +127,7 @@ export default function Home() {
       <Container maxW="container.xl" py={20}>
         <VStack spacing={12}>
           <VStack spacing={4} textAlign="center">
-            <Heading size="xl">Why Choose ListSpace PH?</Heading>
+            <Heading size="xl">Why Choose Lynxbox PH?</Heading>
             <Text fontSize="lg" color="gray.600" maxW="2xl">
               We provide everything you need to manage your commercial properties effectively
             </Text>
@@ -290,7 +290,7 @@ export default function Home() {
           <VStack spacing={6} textAlign="center">
             <Heading size="xl">Ready to Get Started?</Heading>
             <Text fontSize="lg" maxW="2xl">
-              Join hundreds of property owners who are already using ListSpace PH to manage their commercial properties
+              Join hundreds of property owners who are already using Lynxbox PH to manage their commercial properties
             </Text>
             <Button as={Link} href={route('/auth/signup')} size="lg" colorScheme="white" variant="solid">
               Create Your Free Account

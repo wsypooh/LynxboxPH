@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Manage Properties | ListSpace PH',
+  title: 'Manage Properties | Lynxbox PH',
   description: 'Manage your commercial property listings',
 }
 

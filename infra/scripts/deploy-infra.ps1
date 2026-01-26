@@ -1,5 +1,5 @@
-# ListSpace PH Infrastructure Deployment Script
-# This script handles the deployment of ListSpace PH infrastructure using Terraform
+# Lynxbox PH Infrastructure Deployment Script
+# This script handles the deployment of Lynxbox PH infrastructure using Terraform
 
 param (
     [Parameter(Mandatory=$true)]

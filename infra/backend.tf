@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket  = "listspace-ph-terraform-state"
+    bucket  = "lynxbox-ph-terraform-state"
     key     = "terraform.tfstate"
     region  = "ap-southeast-1"
     encrypt = true

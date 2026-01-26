@@ -1,4 +1,4 @@
-service: listspace-api
+service: lynxbox-api
 
 provider:
   name: aws

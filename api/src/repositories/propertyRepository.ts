@@ -3,7 +3,7 @@ import { Property, createProperty, PropertyInput } from '../models/property';
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand, DeleteCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { EntityType, BaseEntity } from '../lib/dynamodb';
 
-const TABLE_NAME = process.env.DYNAMODB_TABLE || 'listspace-ph-dev';
+const TABLE_NAME = process.env.DYNAMODB_TABLE || 'lynxbox-ph-dev';
 
 // Helper function to create property keys
 function createPropertyKeys(id: string) {

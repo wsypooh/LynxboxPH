@@ -1,7 +1,7 @@
 {
-  "name": "listspace-api",
+  "name": "lynxbox-api",
   "version": "1.0.0",
-  "description": "ListSpace API",
+  "description": "Lynxbox API",
   "main": "dist/handlers/properties/handler.js",
   "scripts": {
     "build": "tsc",

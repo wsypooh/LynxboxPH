@@ -3,16 +3,16 @@
 module "naming" {
   source = "../../library/naming"
 
-  project_name     = "listspace-ph"
+  project_name     = "lynxbox-ph"
   environment      = "dev"
   aws_region_short = "apse1" # ap-southeast-1
 
   default_tags = {
     Environment = "dev"
-    Project     = "listspace-ph"
+    Project     = "lynxbox-ph"
     ManagedBy   = "Terraform"
-    Owner       = "listspace-team"
-    CostCenter  = "listspace"
+    Owner       = "lynxbox-team"
+    CostCenter  = "lynxbox"
   }
 }
 

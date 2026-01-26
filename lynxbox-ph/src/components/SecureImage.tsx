@@ -55,7 +55,7 @@ export const SecureImage: React.FC<SecureImageProps> = (props) => {
         if (!temporaryUrl || temporaryUrl === imageKey || !temporaryUrl.startsWith('http')) {
           console.warn(`Invalid temporary URL received: ${temporaryUrl}, falling back to direct S3 URL`);
           // Fallback to direct S3 URL
-          const directS3Url = `https://listspace-ph-objects-dev-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/${imageKey}`;
+          const directS3Url = `https://lynxbox-ph-objects-dev-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/${imageKey}`;
           setImageUrl(directS3Url);
         } else {
           setImageUrl(temporaryUrl);
@@ -63,7 +63,7 @@ export const SecureImage: React.FC<SecureImageProps> = (props) => {
       } catch (apiError) {
         console.error(`API call failed, falling back to direct S3 URL:`, apiError);
         // Fallback to direct S3 URL
-        const directS3Url = `https://listspace-ph-objects-dev-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/${imageKey}`;
+        const directS3Url = `https://lynxbox-ph-objects-dev-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/${imageKey}`;
         setImageUrl(directS3Url);
       }
       

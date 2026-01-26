@@ -9,7 +9,7 @@ param(
     [string]$AwsRegion = 'ap-southeast-1',
     
     [Parameter(Mandatory=$false)]
-    [string]$ProjectName = 'listspace-ph'
+    [string]$ProjectName = 'lynxbox-ph'
 )
 
 # Set environment variables

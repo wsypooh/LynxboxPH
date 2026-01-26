@@ -44,7 +44,7 @@ export function Navigation() {
           <Flex alignItems={'center'}>
             <Link href="/">
               <Text fontSize="xl" fontWeight="bold" color="white">
-                ListSpace PH
+                Lynxbox PH
               </Text>
             </Link>
           </Flex>

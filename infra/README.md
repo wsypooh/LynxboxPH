@@ -1,6 +1,6 @@
-# ListSpace PH Infrastructure
+# Lynxbox PH Infrastructure
 
-This directory contains the infrastructure as code for deploying the ListSpace PH application to AWS using Terraform and PowerShell scripts.
+This directory contains the infrastructure as code for deploying the Lynxbox PH application to AWS using Terraform and PowerShell scripts.
 
 ## Prerequisites
 
@@ -64,15 +64,15 @@ All resources follow a standardized naming convention:
 
 Where:
 - `prefix`: Short code for the resource type (e.g., `rg` for resource group)
-- `project_name`: Name of the project (e.g., `listspace-ph`)
+- `project_name`: Name of the project (e.g., `lynxbox-ph`)
 - `environment`: Deployment environment (e.g., `dev`, `test`, `prod`)
 - `location_short`: Short code for AWS region (e.g., `apse1` for ap-southeast-1)
 - `suffix`: Optional additional identifier
 
 ### Examples:
-- Development VPC: `vnet-listspace-ph-dev-apse1`
-- Production S3 Bucket: `s3-listspace-ph-prod-apse1-<guid>`
-- Test DynamoDB Table: `listspace-ph-test`
+- Development VPC: `vnet-lynxbox-ph-dev-apse1`
+- Production S3 Bucket: `s3-lynxbox-ph-prod-apse1-<guid>`
+- Test DynamoDB Table: `lynxbox-ph-test`
 
 ## Environment Configuration
 
@@ -157,7 +157,7 @@ To completely remove all resources for an environment:
 3. Clone the repository
 4. Install dependencies:
    ```bash
-   cd listspace-ph
+   cd lynxbox-ph
    npm install
    ```
 
@@ -170,7 +170,7 @@ To completely remove all resources for an environment:
    This will start the Next.js development server at `http://localhost:3000`
 
 2. **Configure environment variables**:
-   Create a `.env.local` file in the `listspace-ph` directory with the following variables:
+   Create a `.env.local` file in the `lynxbox-ph` directory with the following variables:
    ```
    NEXT_PUBLIC_AWS_REGION=your_aws_region
    NEXT_PUBLIC_USER_POOL_ID=your_cognito_user_pool_id

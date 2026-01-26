@@ -1,8 +1,8 @@
-# ListSpace PH - User-Based Property Filtering Implementation Plan
+# Lynxbox PH - User-Based Property Filtering Implementation Plan
 
 ## 📋 Project Overview
 
-This document outlines the complete implementation of user-based property filtering for ListSpace PH, providing a secure, scalable solution that automatically filters properties based on the logged-in user.
+This document outlines the complete implementation of user-based property filtering for Lynxbox PH, providing a secure, scalable solution that automatically filters properties based on the logged-in user.
 
 ## ✅ Completed Implementation
 

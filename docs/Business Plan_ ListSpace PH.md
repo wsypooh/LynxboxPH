@@ -1,4 +1,4 @@
-# ListSpace PH
+# Lynxbox PH
 
 **"Helping Small Commercial Landlords Go Digital"**
 
@@ -6,7 +6,7 @@
 
 ### **Executive Summary**
 
-ListSpace PH is a digital listing and rental management platform designed for small commercial property owners in the Philippines. It provides free property listings, rental invoicing, and tenant tools, with monetization through paid upgrades and subscriptions. Built with a modern tech stack and PH-localized features, it addresses the gap in platforms catering to individual commercial landlords.
+Lynxbox PH is a digital listing and rental management platform designed for small commercial property owners in the Philippines. It provides free property listings, rental invoicing, and tenant tools, with monetization through paid upgrades and subscriptions. Built with a modern tech stack and PH-localized features, it addresses the gap in platforms catering to individual commercial landlords.
 
 ---
 

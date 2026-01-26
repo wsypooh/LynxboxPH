@@ -29,8 +29,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Default values
-$bucketName = "listspace-ph-terraform-state"
-$lockTable = "listspace-ph-terraform-locks"
+$bucketName = "lynxbox-ph-terraform-state"
+$lockTable = "lynxbox-ph-terraform-locks"
 
 # Try to parse backend.tf for custom configuration
 try {

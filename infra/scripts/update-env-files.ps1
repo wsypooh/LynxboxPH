@@ -79,7 +79,7 @@ try {
     $outputs = $tfOutput | ConvertFrom-Json -AsHashtable
     
     # Define the path to the environment file
-    $envFile = "$ProjectRoot\listspace-ph\.env"
+    $envFile = "$ProjectRoot\lynxbox-ph\.env"
     
     # Create the directory if it doesn't exist
     $envDir = Split-Path -Path $envFile -Parent

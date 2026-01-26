@@ -1,7 +1,7 @@
 variable "project_name" {
-  description = "The name of the project (e.g., listspace-ph)"
+  description = "The name of the project (e.g., lynxbox-ph)"
   type        = string
-  default     = "listspace-ph"
+  default     = "lynxbox-ph"
 }
 
 variable "environment" {
@@ -25,11 +25,11 @@ variable "default_tags" {
 variable "owner" {
   description = "The owner/team responsible for the resource"
   type        = string
-  default     = "listspace-team"
+  default     = "lynxbox-team"
 }
 
 variable "cost_center" {
   description = "The cost center for billing purposes"
   type        = string
-  default     = "listspace"
+  default     = "lynxbox"
 }

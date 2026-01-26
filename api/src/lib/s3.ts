@@ -24,7 +24,7 @@ export class S3Service {
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION || 'ap-southeast-1',
     });
-    this.bucketName = process.env.S3_BUCKET_NAME || 'listspace-ph-objects-dev-ap-southeast-1';
+    this.bucketName = process.env.S3_BUCKET_NAME || 'lynxbox-ph-objects-dev-ap-southeast-1';
     this.imageProcessor = new ImageProcessingService();
   }
 
