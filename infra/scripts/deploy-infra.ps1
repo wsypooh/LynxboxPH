@@ -94,6 +94,37 @@ try {
         }
     }
     
+    # Upload initial lambda zip files to S3
+    Write-Host "Uploading initial lambda zip files to S3..." -ForegroundColor Cyan
+    $S3BucketName = "lynxbox-ph-objects-$Environment-ap-southeast-1"
+    $Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    
+    # Only upload the zip file for the current environment
+    $ZipPath = "$infraRoot/setup/lambda-$Environment.zip"
+    
+    if (Test-Path $ZipPath) {
+        Write-Host "Uploading lambda-$Environment.zip to s3://$S3BucketName/lambda/lambda-$Environment.zip..." -ForegroundColor Yellow
+        $s3UploadResult = aws s3 cp $ZipPath "s3://$S3BucketName/lambda/lambda-$Environment.zip" --region ap-southeast-1 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Failed to upload lambda-$Environment.zip: $s3UploadResult"
+        } else {
+            Write-Host "✓ Uploaded lambda-$Environment.zip" -ForegroundColor Green
+            
+            # Create timestamped backup
+            $BackupKey = "lambda/backup/lambda-$Environment-$Timestamp.zip"
+            Write-Host "Creating backup: s3://$S3BucketName/$BackupKey..." -ForegroundColor Yellow
+            $backupResult = aws s3 cp $ZipPath "s3://$S3BucketName/$BackupKey" --region ap-southeast-1 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✓ Created backup: $BackupKey" -ForegroundColor Green
+            } else {
+                Write-Warning "Failed to create backup: $backupResult"
+            }
+        }
+    } else {
+        Write-Error "lambda-$Environment.zip not found at $ZipPath"
+        exit 1
+    }
+    
     # Run plan and apply
     $planFile = "$Environment.tfplan"
     

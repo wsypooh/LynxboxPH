@@ -292,8 +292,27 @@ if (Test-Path $zipPath) {
     exit 1
 }
 
-# 5) Deploy Lambda function
-Write-Host "`nDeploying Lambda function..." -ForegroundColor Cyan
+# 5) Upload to S3 and deploy Lambda function
+Write-Host "`nUploading to S3 and deploying Lambda function..." -ForegroundColor Cyan
+
+# S3 bucket name
+$S3BucketName = "lynxbox-ph-objects-$Environment-ap-southeast-1"
+$S3Key = "lambda/lambda-$Environment.zip"
+$Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+
+Write-Host "Uploading $zipPath to s3://$S3BucketName/$S3Key..." -ForegroundColor Yellow
+ExecOrFail "aws s3 cp '$zipPath' 's3://$S3BucketName/$S3Key' --region '$AwsRegion'" "Failed to upload to S3"
+Write-Host "✓ Uploaded to S3" -ForegroundColor Green
+
+# Create timestamped backup
+$BackupKey = "lambda/backup/lambda-$Environment-$Timestamp.zip"
+Write-Host "Creating backup: s3://$S3BucketName/$BackupKey..." -ForegroundColor Yellow
+try {
+    ExecOrFail "aws s3 cp '$zipPath' 's3://$S3BucketName/$BackupKey' --region '$AwsRegion'" "Failed to create backup"
+    Write-Host "✓ Created backup: $BackupKey" -ForegroundColor Green
+} catch {
+    Write-Warning "Failed to create backup: $_"
+}
 
 # Check if Lambda function exists
 $functionExists = $false
@@ -307,29 +326,27 @@ try {
 }
 
 if ($functionExists) {
-    # Update existing function
-    ExecOrFail "aws lambda update-function-code --function-name '$LambdaFunctionName' --zip-file 'fileb://$zipPath' --region '$AwsRegion'" "Failed to update Lambda function"
+    # Update existing function from S3
+    ExecOrFail "aws lambda update-function-code --function-name '$LambdaFunctionName' --s3-bucket '$S3BucketName' --s3-key '$S3Key' --region '$AwsRegion'" "Failed to update Lambda function from S3"
     
-    # Handler update removed - Lambda is working with current configuration
-    
-    Write-Host "✓ Updated Lambda function code" -ForegroundColor Green
+    Write-Host "✓ Updated Lambda function code from S3" -ForegroundColor Green
 } else {
-    # Create new function
+    # Create new function from S3
     $createCommand = @"
 aws lambda create-function `
     --function-name '$LambdaFunctionName' `
     --runtime nodejs18.x `
     --role '$LambdaRoleArn' `
     --handler 'index.handler' `
-    --zip-file 'fileb://$zipPath' `
+    --code "S3Bucket=$S3BucketName,S3Key=$S3Key" `
     --region '$AwsRegion' `
     --environment Variables='{DYNAMODB_TABLE=$DynamoDbTable,S3_BUCKET_NAME=lynxbox-ph-objects-dev-ap-southeast-1,AWS_REGION=$AwsRegion,WATERMARK_ENABLED=true,WATERMARK_POSITION=bottom-right,WATERMARK_OPACITY=0.9,WATERMARK_SCALE=200,WATERMARK_MARGIN=20}' `
     --memory-size 1024 `
     --timeout 300
 "@
     
-    ExecOrFail $createCommand "Failed to create Lambda function"
-    Write-Host "✓ Created Lambda function: $LambdaFunctionName" -ForegroundColor Green
+    ExecOrFail $createCommand "Failed to create Lambda function from S3"
+    Write-Host "✓ Created Lambda function: $LambdaFunctionName from S3" -ForegroundColor Green
 }
 
 # 6) Clean up

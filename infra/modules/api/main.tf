@@ -94,9 +94,10 @@ resource "aws_lambda_function" "api" {
   handler       = "index.handler"
   runtime       = "nodejs24.x"
 
-  # The deployment package will be uploaded separately
-  filename         = "${path.module}/../../../api/dist/api.zip"
-  source_code_hash = fileexists("${path.module}/../../../api/dist/api.zip") ? filebase64sha256("${path.module}/../../../api/dist/api.zip") : null
+  # Use S3-based deployment for initial setup
+  s3_bucket         = "lynxbox-ph-objects-${var.environment}-ap-southeast-1"
+  s3_key            = "lambda/lambda-${var.environment}.zip"
+  s3_object_version = null
 
   role    = aws_iam_role.lambda.arn
   timeout = 30
@@ -118,6 +119,15 @@ resource "aws_lambda_function" "api" {
   }
 
   tags = var.common_tags
+
+  # Ignore changes to source_code_hash since we manage deployment via deploy-lambda.ps1
+  lifecycle {
+    ignore_changes = [
+      source_code_hash,
+      s3_object_version,
+      last_modified
+    ]
+  }
 }
 
 # API Gateway Lambda Permission

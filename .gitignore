@@ -118,7 +118,6 @@ temp-deploy-*/
 
 # Lambda deployment zip files (created in infra folder)
 infra/lambda-*.zip
-lambda-*.zip
 
 # Temporary node_modules zip (created in infra folder)
 infra/node_modules-temp.zip
