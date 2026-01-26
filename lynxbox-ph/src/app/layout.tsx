@@ -8,6 +8,7 @@ import { ResourcesConfig } from 'aws-amplify';
 import { Providers } from '@/components/providers';
 import { Navigation } from '@/components/Navigation';
 import { Box } from '@chakra-ui/react';
+import { usePathname } from 'next/navigation';
 
 
 const inter = Inter({ subsets: ['latin'] });
@@ -73,12 +74,15 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const isComingSoonPage = pathname?.startsWith('/coming-soon.html') || pathname?.startsWith('/coming-soon');
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
-          <Navigation />
-          <Box as="main" pt="70px">
+          {!isComingSoonPage && <Navigation />}
+          <Box as="main" pt={isComingSoonPage ? "0" : "70px"}>
             {children}
           </Box>
         </Providers>

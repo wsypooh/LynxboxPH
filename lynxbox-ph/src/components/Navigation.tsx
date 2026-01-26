@@ -3,6 +3,7 @@
 import { Box, Container, Flex, Text, Button, HStack, IconButton, useDisclosure, Stack, useColorModeValue, Icon } from '@chakra-ui/react'
 import { HamburgerIcon, CloseIcon } from '@chakra-ui/icons'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/features/auth/AuthContext'
 import { route } from '@/utils/routing'
 
@@ -35,6 +36,12 @@ const NAV_ITEMS: Array<NavItem> = [
 export function Navigation() {
   const { isOpen, onToggle } = useDisclosure()
   const { user, signOut } = useAuth()
+  const pathname = usePathname()
+
+  // Hide navigation on coming-soon page and any variations
+  if (pathname?.startsWith('/coming-soon.html') || pathname?.startsWith('/coming-soon')) {
+    return null
+  }
 
   return (
     <Box as="nav" position="fixed" w="100%" zIndex={1000} bg="rgba(0, 0, 0, 0.8)" backdropFilter="blur(10px)">

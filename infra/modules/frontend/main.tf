@@ -110,88 +110,12 @@ resource "aws_cloudfront_distribution" "frontend" {
     min_ttl                = var.min_ttl
     default_ttl            = var.default_ttl
     max_ttl                = var.max_ttl
-  }
-
-  # Specific cache behavior for /properties route
-  ordered_cache_behavior {
-    path_pattern           = "/properties"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "S3-${var.bucket_name}"
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
+    
+    # Add CloudFront function association
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = "arn:aws:cloudfront::676805078590:function/Redirect"
     }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = var.min_ttl
-    default_ttl            = var.default_ttl
-    max_ttl                = var.max_ttl
-  }
-
-  # Cache behavior for dynamic routes that should serve index.html
-  ordered_cache_behavior {
-    path_pattern           = "/properties/*"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "S3-${var.bucket_name}"
-    compress               = true
-
-    forwarded_values {
-      query_string = true  # Allow query strings for property detail page
-      cookies {
-        forward = "none"
-      }
-    }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = var.min_ttl
-    default_ttl            = var.default_ttl
-    max_ttl                = var.max_ttl
-  }
-
-  ordered_cache_behavior {
-    path_pattern           = "/dashboard/*"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "S3-${var.bucket_name}"
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = var.min_ttl
-    default_ttl            = var.default_ttl
-    max_ttl                = var.max_ttl
-  }
-
-  ordered_cache_behavior {
-    path_pattern           = "/auth/*"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "S3-${var.bucket_name}"
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = var.min_ttl
-    default_ttl            = var.default_ttl
-    max_ttl                = var.max_ttl
   }
 
   price_class = var.cloudfront_price_class
