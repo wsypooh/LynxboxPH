@@ -106,7 +106,7 @@ resource "aws_lambda_function" "api" {
     variables = merge(
       {
         NODE_ENV       = var.environment
-        TABLE_NAME     = var.dynamodb_table_name
+        DYNAMODB_TABLE = var.dynamodb_table_name
         USER_POOL_ID   = var.user_pool_id
         CLIENT_ID      = var.user_pool_client_id
         S3_BUCKET_NAME = var.s3_bucket_name
