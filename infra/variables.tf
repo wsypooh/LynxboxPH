@@ -47,6 +47,13 @@ variable "domain_name" {
   type        = string
 }
 
+# SSL Certificate Configuration
+variable "ssl_certificate_arn" {
+  description = "ARN of the SSL certificate to use for CloudFront distribution"
+  type        = string
+  default     = ""
+}
+
 # Frontend Configuration
 variable "frontend_bucket_name" {
   description = "Name of the S3 bucket for frontend assets"

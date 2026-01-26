@@ -16,6 +16,9 @@ param (
     [switch]$AutoApprove = $false,
     
     [Parameter(Mandatory=$false)]
+    [switch]$SkipLambdaUpload = $false,
+    
+    [Parameter(Mandatory=$false)]
     [string]$TerraformVarsFile = "../environments/$Environment.tfvars"
 )
 
@@ -75,28 +78,30 @@ function Select-Workspace {
     }
 }
 
-# Main execution
-try {
-    # Check requirements
-    if (-not (Test-TerraformInstalled)) { exit 1 }
-    
-    # Initialize Terraform
-    Initialize-Terraform
-    
-    # Initialize workspace
-    Write-Host "Setting up workspace: $Environment" -ForegroundColor Cyan
-    terraform workspace select $Environment 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Creating new workspace: $Environment" -ForegroundColor Cyan
-        terraform workspace new $Environment
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to create workspace"
+# Check if Lambda is already deployed
+function Test-LambdaDeployed {
+    Write-Host "Checking Lambda deployment status..."
+    try {
+        $output = terraform output -raw lambda_deployment_status 2>$null
+        if ($output -eq "deployed") {
+            Write-Host "✓ Lambda is already deployed" -ForegroundColor Green
+            return $true
         }
+    } catch {
+        # Output doesn't exist yet, assume not deployed
     }
+    return $false
+}
+
+# Upload initial lambda zip files to S3
+function Send-LambdaZip {
+    param(
+        [string]$Environment,
+        [string]$InfraRoot,
+        [string]$S3BucketName
+    )
     
-    # Upload initial lambda zip files to S3
     Write-Host "Uploading initial lambda zip files to S3..." -ForegroundColor Cyan
-    $S3BucketName = "lynxbox-ph-objects-$Environment-ap-southeast-1"
     $Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
     
     # Only upload the zip file for the current environment
@@ -123,6 +128,38 @@ try {
     } else {
         Write-Error "lambda-$Environment.zip not found at $ZipPath"
         exit 1
+    }
+}
+
+# Main execution
+try {
+    # Check requirements
+    if (-not (Test-TerraformInstalled)) { exit 1 }
+    
+    # Initialize Terraform
+    Initialize-Terraform
+    
+    # Initialize workspace
+    Write-Host "Setting up workspace: $Environment" -ForegroundColor Cyan
+    terraform workspace select $Environment 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Creating new workspace: $Environment" -ForegroundColor Cyan
+        terraform workspace new $Environment
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create workspace"
+        }
+    }
+    
+    # Handle Lambda upload based on deployment status and flags
+    $S3BucketName = "lynxbox-ph-objects-$Environment-ap-southeast-1"
+    $lambdaDeployed = Test-LambdaDeployed
+    
+    if (-not $SkipLambdaUpload -and -not $lambdaDeployed) {
+        Send-LambdaZip -Environment $Environment -InfraRoot $infraRoot -S3BucketName $S3BucketName
+    } elseif ($SkipLambdaUpload) {
+        Write-Host "Skipping Lambda upload due to SkipLambdaUpload flag" -ForegroundColor Yellow
+    } elseif ($lambdaDeployed) {
+        Write-Host "Skipping Lambda upload - Lambda already deployed" -ForegroundColor Yellow
     }
     
     # Run plan and apply

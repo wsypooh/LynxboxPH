@@ -20,6 +20,12 @@ variable "domain_name" {
   default     = ""
 }
 
+variable "ssl_certificate_arn" {
+  description = "ARN of the SSL certificate to use for CloudFront distribution"
+  type        = string
+  default     = ""
+}
+
 variable "cloudfront_price_class" {
   description = "The price class for the CloudFront distribution"
   type        = string
@@ -44,9 +50,15 @@ variable "max_ttl" {
   default     = 86400
 }
 
-# Only try to get the Route 53 zone if a domain name is provided
+# Only try to get the Route 53 zone if a domain name is provided AND use_route53 is true
+variable "use_route53" {
+  description = "Whether to use Route 53 for DNS management. Set to false if using external DNS like Cloudflare."
+  type        = bool
+  default     = false
+}
+
 data "aws_route53_zone" "main" {
-  count        = var.domain_name != "" ? 1 : 0
+  count        = var.domain_name != "" && var.use_route53 ? 1 : 0
   name         = var.domain_name
   private_zone = false
 }

@@ -6,8 +6,23 @@
 const isProduction = 
   process.env.NODE_ENV === 'production' || 
   process.env.NEXT_PUBLIC_VERCEL_ENV === 'production' ||
-  process.env.NEXT_PUBLIC_IS_DEVELOPMENT === 'false' ||
-  (typeof window !== 'undefined' && window.location.hostname.includes('cloudfront.net'));
+  process.env.NEXT_PUBLIC_IS_DEVELOPMENT === 'false';
+
+// Get the base URL for the current environment
+const getBaseUrlInternal = () => {
+  // In production, use the custom domain if available
+  if (isProduction && process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  
+  // Fallback to detecting CloudFront URL if no custom domain is set
+  if (isProduction && typeof window !== 'undefined' && window.location.hostname.includes('cloudfront.net')) {
+    return `${window.location.protocol}//${window.location.hostname}`;
+  }
+  
+  // Development or no custom domain
+  return '';
+};
 
 /**
  * Generic URL generator for any path
@@ -15,7 +30,7 @@ const isProduction =
  * @returns The appropriate URL for the current environment
  */
 export function getUrl(path: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+  const baseUrl = getBaseUrlInternal();
   
   if (isProduction) {
     // In production, append .html for CloudFront static hosting
@@ -74,5 +89,5 @@ export function getDashboardUrl(): string {
  * @returns The base URL (empty for local development, full URL for production)
  */
 export function getBaseUrl(): string {
-  return isProduction ? (process.env.NEXT_PUBLIC_APP_URL || '') : '';
+  return getBaseUrlInternal();
 }

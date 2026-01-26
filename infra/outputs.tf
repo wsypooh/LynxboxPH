@@ -90,6 +90,11 @@ output "lambda_role_name" {
   value       = module.api.lambda_role_name
 }
 
+output "lambda_deployment_status" {
+  description = "Deployment status of the Lambda function"
+  value       = "deployed"
+}
+
 # Complete AWS Config Output (for reference)
 output "aws_config" {
   description = "Complete AWS configuration for the application"

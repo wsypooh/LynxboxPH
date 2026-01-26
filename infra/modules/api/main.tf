@@ -124,8 +124,7 @@ resource "aws_lambda_function" "api" {
   lifecycle {
     ignore_changes = [
       source_code_hash,
-      s3_object_version,
-      last_modified
+      s3_object_version
     ]
   }
 }

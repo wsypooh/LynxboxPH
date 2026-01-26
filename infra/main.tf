@@ -198,6 +198,8 @@ module "frontend" {
   project_name = var.project_name
   bucket_name  = local.resource_names.frontend_bucket
   domain_name  = local.frontend_config.domain_name
+  ssl_certificate_arn = var.ssl_certificate_arn
+  use_route53  = false  # Set to false since using Cloudflare CNAME
   common_tags = merge(local.common_tags, {
     Environment = var.environment
   })

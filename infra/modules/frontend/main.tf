@@ -81,6 +81,9 @@ resource "aws_cloudfront_distribution" "frontend" {
   comment             = "${var.project_name} frontend distribution"
   default_root_object = "index.html"
 
+  # Add custom domain aliases
+  aliases = var.domain_name != "" ? [var.domain_name] : []
+
   origin {
     domain_name = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_id   = "S3-${var.bucket_name}"
@@ -200,7 +203,8 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = var.domain_name == ""
+    acm_certificate_arn      = var.ssl_certificate_arn != "" ? var.ssl_certificate_arn : null
+    cloudfront_default_certificate = var.domain_name == "" || var.ssl_certificate_arn == ""
     minimum_protocol_version       = "TLSv1.2_2021"
     ssl_support_method             = "sni-only"
   }
@@ -217,7 +221,7 @@ resource "aws_cloudfront_distribution" "frontend" {
 }
 # ACM Certificate for custom domain
 resource "aws_acm_certificate" "cert" {
-  count = var.domain_name != "" ? 1 : 0
+  count = var.domain_name != "" && var.ssl_certificate_arn == "" ? 1 : 0
 
   domain_name       = var.domain_name
   validation_method = "DNS"
@@ -229,7 +233,7 @@ resource "aws_acm_certificate" "cert" {
 
 # Route 53 validation records for ACM certificate
 resource "aws_route53_record" "cert_validation" {
-  for_each = var.domain_name != "" ? {
+  for_each = var.domain_name != "" && var.ssl_certificate_arn == "" && var.use_route53 ? {
     for dvo in aws_acm_certificate.cert[0].domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
@@ -247,15 +251,15 @@ resource "aws_route53_record" "cert_validation" {
 
 # ACM Certificate Validation
 resource "aws_acm_certificate_validation" "cert" {
-  count = var.domain_name != "" ? 1 : 0
+  count = var.domain_name != "" && var.ssl_certificate_arn == "" && var.use_route53 ? 1 : 0
 
   certificate_arn         = aws_acm_certificate.cert[0].arn
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
 
-# Only create Route 53 record if domain_name is provided
+# Only create Route 53 record if domain_name is provided AND use_route53 is true
 resource "aws_route53_record" "frontend" {
-  count = var.domain_name != "" ? 1 : 0
+  count = var.domain_name != "" && var.use_route53 ? 1 : 0
 
   zone_id = data.aws_route53_zone.main[0].zone_id
   name    = var.domain_name
