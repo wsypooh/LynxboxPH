@@ -208,3 +208,43 @@ variable "owner" {
   type        = string
   default     = ""
 }
+
+# ZeptoMail Configuration
+variable "zeptomail_api_key" {
+  description = "ZeptoMail API key for sending emails"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "zeptomail_template_api_key" {
+  description = "ZeptoMail template API key for template-based emails"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "zeptomail_template_key" {
+  description = "ZeptoMail template key for welcome email template"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "zeptomail_sender_email" {
+  description = "Email address to send emails from"
+  type        = string
+  default     = "noreply@lynxbox.ph"
+}
+
+variable "zeptomail_sender_name" {
+  description = "Sender name for emails"
+  type        = string
+  default     = "Lynxbox PH"
+}
+
+variable "zeptomail_bcc_email" {
+  description = "BCC email address for monitoring welcome emails"
+  type        = string
+  default     = "hello@lynxbox.ph"
+}

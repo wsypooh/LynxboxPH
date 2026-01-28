@@ -198,7 +198,7 @@ if (-not $SkipBuild) {
     Write-Host "Skipping build and Sharp installation" -ForegroundColor Yellow
 }
 
-# 3) Verify handler.js exists and create index.js
+# 3) Verify handler.js exists and check index.js
 $handlerPath = "$ApiPath\dist\handlers\properties\handler.js"
 $indexPath = "$ApiPath\dist\index.js"
 
@@ -209,15 +209,13 @@ if (-not (Test-Path $handlerPath)) {
     Write-Host "✓ Found handler.js at $handlerPath" -ForegroundColor Green
 }
 
-# Create index.js that exports the handler
-$indexContent = @"
-const { handler } = require('./handlers/properties/handler');
-
-module.exports = { handler };
-"@
-
-$indexContent | Out-File -FilePath $indexPath -Encoding utf8 -Force
-Write-Host "✓ Created index.js at $indexPath" -ForegroundColor Green
+if (-not (Test-Path $indexPath)) {
+    Write-Host "ERROR: index.js not found at $indexPath" -ForegroundColor Red
+    exit 1
+} else {
+    Write-Host "✓ Found index.js at $indexPath" -ForegroundColor Green
+    Write-Host "✓ Using compiled index.js with signup routing" -ForegroundColor Green
+}
 
 # 4) Create deployment package
 Write-Host "`nCreating deployment package..." -ForegroundColor Cyan

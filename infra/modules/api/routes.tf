@@ -146,3 +146,17 @@ resource "aws_apigatewayv2_route" "options_view_url" {
   route_key = "OPTIONS /api/properties/{id}/images/view-url"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
+
+# Signup Route (No Authentication)
+resource "aws_apigatewayv2_route" "signup" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /api/signup"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# OPTIONS route for signup endpoint
+resource "aws_apigatewayv2_route" "options_signup" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /api/signup"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}

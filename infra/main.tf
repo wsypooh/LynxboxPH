@@ -183,6 +183,12 @@ module "api" {
     CLOUDFRONT_DISTRIBUTION_ID   = module.frontend.cloudfront_distribution_id
     COGNITO_USER_POOL_CLIENT_ID  = module.auth.user_pool_client_id
     COGNITO_USER_POOL_ISSUER     = "https://cognito-idp.${var.aws_region}.amazonaws.com/${module.auth.user_pool_id}"
+    ZEPTOMAIL_API_KEY              = var.zeptomail_api_key
+    ZEPTOMAIL_TEMPLATE_API_KEY    = var.zeptomail_template_api_key
+    ZEPTOMAIL_TEMPLATE_KEY        = var.zeptomail_template_key
+    ZEPTOMAIL_SENDER_EMAIL         = var.zeptomail_sender_email
+    ZEPTOMAIL_SENDER_NAME          = var.zeptomail_sender_name
+    ZEPTOMAIL_BCC_EMAIL            = var.zeptomail_bcc_email
   }
 
   # CORS settings

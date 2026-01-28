@@ -26,14 +26,17 @@
     "cors": "^2.8.5",
     "http-errors": "^2.0.0",
     "multer": "^2.0.1",
+    "nodemailer": "^6.9.8",
     "sharp": "^0.33.5",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "zeptomail": "^7.0.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.5",
     "@types/jest": "^30.0.0",
     "@types/multer": "^1.4.11",
     "@types/node": "^24.0.0",
+    "@types/nodemailer": "^6.4.14",
     "@types/supertest": "^6.0.3",
     "@types/uuid": "^10.0.0",
     "bestzip": "^2.2.1",

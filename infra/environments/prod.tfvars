@@ -18,3 +18,12 @@ cognito_domain        = "lynxbox-ph-prod-auth" # Must be unique across all AWS a
 cognito_callback_urls = ["http://localhost:3000/*", "https://lynxbox.ph/*"]
 cognito_logout_urls   = ["http://localhost:3000/", "https://lynxbox.ph/"]
 
+# ZeptoMail Configuration (Production)
+# Get these from your ZeptoMail account at https://zeptomail.com/
+zeptomail_api_key              = ""  # Add your ZeptoMail API key here (SMTP)
+zeptomail_template_api_key    = ""  # Add your ZeptoMail template API key here
+zeptomail_template_key        = ""  # Add your welcome email template key here
+zeptomail_sender_email        = "noreply@lynxbox.ph"
+zeptomail_sender_name         = "Lynxbox PH"
+zeptomail_bcc_email           = "hello@lynxbox.ph"
+

@@ -86,3 +86,8 @@ variable "region" {
   type        = string
   default     = "ap-southeast-1"
 }
+
+variable "s3_bucket_arn" {
+  description = "ARN of the S3 bucket for CSV storage"
+  type        = string
+}

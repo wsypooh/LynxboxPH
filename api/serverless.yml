@@ -108,6 +108,10 @@ functions:
           authorizer:
             name: ApiGatewayAuthorizer
             type: request
+      - http:
+          path: /api/signup
+          method: post
+          cors: true
 
 plugins:
   - serverless-offline

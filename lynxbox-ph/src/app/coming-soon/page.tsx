@@ -1,6 +1,103 @@
+'use client';
+
+import { useState } from 'react';
+
 export default function ComingSoon() {
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const showToastMessage = (message: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 5000);
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      source: formData.get('source') as string,
+      tags: formData.get('tags') ? JSON.parse(formData.get('tags') as string) : undefined
+    };
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        showToastMessage('Successfully joined the waiting list! Check your email for confirmation.', 'success');
+        (e.target as HTMLFormElement).reset();
+      } else {
+        showToastMessage(result.error || 'Failed to join waiting list. Please try again.', 'error');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      showToastMessage('Network error. Please try again later.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <main style={{ margin: 0, padding: 0 }}>
+    <>
+      {showToast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: toastType === 'success' ? '#10b981' : '#ef4444',
+            color: 'white',
+            padding: '16px 24px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            maxWidth: '400px',
+            fontSize: '14px',
+            lineHeight: '1.5',
+            animation: 'slideIn 0.3s ease-out'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <span style={{ fontSize: '18px', flexShrink: 0 }}>
+              {toastType === 'success' ? '✓' : '✕'}
+            </span>
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
+      
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      <main style={{ margin: 0, padding: 0 }}>
       {/* Version marker for cache busting */}
       <div style={{ display: 'none' }} data-version="2024-01-26-04-00" />
       {/* Hero Section */}
@@ -114,11 +211,9 @@ export default function ComingSoon() {
               The premier digital listing and rental management platform designed for small commercial property owners in the Philippines.
             </p>
             
-            {/* Waiting List Signup - Static HTML Form */}
+            {/* Waiting List Signup - React Form */}
             <form 
-              action="https://your-api-domain.com/api/email-signup" 
-              method="POST"
-              target="_self"
+              onSubmit={handleFormSubmit}
               style={{
                 width: '100%',
                 maxWidth: '400px',
@@ -136,40 +231,70 @@ export default function ComingSoon() {
                 <p style={{ fontSize: 'clamp(0.8rem, 2vw, 0.9rem)', opacity: 0.9, margin: 0 }}>
                   Join our waiting list and get exclusive early access
                 </p>
-                <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
                   <input
-                    type="email"
-                    name="email"
-                    placeholder="Enter your email"
+                    type="text"
+                    name="name"
+                    placeholder="Enter your name"
                     required
                     style={{
                       backgroundColor: 'rgba(255, 255, 255, 0.9)',
                       color: '#0e2949',
                       border: 'none',
-                      flex: 1,
+                      width: '100%',
                       padding: 'clamp(10px, 2.5vw, 12px) clamp(12px, 3vw, 16px)',
                       borderRadius: '8px',
                       fontSize: 'clamp(0.9rem, 2.5vw, 1rem)'
                     }}
                   />
-                  <input type="hidden" name="source" value="coming-soon-page" />
-                  <input type="hidden" name="tags" value='["early-access", "waiting-list"]' />
-                  <button
-                    type="submit"
-                    style={{
-                      backgroundColor: '#4c5a6b',
-                      color: 'white',
-                      padding: 'clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 24px)',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      border: 'none',
-                      fontSize: 'clamp(0.9rem, 2.5vw, 1rem)',
-                      fontWeight: '500',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    Join
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                    <input
+                      type="email"
+                      name="email"
+                      placeholder="Enter your email"
+                      required
+                      style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        color: '#0e2949',
+                        border: 'none',
+                        flex: 1,
+                        padding: 'clamp(10px, 2.5vw, 12px) clamp(12px, 3vw, 16px)',
+                        borderRadius: '8px',
+                        fontSize: 'clamp(0.9rem, 2.5vw, 1rem)'
+                      }}
+                    />
+                    <input type="hidden" name="source" value="coming-soon" />
+                    <input type="hidden" name="tags" value='["early-access", "waiting-list"]' />
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      style={{
+                        backgroundColor: isLoading ? '#9ca3af' : '#4c5a6b',
+                        color: 'white',
+                        padding: 'clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 24px)',
+                        borderRadius: '8px',
+                        cursor: isLoading ? 'not-allowed' : 'pointer',
+                        border: 'none',
+                        fontSize: 'clamp(0.9rem, 2.5vw, 1rem)',
+                        fontWeight: '500',
+                        whiteSpace: 'nowrap',
+                        opacity: isLoading ? 0.7 : 1,
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isLoading) {
+                          e.currentTarget.style.backgroundColor = '#6b7280';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isLoading) {
+                          e.currentTarget.style.backgroundColor = '#4c5a6b';
+                        }
+                      }}
+                    >
+                      {isLoading ? 'Joining...' : 'Join'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </form>
@@ -544,11 +669,9 @@ export default function ComingSoon() {
             </p>
           </div>
           
-          {/* Waiting List Signup - Bottom - Static HTML Form */}
+          {/* Waiting List Signup - Bottom - React Form */}
           <form 
-            action="https://your-api-domain.com/api/email-signup" 
-            method="POST"
-            target="_self"
+            onSubmit={handleFormSubmit}
             style={{
               width: '100%',
               maxWidth: '400px',
@@ -566,45 +689,76 @@ export default function ComingSoon() {
               <p style={{ fontSize: 'clamp(0.8rem, 2vw, 0.9rem)', opacity: 0.9, margin: 0 }}>
                 Join our waiting list and be the first to know when we launch
               </p>
-              <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
                 <input
-                  type="email"
-                  name="email"
-                  placeholder="Enter your email"
+                  type="text"
+                  name="name"
+                  placeholder="Enter your name"
                   required
                   style={{
                     backgroundColor: 'rgba(255, 255, 255, 0.9)',
                     color: '#0e2949',
                     border: 'none',
-                    flex: 1,
+                    width: '100%',
                     padding: 'clamp(10px, 2.5vw, 12px) clamp(12px, 3vw, 16px)',
                     borderRadius: '8px',
                     fontSize: 'clamp(0.9rem, 2.5vw, 1rem)'
                   }}
                 />
-                <input type="hidden" name="source" value="coming-soon-page" />
-                <input type="hidden" name="tags" value='["early-access", "waiting-list"]' />
-                <button
-                  type="submit"
-                  style={{
-                    backgroundColor: '#4c5a6b',
-                    color: 'white',
-                    padding: 'clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 24px)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    border: 'none',
-                    fontSize: 'clamp(0.9rem, 2.5vw, 1rem)',
-                    fontWeight: '500',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Join
-                </button>
+                <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    required
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                      color: '#0e2949',
+                      border: 'none',
+                      flex: 1,
+                      padding: 'clamp(10px, 2.5vw, 12px) clamp(12px, 3vw, 16px)',
+                      borderRadius: '8px',
+                      fontSize: 'clamp(0.9rem, 2.5vw, 1rem)'
+                    }}
+                  />
+                  <input type="hidden" name="source" value="coming-soon" />
+                  <input type="hidden" name="tags" value='["early-access", "waiting-list"]' />
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    style={{
+                      backgroundColor: isLoading ? '#9ca3af' : '#4c5a6b',
+                      color: 'white',
+                      padding: 'clamp(10px, 2.5vw, 12px) clamp(16px, 4vw, 24px)',
+                      borderRadius: '8px',
+                      cursor: isLoading ? 'not-allowed' : 'pointer',
+                      border: 'none',
+                      fontSize: 'clamp(0.9rem, 2.5vw, 1rem)',
+                      fontWeight: '500',
+                      whiteSpace: 'nowrap',
+                      opacity: isLoading ? 0.7 : 1,
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isLoading) {
+                        e.currentTarget.style.backgroundColor = '#6b7280';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isLoading) {
+                        e.currentTarget.style.backgroundColor = '#4c5a6b';
+                      }
+                    }}
+                  >
+                    {isLoading ? 'Joining...' : 'Join'}
+                  </button>
+                </div>
               </div>
             </div>
           </form>
         </div>
       </section>
     </main>
-  )
+  </>
+)
 }

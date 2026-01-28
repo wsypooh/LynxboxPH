@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env' });  // Explicitly load .env file
 
 import express from 'express';
-import { handler } from './dist/handlers/properties/handler';
+import { handler as mainHandler } from './dist/index';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
@@ -193,10 +193,15 @@ app.all('/api/public/properties/:id/images/view-url', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
+// Signup endpoint
+app.all('/api/signup', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
 async function handlePropertyRequest(req: express.Request, res: express.Response) {
   try {
     const event = createApiGatewayEvent(req);
-    const result = await handler(event);
+    const result = await mainHandler(event);
     
     // Set response status and headers
     res.status(result.statusCode || 200);

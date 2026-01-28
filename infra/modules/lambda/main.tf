@@ -22,6 +22,29 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# S3 access policy for CSV operations
+resource "aws_iam_role_policy" "lambda_s3_csv" {
+  name = "${var.project_name}-lambda-s3-csv-${var.environment}"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = [
+          "${var.s3_bucket_arn}",
+          "${var.s3_bucket_arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 # Lambda function
 resource "aws_lambda_function" "api" {
   function_name = "${var.project_name}-${var.function_name}-${var.environment}"
