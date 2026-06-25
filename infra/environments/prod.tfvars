@@ -22,7 +22,7 @@ cognito_logout_urls   = ["http://localhost:3000/", "https://lynxbox.ph/"]
 # Get these from your ZeptoMail account at https://zeptomail.com/
 zeptomail_api_key              = ""  # Add your ZeptoMail API key here (SMTP)
 zeptomail_template_api_key    = ""  # Add your ZeptoMail template API key here
-zeptomail_template_key        = ""  # Add your welcome email template key here
+zeptomail_template_mapping   = "{\"landlord\":\"\",\"realtor\":\"\",\"default\":\"\"}"
 zeptomail_sender_email        = "noreply@lynxbox.ph"
 zeptomail_sender_name         = "Lynxbox PH"
 zeptomail_bcc_email           = "hello@lynxbox.ph"

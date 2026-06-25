@@ -59,6 +59,52 @@ function ExecOrFail {
     }
 }
 
+# 1) Get Terraform outputs
+Write-Host "`nGetting Terraform outputs..." -ForegroundColor Cyan
+
+$DynamoDbTable = "lynxbox-ph-$Environment"
+try {
+    $dynamoDbTable = ExecOrFail "terraform output -raw dynamodb_table_name" "Failed to get DynamoDB table name" -ErrorAction SilentlyContinue
+    if ($dynamoDbTable) {
+        $DynamoDbTable = $dynamoDbTable.Trim()
+        Write-Host "✓ Found DynamoDB table: $DynamoDbTable" -ForegroundColor Green
+    } else {
+        Write-Host "Using default DynamoDB table: $DynamoDbTable" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "Using default DynamoDB table: $DynamoDbTable" -ForegroundColor Yellow
+}
+
+$LambdaFunctionName = "lynxbox-ph-api-$Environment"
+try {
+    $lambdaName = ExecOrFail "terraform output -raw lambda_function_name" "Failed to get Lambda function name" -ErrorAction SilentlyContinue
+    if ($lambdaName) {
+        $LambdaFunctionName = $lambdaName.Trim()
+        Write-Host "✓ Found Lambda function: $LambdaFunctionName" -ForegroundColor Green
+    } else {
+        Write-Host "Using default Lambda function: $LambdaFunctionName" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "Using default Lambda function: $LambdaFunctionName" -ForegroundColor Yellow
+}
+
+$LambdaRoleArn = ""
+try {
+    $roleArn = ExecOrFail "terraform output -raw lambda_execution_role_arn" "Failed to get Lambda role ARN" -ErrorAction SilentlyContinue
+    if ($roleArn) {
+        $LambdaRoleArn = $roleArn.Trim()
+        Write-Host "✓ Found Lambda role ARN" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: Lambda role ARN not found in Terraform outputs" -ForegroundColor Yellow
+        Write-Host "Creating Lambda execution role..." -ForegroundColor Cyan
+        $LambdaRoleArn = New-LambdaExecutionRole -Environment $Environment -Region $AwsRegion
+    }
+} catch {
+    Write-Host "WARNING: Lambda role ARN not found in Terraform outputs" -ForegroundColor Yellow
+    Write-Host "Creating Lambda execution role..." -ForegroundColor Cyan
+    $LambdaRoleArn = New-LambdaExecutionRole -Environment $Environment -Region $AwsRegion
+}
+
 # Function to create Lambda execution role if it doesn't exist
 function New-LambdaExecutionRole {
     $Environment = $args[0]
@@ -129,51 +175,46 @@ function New-LambdaExecutionRole {
     return $roleArn.Trim()
 }
 
-# 1) Get Terraform outputs
-Write-Host "`nGetting Terraform outputs..." -ForegroundColor Cyan
+# Get environment variables from Terraform outputs
+Write-Host "`nGetting environment variables from Terraform..." -ForegroundColor Cyan
+$terraformEnvVars = @{}
 
-$DynamoDbTable = "lynxbox-ph-$Environment"
+# Try to get environment variables from Terraform state
 try {
-    $dynamoDbTable = ExecOrFail "terraform output -raw dynamodb_table_name" "Failed to get DynamoDB table name" -ErrorAction SilentlyContinue
-    if ($dynamoDbTable) {
-        $DynamoDbTable = $dynamoDbTable.Trim()
-        Write-Host "✓ Found DynamoDB table: $DynamoDbTable" -ForegroundColor Green
-    } else {
-        Write-Host "Using default DynamoDB table: $DynamoDbTable" -ForegroundColor Yellow
+    # Get all Terraform outputs that look like environment variables
+    $terraformOutputs = ExecOrFail "terraform output -json" "Failed to get Terraform outputs" -ErrorAction SilentlyContinue
+    if ($terraformOutputs) {
+        $outputs = $terraformOutputs | ConvertFrom-Json
+        
+        # Look for common environment variable patterns
+        $envVarPatterns = @("ZEPTOMAIL_", "NODE_ENV", "TABLE_NAME", "USER_POOL_ID", "CLIENT_ID", "S3_BUCKET_NAME", "ENVIRONMENT", "REGION")
+        
+        foreach ($output in $outputs.PSObject.Properties) {
+            foreach ($pattern in $envVarPatterns) {
+                if ($output.Name -like "*$pattern*") {
+                    $terraformEnvVars[$output.Name] = $output.Value.value
+                    Write-Host "✓ Found env var: $($output.Name)" -ForegroundColor Gray
+                    break
+                }
+            }
+        }
     }
 } catch {
-    Write-Host "Using default DynamoDB table: $DynamoDbTable" -ForegroundColor Yellow
+    Write-Host "Could not retrieve environment variables from Terraform, using defaults" -ForegroundColor Yellow
 }
 
-$LambdaFunctionName = "lynxbox-ph-api-$Environment"
-try {
-    $lambdaName = ExecOrFail "terraform output -raw lambda_function_name" "Failed to get Lambda function name" -ErrorAction SilentlyContinue
-    if ($lambdaName) {
-        $LambdaFunctionName = $lambdaName.Trim()
-        Write-Host "✓ Found Lambda function: $LambdaFunctionName" -ForegroundColor Green
-    } else {
-        Write-Host "Using default Lambda function: $LambdaFunctionName" -ForegroundColor Yellow
-    }
-} catch {
-    Write-Host "Using default Lambda function: $LambdaFunctionName" -ForegroundColor Yellow
+# Add some default environment variables if not found
+if (-not $terraformEnvVars.ContainsKey("NODE_ENV")) {
+    $terraformEnvVars["NODE_ENV"] = $Environment
+}
+if (-not $terraformEnvVars.ContainsKey("ENVIRONMENT")) {
+    $terraformEnvVars["ENVIRONMENT"] = $Environment
+}
+if (-not $terraformEnvVars.ContainsKey("REGION")) {
+    $terraformEnvVars["REGION"] = $AwsRegion
 }
 
-$LambdaRoleArn = ""
-try {
-    $roleArn = ExecOrFail "terraform output -raw lambda_execution_role_arn" "Failed to get Lambda role ARN" -ErrorAction SilentlyContinue
-    if ($roleArn) {
-        $LambdaRoleArn = $roleArn.Trim()
-        Write-Host "✓ Found Lambda role ARN" -ForegroundColor Green
-    } else {
-        Write-Host "WARNING: Lambda role ARN not found in Terraform outputs" -ForegroundColor Yellow
-        Write-Host "Creating Lambda execution role..." -ForegroundColor Cyan
-        $LambdaRoleArn = New-LambdaExecutionRole -Environment $Environment -Region $AwsRegion
-    }
-} catch {
-    Write-Host "WARNING: Lambda role ARN not found in Terraform outputs" -ForegroundColor Yellow
-    Write-Host "Creating Lambda execution role..." -ForegroundColor Cyan
-    $LambdaRoleArn = New-LambdaExecutionRole -Environment $Environment -Region $AwsRegion
-}
+Write-Host "✓ Retrieved $($terraformEnvVars.Count) environment variables from Terraform" -ForegroundColor Green
 
 # 2) Install Sharp for Linux x64 and build TypeScript (if not skipped)
 if (-not $SkipBuild) {
@@ -328,8 +369,21 @@ if ($functionExists) {
     ExecOrFail "aws lambda update-function-code --function-name '$LambdaFunctionName' --s3-bucket '$S3BucketName' --s3-key '$S3Key' --region '$AwsRegion'" "Failed to update Lambda function from S3"
     
     Write-Host "✓ Updated Lambda function code from S3" -ForegroundColor Green
+    Write-Host "ℹ Note: Environment variables are managed by deploy-infra script" -ForegroundColor Yellow
 } else {
-    # Create new function from S3
+    # Create new function from S3 with basic environment variables
+    Write-Host "Creating new Lambda function..." -ForegroundColor Cyan
+    
+    # Create with minimal environment variables for initial setup
+    $basicEnvVars = @{
+        "NODE_ENV" = $Environment
+        "ENVIRONMENT" = $Environment
+        "REGION" = $AwsRegion
+    }
+    
+    # Convert environment variables to JSON format
+    $envVarsJson = $basicEnvVars | ConvertTo-Json -Compress
+    
     $createCommand = @"
 aws lambda create-function `
     --function-name '$LambdaFunctionName' `
@@ -338,13 +392,14 @@ aws lambda create-function `
     --handler 'index.handler' `
     --code "S3Bucket=$S3BucketName,S3Key=$S3Key" `
     --region '$AwsRegion' `
-    --environment Variables='{DYNAMODB_TABLE=$DynamoDbTable,S3_BUCKET_NAME=lynxbox-ph-objects-dev-ap-southeast-1,AWS_REGION=$AwsRegion,WATERMARK_ENABLED=true,WATERMARK_POSITION=bottom-right,WATERMARK_OPACITY=0.9,WATERMARK_SCALE=200,WATERMARK_MARGIN=20}' `
+    --environment Variables='$envVarsJson' `
     --memory-size 1024 `
     --timeout 300
 "@
     
     ExecOrFail $createCommand "Failed to create Lambda function from S3"
     Write-Host "✓ Created Lambda function: $LambdaFunctionName from S3" -ForegroundColor Green
+    Write-Host "ℹ Note: Environment variables will be configured by deploy-infra script" -ForegroundColor Yellow
 }
 
 # 6) Clean up

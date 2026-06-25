@@ -76,13 +76,14 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   const isComingSoonPage = pathname?.startsWith('/coming-soon.html') || pathname?.startsWith('/coming-soon');
+  const isLandingPage = pathname?.startsWith('/landlord') || pathname?.startsWith('/realtor') || isComingSoonPage;
 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
-          {!isComingSoonPage && <Navigation />}
-          <Box as="main" pt={isComingSoonPage ? "0" : "70px"}>
+          {!isLandingPage && <Navigation />}
+          <Box as="main" pt={isLandingPage ? "0" : "70px"}>
             {children}
           </Box>
         </Providers>

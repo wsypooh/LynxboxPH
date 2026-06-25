@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export default function ComingSoon() {
+export default function Landlord() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
@@ -199,7 +199,7 @@ export default function ComingSoon() {
               fontWeight: '500',
               margin: 0 
             }}>
-              Helping Small Commercial Landlords Go Digital
+              Smarter Property Management for Philippine Business Owners
             </p>
             <p style={{ 
               fontSize: 'clamp(1rem, 2vw, 1.3rem)', 
@@ -208,7 +208,7 @@ export default function ComingSoon() {
               lineHeight: '1.6',
               margin: 0 
             }}>
-              The premier digital listing and rental management platform designed for small commercial property owners in the Philippines.
+              List, manage, and monitor your rental properties in one simple platform — built for small commercial landlords in the Philippines.
             </p>
             
             {/* Waiting List Signup - React Form */}
@@ -226,10 +226,10 @@ export default function ComingSoon() {
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <h3 style={{ fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', fontWeight: '600', margin: 0 }}>
-                  Be the First to Know!
+                  Be the First to Access Lynxbox PH
                 </h3>
                 <p style={{ fontSize: 'clamp(0.8rem, 2vw, 0.9rem)', opacity: 0.9, margin: 0 }}>
-                  Join our waiting list and get exclusive early access
+                  Join our waiting list for exclusive early access
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
                   <input
@@ -263,7 +263,7 @@ export default function ComingSoon() {
                         fontSize: 'clamp(0.9rem, 2.5vw, 1rem)'
                       }}
                     />
-                    <input type="hidden" name="source" value="coming-soon" />
+                    <input type="hidden" name="source" value="landlord" />
                     <input type="hidden" name="tags" value='["early-access", "waiting-list"]' />
                     <button
                       type="submit"
@@ -328,7 +328,7 @@ export default function ComingSoon() {
               margin: '0 auto',
               lineHeight: '1.6'
             }}>
-              Lynxbox PH is a cutting-edge property management platform designed to meet the growing demands of small commercial landlords in the Philippines.
+              Lynxbox PH helps small commercial landlords in the Philippines list, manage, and track their rental properties in one simple platform.
             </p>
           </div>
 
@@ -368,7 +368,7 @@ export default function ComingSoon() {
                 Easy Listings
               </h3>
               <p style={{ color: '#4c5a6b', lineHeight: '1.6', margin: 0 }}>
-                Create professional property listings with photos, descriptions, and location details
+                Create professional property listings with photos, descriptions, and location details — all in one place
               </p>
             </div>
 
@@ -403,7 +403,7 @@ export default function ComingSoon() {
                 Smart Search
               </h3>
               <p style={{ color: '#4c5a6b', lineHeight: '1.6', margin: 0 }}>
-                Map-based property search with advanced filters for location, price, and property type
+                Help tenants find the right space faster with map-based search and smart filters for price, location, and property type
               </p>
             </div>
 
@@ -438,7 +438,7 @@ export default function ComingSoon() {
                 Invoicing Tools
               </h3>
               <p style={{ color: '#4c5a6b', lineHeight: '1.6', margin: 0 }}>
-                Generate professional invoices and track payments from your tenants
+                Generate professional invoices, track payments, and stay on top of your rental income with ease
               </p>
             </div>
 
@@ -473,7 +473,7 @@ export default function ComingSoon() {
                 Tenant Management
               </h3>
               <p style={{ color: '#4c5a6b', lineHeight: '1.6', margin: 0 }}>
-                Keep track of tenant information, lease agreements, and communication
+                Store tenant information, manage lease agreements, and keep communication organized in one dashboard
               </p>
             </div>
           </div>
@@ -506,7 +506,7 @@ export default function ComingSoon() {
               margin: '0 auto',
               lineHeight: '1.6'
             }}>
-              We&apos;re redefining property management with innovative solutions designed for the Filipino market
+              Built to simplify everyday property management for small commercial landlords in the Philippines
             </p>
           </div>
 
@@ -532,14 +532,14 @@ export default function ComingSoon() {
                   margin: '0 0 clamp(6px, 1.5vw, 8px) 0',
                   fontSize: 'clamp(1rem, 2.5vw, 1.1rem)'
                 }}>
-                  Digital-First Approach
+                  Digital-First, Simple by Design
                 </h4>
                 <p style={{ 
                   color: '#4c5a6b', 
                   lineHeight: '1.6', 
                   margin: 0 
                 }}>
-                  Transform your traditional property management into a streamlined digital experience
+                  Turn traditional property management into a simple digital workflow
                 </p>
               </div>
             </div>
@@ -560,14 +560,14 @@ export default function ComingSoon() {
                   margin: '0 0 clamp(6px, 1.5vw, 8px) 0',
                   fontSize: 'clamp(1rem, 2.5vw, 1.1rem)'
                 }}>
-                  Property Analytics
+                  Property Insights That Matter
                 </h4>
                 <p style={{ 
                   color: '#4c5a6b', 
                   lineHeight: '1.6', 
                   margin: 0 
                 }}>
-                  Track property performance, occupancy rates, and rental income with simple dashboards
+                  Monitor occupancy, rental income, and property performance with easy-to-understand dashboards
                 </p>
               </div>
             </div>
@@ -588,14 +588,14 @@ export default function ComingSoon() {
                   margin: '0 0 clamp(6px, 1.5vw, 8px) 0',
                   fontSize: 'clamp(1rem, 2.5vw, 1.1rem)'
                 }}>
-                  Automated Invoicing
+                  Automated Invoicing & Payment Tracking
                 </h4>
                 <p style={{ 
                   color: '#4c5a6b', 
                   lineHeight: '1.6', 
                   margin: 0 
                 }}>
-                  Generate and send professional invoices automatically with payment tracking
+                  Create professional invoices, send them to tenants, and track payments — all in one place
                 </p>
               </div>
             </div>
@@ -616,14 +616,14 @@ export default function ComingSoon() {
                   margin: '0 0 clamp(6px, 1.5vw, 8px) 0',
                   fontSize: 'clamp(1rem, 2.5vw, 1.1rem)'
                 }}>
-                  Mobile-Friendly Platform
+                  Manage Anywhere, Anytime
                 </h4>
                 <p style={{ 
                   color: '#4c5a6b', 
                   lineHeight: '1.6', 
                   margin: 0 
                 }}>
-                  Access and manage your properties from any device, anywhere, anytime
+                  Access and manage your properties from any device, whether you’re at home, in the office, or on the go
                 </p>
               </div>
             </div>
@@ -650,7 +650,7 @@ export default function ComingSoon() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <h2 style={{ fontSize: 'clamp(1.5rem, 4vw, 2rem)', margin: 0 }}>
-              Ready to Transform Your Property Management?
+              Ready to Manage Your Properties the Smarter Way?
             </h2>
             <p style={{ 
               fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', 
@@ -658,14 +658,14 @@ export default function ComingSoon() {
               margin: '0 auto',
               lineHeight: '1.6'
             }}>
-              Be among the first to experience modern digital property management in the Philippines
+              Be among the first to access Lynxbox PH
             </p>
             <p style={{ 
               fontSize: 'clamp(0.8rem, 2vw, 0.9rem)', 
               opacity: 0.8,
               margin: 0 
             }}>
-              Launching soon! Get exclusive early access by joining our waiting list.
+              Launching soon. Join the waiting list for early access
             </p>
           </div>
           
@@ -684,10 +684,10 @@ export default function ComingSoon() {
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <h3 style={{ fontSize: 'clamp(1rem, 2.5vw, 1.2rem)', fontWeight: '600', margin: 0 }}>
-                Get Early Access!
+                Be the First to Access Lynxbox PH
               </h3>
               <p style={{ fontSize: 'clamp(0.8rem, 2vw, 0.9rem)', opacity: 0.9, margin: 0 }}>
-                Join our waiting list and be the first to know when we launch
+                Join our waiting list for exclusive early access
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
                 <input
@@ -721,7 +721,7 @@ export default function ComingSoon() {
                       fontSize: 'clamp(0.9rem, 2.5vw, 1rem)'
                     }}
                   />
-                  <input type="hidden" name="source" value="coming-soon" />
+                  <input type="hidden" name="source" value="landlord" />
                   <input type="hidden" name="tags" value='["early-access", "waiting-list"]' />
                   <button
                     type="submit"

@@ -224,8 +224,9 @@ variable "zeptomail_template_api_key" {
   default     = ""
 }
 
-variable "zeptomail_template_key" {
-  description = "ZeptoMail template key for welcome email template"
+
+variable "zeptomail_template_mapping" {
+  description = "JSON string mapping sources to ZeptoMail template keys"
   type        = string
   sensitive   = true
   default     = ""

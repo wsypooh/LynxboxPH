@@ -26,7 +26,7 @@ export class ZeptoMailService {
     }
   }
 
-  async sendWelcomeEmail(email: string, name: string): Promise<void> {
+  async sendWelcomeEmail(email: string, name: string, source?: string): Promise<void> {
     try {
       const apiKey = process.env.ZEPTOMAIL_API_KEY;
       
@@ -36,10 +36,10 @@ export class ZeptoMailService {
       }
 
       // Try template-based sending first if available, fallback to SMTP
-      if (this.templateClient && process.env.ZEPTOMAIL_TEMPLATE_KEY) {
-        await this.sendWelcomeEmailWithTemplate(email, name);
+      if (this.templateClient) {
+        await this.sendWelcomeEmailWithTemplate(email, name, source);
       } else {
-        await this.sendWelcomeEmailWithSMTP(email, name);
+        await this.sendWelcomeEmailWithSMTP(email, name, source);
       }
       
     } catch (error) {
@@ -48,8 +48,8 @@ export class ZeptoMailService {
     }
   }
 
-  private async sendWelcomeEmailWithSMTP(email: string, name: string): Promise<void> {
-    const emailContent = this.generateEmailContent(name);
+  private async sendWelcomeEmailWithSMTP(email: string, name: string, source?: string): Promise<void> {
+    const emailContent = this.generateEmailContent(name, source);
     
     const mailOptions = {
       from: `"${process.env.ZEPTOMAIL_SENDER_NAME || 'Example Team'}" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
@@ -64,14 +64,32 @@ export class ZeptoMailService {
     console.log('ZeptoMail SMTP email sent successfully:', info.messageId);
   }
 
-  private async sendWelcomeEmailWithTemplate(email: string, name: string): Promise<void> {
+  private async sendWelcomeEmailWithTemplate(email: string, name: string, source?: string): Promise<void> {
     if (!this.templateClient) {
       throw new Error('Template client not initialized');
     }
 
-    const templateKey = process.env.ZEPTOMAIL_TEMPLATE_KEY;
+    // Get template key based on source using JSON mapping
+    const templateMapping = process.env.ZEPTOMAIL_TEMPLATE_MAPPING;
+    let templateKey: string;
+    
+    if (templateMapping) {
+      try {
+        const mapping = JSON.parse(templateMapping);
+        templateKey = mapping[source || 'default'] || mapping['default'] || '';
+      } catch (error) {
+        console.error('Failed to parse ZEPTOMAIL_TEMPLATE_MAPPING:', error);
+        templateKey = '';
+      }
+    } else {
+      // Fallback to legacy single template key
+      templateKey = process.env.ZEPTOMAIL_TEMPLATE_KEY || '';
+    }
+
     if (!templateKey) {
-      throw new Error('Template key not configured');
+      console.log(`Template key not configured for source: ${source}, falling back to SMTP`);
+      await this.sendWelcomeEmailWithSMTP(email, name, source);
+      return;
     }
 
     try {
@@ -108,11 +126,11 @@ export class ZeptoMailService {
       console.error('ZeptoMail template error:', error);
       // Fallback to SMTP if template fails
       console.log('Falling back to SMTP sending...');
-      await this.sendWelcomeEmailWithSMTP(email, name);
+      await this.sendWelcomeEmailWithSMTP(email, name, source);
     }
   }
 
-  private generateEmailContent(name: string) {
+  private generateEmailContent(name: string, source?: string) {
     const html = `
       <!DOCTYPE html>
       <html>

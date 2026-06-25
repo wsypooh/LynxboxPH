@@ -81,7 +81,7 @@ export class SignupHandler {
       const zeptoMailService = new ZeptoMailService();
       
       try {
-        await zeptoMailService.sendWelcomeEmail(data.email, data.name);
+        await zeptoMailService.sendWelcomeEmail(data.email, data.name, data.source);
         console.log(`Welcome email sent successfully to ${data.email}`);
       } catch (emailError) {
         console.error('Failed to send welcome email:', emailError);
