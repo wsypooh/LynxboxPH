@@ -143,11 +143,12 @@ resource "aws_lambda_function" "api" {
 
   tags = var.common_tags
 
-  # Ignore changes to source_code_hash since we manage deployment via deploy-lambda.ps1
+  # Ignore changes managed outside Terraform (code via deploy-lambda.ps1, env vars via console/CLI)
   lifecycle {
     ignore_changes = [
       source_code_hash,
-      s3_object_version
+      s3_object_version,
+      environment
     ]
   }
 }

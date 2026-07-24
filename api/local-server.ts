@@ -44,7 +44,7 @@ app.use(express.json());
 
 // Add CORS middleware
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3001');
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token');
   res.header('Access-Control-Max-Age', '300');
@@ -190,6 +190,10 @@ app.all('/api/properties/:id/images/view-url', async (req, res) => {
 });
 
 app.all('/api/public/properties/:id/images/view-url', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+app.all('/api/public/listings/:id/images/view-url', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 

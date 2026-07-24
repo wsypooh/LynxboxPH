@@ -7,13 +7,16 @@ export class ZeptoMailService {
   private templateClient: SendMailClient | null = null;
 
   constructor() {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY || '';
+    console.log(`ZeptoMailService init: SMTP key present=${!!smtpKey}, sender=${process.env.ZEPTOMAIL_SENDER_EMAIL || '(default)'}`);
+
     this.transporter = nodemailer.createTransport({
       host: "smtp.zeptomail.com",
       port: 587,
       secure: false,
       auth: {
         user: "emailapikey",
-        pass: process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY || ""
+        pass: smtpKey
       }
     });
 

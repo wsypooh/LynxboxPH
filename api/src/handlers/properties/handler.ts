@@ -700,6 +700,37 @@ export class PropertyHandler {
     }
   }
 
+  // Generates a presigned URL for a static listing (no DynamoDB required).
+  // Only validates that the key is scoped under properties/{propertyId}/.
+  static async getStaticListingImageUrl(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const path = event.path || (event.requestContext as any)?.path || '';
+      const pathMatch = path.match(/\/api\/public\/listings\/([^/]+)\/images\/view-url/);
+      const propertyId = event.pathParameters?.id || pathMatch?.[1];
+      let imageKey = event.queryStringParameters?.imageKey;
+
+      if (!propertyId || !imageKey) {
+        return ApiResponse.error('Property ID and imageKey are required', 400);
+      }
+
+      if (imageKey.startsWith('https://')) {
+        imageKey = imageKey.split('/').slice(3).join('/');
+      }
+
+      if (!imageKey.startsWith(`properties/${propertyId}/`)) {
+        return ApiResponse.forbidden('Image key does not belong to this listing');
+      }
+
+      const s3Service = new S3Service();
+      const { url } = await s3Service.getPresignedViewUrl(imageKey);
+
+      return ApiResponse.success({ viewUrl: url, expiresIn: 3600 });
+    } catch (error) {
+      console.error('Error generating static listing image URL:', error);
+      return ApiResponse.error('Failed to generate presigned view URL', 500);
+    }
+  }
+
   static async getPublicPresignedViewUrl(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const propertyId = event.pathParameters?.id;
@@ -871,6 +902,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // More specific routes first - Image routes before generic property routes
     if (httpMethod === 'GET' && path.includes('/api/public/search')) {
       return PropertyHandler.searchPublicProperties(event);
+    } else if (httpMethod === 'GET' && path.includes('/api/public/listings/') && path.includes('/images/view-url')) {
+      // Matches /api/public/listings/{id}/images/view-url - Static listing images (no DynamoDB)
+      return PropertyHandler.getStaticListingImageUrl(event);
     } else if (httpMethod === 'GET' && path.includes('/api/public/properties/') && path.includes('/images/view-url')) {
       // Matches /api/public/properties/{id}/images/view-url - Public presigned view URL (must come first)
       return PropertyHandler.getPublicPresignedViewUrl(event);

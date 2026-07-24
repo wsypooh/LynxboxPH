@@ -53,14 +53,16 @@ export class SignupHandler {
       }
 
       // Basic validation
-      if (!data.name || !data.email) {
-        return ApiResponse.error('Name and email are required', 400);
+      if (!data.name) {
+        return ApiResponse.error('Name is required', 400);
       }
 
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(data.email)) {
-        return ApiResponse.error('Invalid email format', 400);
+      // Validate email format only when provided
+      if (data.email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(data.email)) {
+          return ApiResponse.error('Invalid email format', 400);
+        }
       }
 
       // Validate name (basic validation)
@@ -77,21 +79,24 @@ export class SignupHandler {
         // Continue with email sending even if S3 fails
       }
 
-      // Send welcome email via ZeptoMail
       const zeptoMailService = new ZeptoMailService();
 
-      try {
-        await zeptoMailService.sendWelcomeEmail(data.email, data.name, data.source);
-        console.log(`Welcome email sent successfully to ${data.email}`);
-      } catch (emailError) {
-        console.error('Failed to send welcome email:', emailError);
+      // Send welcome email only when email is provided and source is not a property listing
+      const isPropertyListing = data.source === 'one-regis-upper-penthouse';
+      if (data.email && !isPropertyListing) {
+        try {
+          await zeptoMailService.sendWelcomeEmail(data.email, data.name, data.source);
+          console.log(`Welcome email sent successfully to ${data.email}`);
+        } catch (emailError: any) {
+          console.error('Failed to send welcome email:', emailError?.message || emailError?.code || String(emailError));
+        }
       }
 
       // Send internal notification
       try {
         await zeptoMailService.sendInternalNotification(data);
-      } catch (notifError) {
-        console.error('Failed to send internal notification:', JSON.stringify(notifError));
+      } catch (notifError: any) {
+        console.error('Failed to send internal notification:', notifError?.message || notifError?.code || String(notifError));
       }
 
       // Log the signup for analytics
