@@ -10,6 +10,12 @@ param(
     [string]$AwsRegion = "ap-southeast-1",
 
     [Parameter(Mandatory=$false)]
+    [string]$AwsAccessKey = $env:AWS_ACCESS_KEY_ID,
+
+    [Parameter(Mandatory=$false)]
+    [string]$AwsSecretKey = $env:AWS_SECRET_ACCESS_KEY,
+
+    [Parameter(Mandatory=$false)]
     [switch]$SkipBuild
 )
 
@@ -21,6 +27,18 @@ Write-Host ""; Write-Host "=== Frontend Deploy: $Environment ===" -ForegroundCol
 Write-Host "Working directory:       $PWD"
 Write-Host "App path:               $AppPath"
 Write-Host "AWS Region:             $AwsRegion"
+
+# Set AWS credentials for both the AWS CLI and Terraform (via TF_VAR_)
+if ($AwsAccessKey -and $AwsSecretKey) {
+    $env:AWS_ACCESS_KEY_ID     = $AwsAccessKey
+    $env:AWS_SECRET_ACCESS_KEY = $AwsSecretKey
+    $env:TF_VAR_aws_access_key = $AwsAccessKey
+    $env:TF_VAR_aws_secret_key = $AwsSecretKey
+    Write-Host "Using provided AWS credentials (access key: $($AwsAccessKey.Substring(0,4))****)" -ForegroundColor DarkGray
+} else {
+    Write-Host "Warning: No AWS credentials provided. Falling back to default credential chain (SSO/profile)." -ForegroundColor Yellow
+    Write-Host "         If this fails, re-run with -AwsAccessKey and -AwsSecretKey, or run 'aws sso login' first." -ForegroundColor Yellow
+}
 
 function ExecOrFail {
     param(
