@@ -76,7 +76,7 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   const isComingSoonPage = pathname?.startsWith('/coming-soon.html') || pathname?.startsWith('/coming-soon');
-  const isLandingPage = pathname?.startsWith('/landlord') || pathname?.startsWith('/realtor') || isComingSoonPage;
+  const isLandingPage = pathname?.startsWith('/landlord') || pathname?.startsWith('/realtor') || pathname?.startsWith('/business-address') || isComingSoonPage;
 
   return (
     <html lang="en" suppressHydrationWarning>

@@ -10,9 +10,10 @@ export class ZeptoMailService {
     this.transporter = nodemailer.createTransport({
       host: "smtp.zeptomail.com",
       port: 587,
+      secure: false,
       auth: {
         user: "emailapikey",
-        pass: process.env.ZEPTOMAIL_API_KEY || ""
+        pass: process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY || ""
       }
     });
 
@@ -54,7 +55,8 @@ export class ZeptoMailService {
     const mailOptions = {
       from: `"${process.env.ZEPTOMAIL_SENDER_NAME || 'Example Team'}" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
       to: email,
-      bcc: process.env.ZEPTOMAIL_BCC_EMAIL || 'hello@lynxbox.ph',
+      // commented this out to avoid sending BCC emails for every user, but you can uncomment it if you want to receive a copy of every email sent
+      // bcc: process.env.ZEPTOMAIL_BCC_EMAIL || 'hello@lynxbox.ph',
       subject: 'Welcome to Lynxbox PH - Early Access Waiting List',
       html: emailContent.html,
       text: emailContent.text
@@ -104,14 +106,6 @@ export class ZeptoMailService {
             email_address: {
               address: email,
               name: name
-            }
-          }
-        ],
-        bcc: [
-          {
-            email_address: {
-              address: process.env.ZEPTOMAIL_BCC_EMAIL || 'hello@lynxbox.ph',
-              name: 'Lynxbox PH Team'
             }
           }
         ],
@@ -198,5 +192,63 @@ The Lynxbox PH Team
 Helping Small Commercial Landlords Go Digital`;
 
     return { html, text };
+  }
+
+  async sendInternalNotification(data: {
+    name: string;
+    email: string;
+    source?: string;
+    tags?: string[];
+  }): Promise<void> {
+    const apiKey = process.env.ZEPTOMAIL_API_KEY;
+    if (!apiKey) return;
+
+    const phone = data.tags?.find(t => t.startsWith('phone:'))?.replace('phone:', '') || '—';
+    const timestamp = new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila' });
+    const sourceLabel = data.source || 'unknown';
+    const subjectLabel = sourceLabel.charAt(0).toUpperCase() + sourceLabel.slice(1).replace(/-/g, ' ');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #0e2949; color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; }
+          .content { background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+          td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+          td:first-child { font-weight: 600; color: #0e2949; width: 140px; }
+          .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #999; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <strong>🔔 New Signup — ${subjectLabel}</strong>
+        </div>
+        <div class="content">
+          <p>A new signup was submitted on <strong>${timestamp}</strong>.</p>
+          <table>
+            <tr><td>Name</td><td>${data.name}</td></tr>
+            <tr><td>Email</td><td>${data.email}</td></tr>
+            <tr><td>Contact Number</td><td>${phone}</td></tr>
+            <tr><td>Source</td><td>${sourceLabel}</td></tr>
+            <tr><td>Tags</td><td>${data.tags?.join(', ') || '—'}</td></tr>
+          </table>
+        </div>
+        <div class="footer">Lynxbox PH Internal Notification</div>
+      </body>
+      </html>
+    `;
+
+    console.log(`Sending internal notification to ${process.env.ZEPTOMAIL_INTERNAL_EMAIL || 'wsypooh@gmail.com'} for ${data.email}`);
+    const info = await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: process.env.ZEPTOMAIL_INTERNAL_EMAIL || 'wsypooh@gmail.com',
+      subject: `New Signup: ${subjectLabel} — ${data.name}`,
+      html
+    });
+    console.log(`Internal notification sent for ${sourceLabel} signup from ${data.email}:`, info.messageId);
   }
 }

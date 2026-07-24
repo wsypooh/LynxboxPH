@@ -79,14 +79,19 @@ export class SignupHandler {
 
       // Send welcome email via ZeptoMail
       const zeptoMailService = new ZeptoMailService();
-      
+
       try {
         await zeptoMailService.sendWelcomeEmail(data.email, data.name, data.source);
         console.log(`Welcome email sent successfully to ${data.email}`);
       } catch (emailError) {
         console.error('Failed to send welcome email:', emailError);
-        // Continue with the response even if email fails
-        // In production, you might want to implement retry logic or queue the email
+      }
+
+      // Send internal notification
+      try {
+        await zeptoMailService.sendInternalNotification(data);
+      } catch (notifError) {
+        console.error('Failed to send internal notification:', JSON.stringify(notifError));
       }
 
       // Log the signup for analytics
