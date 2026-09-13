@@ -135,7 +135,7 @@ Most platforms target large developers or residential rentals. Small landlords l
 
 **Hosting**
 
-* Start: Vercel, Supabase
+* Start: AWS, Dynamo DB
 
 * Scale: AWS SG / GCP Taiwan, PH cloud providers
 
@@ -167,7 +167,7 @@ Most platforms target large developers or residential rentals. Small landlords l
 
 * Next.js API Routes
 
-* Supabase (PostgreSQL)
+* DynamoDB
 
 * Meilisearch (self-hosted)
 
@@ -200,8 +200,8 @@ Most platforms target large developers or residential rentals. Small landlords l
 | Users | Strategy |
 | ----- | ----- |
 | 0–1,000 MAU | Free tiers, manual outreach, low infra cost |
-| 1,000–10,000 MAU | Upgrade to Vercel Pro, Supabase Pro, start paying for Mapbox |
-| 10,000+ MAU | Shift to AWS/GCP, add microservices, caching, dedicated CDN |
+| 1,000–10,000 MAU | Upgrade to AWS, start paying for Mapbox |
+| 10,000+ MAU | Shift to AWS, add microservices, caching, dedicated CDN |
 
 ---
 

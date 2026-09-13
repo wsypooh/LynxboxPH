@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    aws = {
+      source                = "hashicorp/aws"
+      configuration_aliases = [aws.us_east_1]
+    }
+  }
+}
+
 resource "aws_s3_bucket" "frontend" {
   bucket        = var.bucket_name
   force_destroy = true
@@ -74,6 +83,30 @@ resource "aws_s3_bucket_policy" "frontend_oai_read" {
   })
 }
 
+# CloudFront Function: rewrite extensionless URLs to .html
+# Next.js static export produces /foo.html — this lets visitors use /foo.
+resource "aws_cloudfront_function" "url_rewrite" {
+  provider = aws.us_east_1
+  name     = "${var.project_name}-${var.environment}-url-rewrite"
+  runtime  = "cloudfront-js-2.0"
+  publish  = true
+
+  code = <<-JS
+    async function handler(event) {
+      const request = event.request;
+      const uri = request.uri;
+
+      if (uri.endsWith('/')) {
+        request.uri = uri + 'index.html';
+      } else if (!uri.includes('.')) {
+        request.uri = uri + '.html';
+      }
+
+      return request;
+    }
+  JS
+}
+
 # CloudFront Distribution
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
@@ -111,10 +144,9 @@ resource "aws_cloudfront_distribution" "frontend" {
     default_ttl            = var.default_ttl
     max_ttl                = var.max_ttl
     
-    # Add CloudFront function association
     function_association {
       event_type   = "viewer-request"
-      function_arn = "arn:aws:cloudfront::676805078590:function/Redirect"
+      function_arn = aws_cloudfront_function.url_rewrite.arn
     }
   }
 

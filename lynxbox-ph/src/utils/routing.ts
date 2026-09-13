@@ -1,26 +1,12 @@
 /**
- * Utility functions for handling routing differences between local and production environments
+ * Utility functions for routing. CloudFront handles .html rewriting via
+ * the url-rewrite function, so all paths are always clean (no .html suffix).
  */
 
-// Check if we're in production (CloudFront) environment
-const isProduction = 
-  process.env.NODE_ENV === 'production' || 
-  process.env.NEXT_PUBLIC_VERCEL_ENV === 'production' ||
-  process.env.NEXT_PUBLIC_IS_DEVELOPMENT === 'false';
-
-// Get the base URL for the current environment
 const getBaseUrlInternal = () => {
-  // In production, use the custom domain if available
-  if (isProduction && process.env.NEXT_PUBLIC_APP_URL) {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL;
   }
-  
-  // Fallback to detecting CloudFront URL if no custom domain is set
-  if (isProduction && typeof window !== 'undefined' && window.location.hostname.includes('cloudfront.net')) {
-    return `${window.location.protocol}//${window.location.hostname}`;
-  }
-  
-  // Development or no custom domain
   return '';
 };
 
@@ -31,14 +17,7 @@ const getBaseUrlInternal = () => {
  */
 export function getUrl(path: string): string {
   const baseUrl = getBaseUrlInternal();
-  
-  if (isProduction) {
-    // In production, append .html for CloudFront static hosting
-    // This handles all routes including nested ones
-    return `${baseUrl}${path.replace(/\/$/, '')}.html`;
-  }
-  // In development, use normal Next.js routing
-  return path;
+  return `${baseUrl}${path}`;
 }
 
 /**

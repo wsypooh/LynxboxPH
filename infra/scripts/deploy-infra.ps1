@@ -93,41 +93,29 @@ function Test-LambdaDeployed {
     return $false
 }
 
-# Upload initial lambda zip files to S3
+# Optionally pre-upload a real zip from infra/setup/ to S3 (not required for initial deploy).
+# Lambda initial creation uses a local placeholder via archive_file in Terraform.
+# Real code deployments are always done via deploy-lambda.ps1.
 function Send-LambdaZip {
     param(
         [string]$Environment,
         [string]$InfraRoot,
         [string]$S3BucketName
     )
-    
-    Write-Host "Uploading initial lambda zip files to S3..." -ForegroundColor Cyan
-    $Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    
-    # Only upload the zip file for the current environment
-    $ZipPath = "$infraRoot/setup/lambda-$Environment.zip"
-    
-    if (Test-Path $ZipPath) {
-        Write-Host "Uploading lambda-$Environment.zip to s3://$S3BucketName/lambda/lambda-$Environment.zip..." -ForegroundColor Yellow
-        $s3UploadResult = aws s3 cp $ZipPath "s3://$S3BucketName/lambda/lambda-$Environment.zip" --region ap-southeast-1 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Warning "Failed to upload lambda-$Environment.zip: $s3UploadResult"
-        } else {
-            Write-Host "✓ Uploaded lambda-$Environment.zip" -ForegroundColor Green
-            
-            # Create timestamped backup
-            $BackupKey = "lambda/backup/lambda-$Environment-$Timestamp.zip"
-            Write-Host "Creating backup: s3://$S3BucketName/$BackupKey..." -ForegroundColor Yellow
-            $backupResult = aws s3 cp $ZipPath "s3://$S3BucketName/$BackupKey" --region ap-southeast-1 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✓ Created backup: $BackupKey" -ForegroundColor Green
-            } else {
-                Write-Warning "Failed to create backup: $backupResult"
-            }
-        }
+
+    $ZipPath = "$InfraRoot\setup\lambda-$Environment.zip"
+
+    if (-not (Test-Path $ZipPath)) {
+        Write-Host "No setup zip found at $ZipPath — skipping pre-upload. Run deploy-lambda.ps1 after infra to deploy real code." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "Uploading lambda-$Environment.zip to s3://$S3BucketName/lambda/lambda-$Environment.zip..." -ForegroundColor Yellow
+    $result = aws s3 cp $ZipPath "s3://$S3BucketName/lambda/lambda-$Environment.zip" --region ap-southeast-1 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Failed to upload setup zip: $result"
     } else {
-        Write-Error "lambda-$Environment.zip not found at $ZipPath"
-        exit 1
+        Write-Host "✓ Uploaded lambda-$Environment.zip" -ForegroundColor Green
     }
 }
 

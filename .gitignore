@@ -119,6 +119,9 @@ temp-deploy-*/
 # Lambda deployment zip files (created in infra folder)
 infra/lambda-*.zip
 
+# Terraform-generated Lambda placeholder zip
+infra/modules/api/placeholder.zip
+
 # Temporary node_modules zip (created in infra folder)
 infra/node_modules-temp.zip
 node_modules-temp.zip

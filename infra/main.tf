@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.23.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
+    }
   }
 
   # Backend configuration is handled by the deployment script
@@ -19,6 +23,14 @@ provider "aws" {
   default_tags {
     tags = local.common_tags
   }
+}
+
+# us-east-1 provider required for CloudFront functions
+provider "aws" {
+  alias      = "us_east_1"
+  region     = "us-east-1"
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
 }
 
 # Naming Module
@@ -80,14 +92,6 @@ locals {
     description = "API Gateway for ${var.project_name} ${var.environment} environment"
     stage_name  = var.environment
   }
-}
-
-# Networking Module
-module "networking" {
-  source       = "./modules/networking"
-  project_name = var.project_name
-  environment  = var.environment
-  common_tags  = local.common_tags
 }
 
 # Auth Module
@@ -202,6 +206,7 @@ module "api" {
 module "frontend" {
   source       = "./modules/frontend"
   project_name = var.project_name
+  environment  = var.environment
   bucket_name  = local.resource_names.frontend_bucket
   domain_name  = local.frontend_config.domain_name
   ssl_certificate_arn = var.ssl_certificate_arn
@@ -215,4 +220,9 @@ module "frontend" {
   min_ttl                = 0
   default_ttl            = 0
   max_ttl                = 0
+
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
 }

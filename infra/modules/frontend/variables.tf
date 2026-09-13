@@ -3,6 +3,11 @@ variable "project_name" {
   type        = string
 }
 
+variable "environment" {
+  description = "Deployment environment (dev, prod)"
+  type        = string
+}
+
 variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)

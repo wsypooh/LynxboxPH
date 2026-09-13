@@ -111,16 +111,25 @@ resource "aws_iam_role_policy" "lambda_s3_csv" {
   })
 }
 
+# Minimal placeholder zip used only for the initial Lambda creation.
+# All real code deployments are handled by deploy-lambda.ps1.
+data "archive_file" "lambda_placeholder" {
+  type        = "zip"
+  output_path = "${path.module}/placeholder.zip"
+  source {
+    content  = "exports.handler = async () => ({ statusCode: 200, body: JSON.stringify({ message: 'placeholder - run deploy-lambda.ps1' }) });"
+    filename = "index.js"
+  }
+}
+
 # Lambda Function
 resource "aws_lambda_function" "api" {
   function_name = "${var.project_name}-api-${var.environment}"
   handler       = "index.handler"
   runtime       = "nodejs24.x"
 
-  # Use S3-based deployment for initial setup
-  s3_bucket         = "lynxbox-ph-objects-${var.environment}-ap-southeast-1"
-  s3_key            = "lambda/lambda-${var.environment}.zip"
-  s3_object_version = null
+  filename         = data.archive_file.lambda_placeholder.output_path
+  source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
 
   role    = aws_iam_role.lambda.arn
   timeout = 30
@@ -146,8 +155,8 @@ resource "aws_lambda_function" "api" {
   # Ignore changes managed outside Terraform (code via deploy-lambda.ps1, env vars via console/CLI)
   lifecycle {
     ignore_changes = [
+      filename,
       source_code_hash,
-      s3_object_version,
       environment
     ]
   }
