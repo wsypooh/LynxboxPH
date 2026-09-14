@@ -160,3 +160,190 @@ resource "aws_apigatewayv2_route" "options_signup" {
   route_key = "OPTIONS /api/signup"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
+
+# Building Routes
+resource "aws_apigatewayv2_route" "list_buildings" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/buildings"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "create_building" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/buildings"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "get_building" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/buildings/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "update_building" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /api/buildings/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "delete_building" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /api/buildings/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "list_building_tenants" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/buildings/{id}/tenants"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+# Tenant Routes
+resource "aws_apigatewayv2_route" "list_tenants" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/tenants"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "create_tenant" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/tenants"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "get_tenant" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/tenants/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "update_tenant" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /api/tenants/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "delete_tenant" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /api/tenants/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "list_tenant_invoices" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/tenants/{id}/invoices"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+# Invoice Routes
+resource "aws_apigatewayv2_route" "list_invoices" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/invoices"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "create_invoice" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/invoices"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "get_invoice" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/invoices/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "update_invoice" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /api/invoices/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "delete_invoice" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /api/invoices/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "get_invoice_pdf" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/invoices/{id}/pdf"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "invoice_batch_pdf" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/invoices/batch-pdf"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "invoice_batch_pdf_get" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/invoices/batch-pdf"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "invoice_payment" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/invoices/{id}/payments"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "invoice_send" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/invoices/{id}/send"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "invoice_rollover" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/invoices/{id}/rollover"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}

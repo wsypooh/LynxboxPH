@@ -172,11 +172,10 @@ export class PropertyRepository {
     let queryCommand = new QueryCommand({
       TableName: TABLE_NAME,
       IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :gsi1pk',
-      FilterExpression: 'entityType = :entityType',
+      KeyConditionExpression: 'GSI1PK = :gsi1pk AND begins_with(GSI1SK, :skPrefix)',
       ExpressionAttributeValues: {
         ':gsi1pk': `USER#${ownerId}`,
-        ':entityType': 'PROPERTY',
+        ':skPrefix': 'PROPERTY#',
       },
       Limit: limit,
       ExclusiveStartKey: lastEvaluatedKey,
@@ -211,9 +210,8 @@ export class PropertyRepository {
     let queryCommand = new QueryCommand({
       TableName: TABLE_NAME,
       IndexName: 'GSI1',
-      // GSI1 uses SK as HASH key in the index
-      KeyConditionExpression: 'GSI1PK = :gsi1pk',
-      FilterExpression: 'begins_with(SK, :skPrefix) AND #type = :type',
+      KeyConditionExpression: 'GSI1PK = :gsi1pk AND begins_with(GSI1SK, :skPrefix)',
+      FilterExpression: '#type = :type',
       ExpressionAttributeNames: {
         '#type': 'type'
       },
@@ -260,7 +258,6 @@ export class PropertyRepository {
         ':pkPrefix': 'PROPERTY#',
         ':status': 'available'
       },
-      Limit: limit,
       ExclusiveStartKey: lastEvaluatedKey
     }));
 
@@ -272,7 +269,7 @@ export class PropertyRepository {
     }
 
     return {
-      items,
+      items: items.slice(0, limit),
       lastEvaluatedKey: LastEvaluatedKey
     };
   }
@@ -314,7 +311,6 @@ export class PropertyRepository {
       FilterExpression: filterExpression,
       ExpressionAttributeNames: expressionAttributeNames,
       ExpressionAttributeValues: expressionAttributeValues,
-      Limit: filters.limit,
       ExclusiveStartKey: filters.lastEvaluatedKey
     }));
 
@@ -326,7 +322,7 @@ export class PropertyRepository {
     }
 
     return {
-      items,
+      items: items.slice(0, filters.limit),
       lastEvaluatedKey: LastEvaluatedKey
     };
   }
@@ -415,7 +411,6 @@ export class PropertyRepository {
       FilterExpression: filterExpression,
       ExpressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
       ExpressionAttributeValues: expressionAttributeValues,
-      Limit: (filters.limit || 50) * 5 // Get more items for in-memory filtering
     };
     
     // Add pagination if lastKey is provided

@@ -77,14 +77,15 @@ export function StatementOfAccount({ invoice }: Props) {
               <Tr><Td>Less: Withholding Tax (5%)</Td><Td isNumeric>({fmt(Math.abs(invoice.withholdingTax))})</Td></Tr>
             )}
             <Tr bg="gray.50" fontWeight="bold"><Td>Subtotal</Td><Td isNumeric>{fmt(invoice.subtotal)}</Td></Tr>
-            {invoice.water.mode === 'metered' && invoice.water.amount > 0 && (
+            {invoice.water.amount > 0 && (
               <Tr>
-                <Td>Water ({invoice.water.presentReading} − {invoice.water.previousReading} = {Math.max(0, (invoice.water.presentReading ?? 0) - (invoice.water.previousReading ?? 0))} m³ × ₱{invoice.water.rate})</Td>
+                <Td>
+                  {invoice.water.presentReading !== undefined || invoice.water.previousReading !== undefined
+                    ? `Water (${invoice.water.presentReading} − ${invoice.water.previousReading} = ${Math.max(0, (invoice.water.presentReading ?? 0) - (invoice.water.previousReading ?? 0))} m³ × ₱${invoice.water.rate})`
+                    : 'Water (Fixed)'}
+                </Td>
                 <Td isNumeric>{fmt(invoice.water.amount)}</Td>
               </Tr>
-            )}
-            {invoice.water.mode === 'fixed' && invoice.water.amount > 0 && (
-              <Tr><Td>Water (Fixed)</Td><Td isNumeric>{fmt(invoice.water.amount)}</Td></Tr>
             )}
             {invoice.electricity.mode !== 'direct' && (
               <Tr>

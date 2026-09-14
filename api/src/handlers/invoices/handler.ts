@@ -293,7 +293,6 @@ export class InvoiceHandler {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${invoice.tenantCode}-${invoice.invoiceNumber}.pdf"`,
-        'Access-Control-Allow-Origin': '*',
       },
       body: pdfBuffer.toString('base64'),
       isBase64Encoded: true,
@@ -391,7 +390,6 @@ export class InvoiceHandler {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="invoices-selected.pdf"`,
-        'Access-Control-Allow-Origin': '*',
       },
       body: mergedBuffer.toString('base64'),
       isBase64Encoded: true,
@@ -438,7 +436,6 @@ export class InvoiceHandler {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="invoices-${billingMonth}.zip"`,
-        'Access-Control-Allow-Origin': '*',
       },
       body: zipBuffer.toString('base64'),
       isBase64Encoded: true,

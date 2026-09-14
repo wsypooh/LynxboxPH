@@ -141,6 +141,7 @@ function validateRow(
       } : {}),
       ...(hasWaterReading || data.waterAmount ? {
         water: {
+          mode: hasWaterReading ? 'metered' : 'fixed',
           ...(hasWaterReading ? {
             presentReading:  parseNum(data.waterPresentReading),
             previousReading: parseNum(data.waterPreviousReading),
@@ -259,7 +260,7 @@ export function InvoiceCsvUpload({ isOpen, onClose, tenants, invoices, onImporte
               <Text fontSize="xs" color="gray.600" mb={3}>
                 Required: <strong>lesseeNo</strong> (must match an existing tenant), <strong>billingMonth</strong> (YYYY-MM or MM/YYYY).
                 All other fields are optional — rent, electricity readings, water amount, guard, and discount
-                default to each tenant's configured values if left blank.
+                default to each tenant&apos;s configured values if left blank.
                 Electricity and water are only included in the payload if you provide at least one reading or amount.
               </Text>
               <Button size="sm" variant="outline" onClick={downloadTemplate}>

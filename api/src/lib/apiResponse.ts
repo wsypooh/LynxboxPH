@@ -6,8 +6,6 @@ export class ApiResponse {
       statusCode,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
         ...(headers || {}),
       },
       body: JSON.stringify({
@@ -22,8 +20,6 @@ export class ApiResponse {
       statusCode,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
       },
       body: JSON.stringify({
         success: false,

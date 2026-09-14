@@ -15,6 +15,10 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.log('Path Parameters:', event.pathParameters);
     console.log('==========================');
 
+    if (event.httpMethod === 'OPTIONS') {
+      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: '' };
+    }
+
     if (event.path?.endsWith('/api/signup') && event.httpMethod === 'POST') {
       return await SignupHandler.signup(event);
     }
@@ -43,7 +47,6 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
       },
       body: JSON.stringify({ error: 'Internal server error' }),
     };

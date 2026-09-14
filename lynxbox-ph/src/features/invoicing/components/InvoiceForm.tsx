@@ -16,7 +16,7 @@ const schema = z.object({
   vat: z.number().min(0),
   withholdingTax: z.number().min(0),
   water: z.object({
-    mode: z.enum(['metered', 'fixed']),
+    mode: z.enum(['metered', 'fixed', 'direct']),
     presentReading: z.number().optional(),
     previousReading: z.number().optional(),
     rate: z.number().optional(),

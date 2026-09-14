@@ -1,7 +1,8 @@
 'use client'
 
-import { Box, Container, Flex, Text, Button, HStack, IconButton, useDisclosure, Stack, useColorModeValue, Icon } from '@chakra-ui/react'
+import { Box, Container, Flex, Text, Button, HStack, IconButton, useDisclosure, Stack } from '@chakra-ui/react'
 import { HamburgerIcon, CloseIcon } from '@chakra-ui/icons'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -50,9 +51,10 @@ export function Navigation() {
           {/* Logo */}
           <Flex alignItems={'center'}>
             <Link href="/">
-              <Text fontSize="xl" fontWeight="bold" color="white">
-                Lynxbox PH
-              </Text>
+              <HStack spacing={2} align="center">
+                <Image src="/lynxboxph-logo.png" alt="Lynxbox PH" width={120} height={40} style={{ objectFit: 'contain' }} priority />
+                <Text fontSize="lg" fontWeight="bold" color="white">Lynxbox PH</Text>
+              </HStack>
             </Link>
           </Flex>
 

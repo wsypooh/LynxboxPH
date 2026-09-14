@@ -216,27 +216,23 @@ if (-not $terraformEnvVars.ContainsKey("REGION")) {
 
 Write-Host "✓ Retrieved $($terraformEnvVars.Count) environment variables from Terraform" -ForegroundColor Green
 
-# 2) Install Sharp for Linux x64 and build TypeScript (if not skipped)
+# 2) Build TypeScript (if not skipped)
 if (-not $SkipBuild) {
-    Write-Host "`nInstalling Sharp for Linux x64 and building TypeScript..." -ForegroundColor Cyan
-    
+    Write-Host "`nBuilding TypeScript..." -ForegroundColor Cyan
+
     Push-Location $ApiPath
-    
-    # Install Sharp for Linux x64 target (required for AWS Lambda)
-    Write-Host "Installing Sharp for Linux x64 target..." -ForegroundColor Yellow
-    ExecOrFail "npm install --cpu=x64 --os=linux --libc=glibc sharp" "Sharp Linux installation failed"
-    
+
     # Clean previous build
     if (Test-Path "dist") {
         Remove-Item -Recurse -Force "dist"
     }
-    
+
     # Build TypeScript
     ExecOrFail "npm run build" "TypeScript build failed"
     Pop-Location
-    Write-Host "✓ Sharp installation and build completed" -ForegroundColor Green
+    Write-Host "✓ Build completed" -ForegroundColor Green
 } else {
-    Write-Host "Skipping build and Sharp installation" -ForegroundColor Yellow
+    Write-Host "Skipping build" -ForegroundColor Yellow
 }
 
 # 3) Verify handler.js exists and check index.js
@@ -286,23 +282,31 @@ $deployDir = "temp-deploy-$Environment"
 if (Test-Path $deployDir) { Remove-Item -Recurse -Force $deployDir }
 New-Item -ItemType Directory -Path $deployDir | Out-Null
 
-# Copy ALL files for maximum compatibility
-Write-Host "Copying all files for comprehensive deployment..." -ForegroundColor Yellow
+# Copy built output and install only production dependencies
+Write-Host "Copying build output..." -ForegroundColor Yellow
 Copy-Item -Path "$ApiPath\dist\*" -Destination "$deployDir\" -Recurse -Force
 Copy-Item -Path "$ApiPath\package.json" -Destination "$deployDir\" -Force
 Copy-Item -Path "$ApiPath\package-lock.json" -Destination "$deployDir\" -Force
-Copy-Item -Path "$ApiPath\node_modules" -Destination "$deployDir\" -Recurse -Force
-Copy-Item -Path "$ApiPath\src\config" -Destination "$deployDir\" -Recurse -Force
 
-# Also copy any additional config files that might be needed
-$configFiles = @(".env", ".env.example", "tsconfig.json")
-foreach ($configFile in $configFiles) {
-    $configPath = "$ApiPath\$configFile"
-    if (Test-Path $configPath) {
-        Copy-Item -Path $configPath -Destination "$deployDir\" -Force
-        Write-Host "✓ Copied config file: $configFile" -ForegroundColor Gray
-    }
+# Copy only runtime config needed at execution time (not src)
+$configDir = "$ApiPath\src\config"
+if (Test-Path $configDir) {
+    Copy-Item -Path $configDir -Destination "$deployDir\config" -Recurse -Force
 }
+
+# Copy .env if present (runtime secrets)
+$envPath = "$ApiPath\.env"
+if (Test-Path $envPath) {
+    Copy-Item -Path $envPath -Destination "$deployDir\" -Force
+    Write-Host "✓ Copied .env" -ForegroundColor Gray
+}
+
+# Install only production dependencies into the deploy directory (excludes devDependencies)
+Write-Host "Installing production dependencies only (to keep package under 250MB)..." -ForegroundColor Yellow
+Push-Location $deployDir
+ExecOrFail "npm ci --omit=dev --cpu=x64 --os=linux --libc=glibc" "Failed to install production dependencies"
+Pop-Location
+Write-Host "✓ Production node_modules installed" -ForegroundColor Green
 
 # Use 7-Zip to create the package (much faster than Compress-Archive)
 Write-Host "Creating deployment package with 7-Zip..." -ForegroundColor Yellow

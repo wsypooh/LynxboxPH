@@ -142,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await amplifySignOut()
       setUser(null)
+      window.location.href = '/'
     } catch (error) {
       console.error('Error signing out:', error)
     }
