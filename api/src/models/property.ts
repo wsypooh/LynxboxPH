@@ -43,6 +43,7 @@ export interface Property extends BaseEntity {
   ownerId: string;
   viewCount?: number;  // Make this optional
   contactInfo: PropertyContactInfo;
+  deletedAt?: string;
 }
 
 // Type for creating a new property (excludes auto-generated fields, but allows optional id)

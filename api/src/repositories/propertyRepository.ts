@@ -1,6 +1,6 @@
 import { ddbDocClient } from '../lib/dynamodb';
 import { Property, createProperty, PropertyInput } from '../models/property';
-import { GetCommand, PutCommand, QueryCommand, UpdateCommand, DeleteCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { EntityType, BaseEntity } from '../lib/dynamodb';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE || 'lynxbox-ph-dev';
@@ -122,13 +122,8 @@ export class PropertyRepository {
   }
 
   static async delete(id: string): Promise<boolean> {
-    const { Attributes } = await ddbDocClient.send(new DeleteCommand({
-      TableName: TABLE_NAME,
-      Key: createPropertyKeys(id),
-      ReturnValues: 'ALL_OLD'
-    }));
-
-    return !!Attributes;
+    const updated = await this.update(id, { deletedAt: new Date().toISOString() });
+    return !!updated;
   }
 
   static async listByType(
@@ -178,8 +173,10 @@ export class PropertyRepository {
       TableName: TABLE_NAME,
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :gsi1pk',
+      FilterExpression: 'entityType = :entityType',
       ExpressionAttributeValues: {
-        ':gsi1pk': `USER#${ownerId}`
+        ':gsi1pk': `USER#${ownerId}`,
+        ':entityType': 'PROPERTY',
       },
       Limit: limit,
       ExclusiveStartKey: lastEvaluatedKey,
@@ -187,8 +184,8 @@ export class PropertyRepository {
     });
 
     const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(queryCommand);
-    let items = Items as Property[];
-    
+    let items = (Items as Property[]).filter(p => !p.deletedAt);
+
     // Apply in-memory sorting for non-date fields
     if (sortBy && sortBy !== 'date') {
       items = this.sortProperties(items, sortBy, sortOrder);
@@ -231,8 +228,8 @@ export class PropertyRepository {
     });
 
     const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(queryCommand);
-    let items = Items as Property[];
-    
+    let items = (Items as Property[]).filter(p => !p.deletedAt);
+
     // Apply in-memory sorting for non-date fields
     if (sortBy && sortBy !== 'date') {
       items = this.sortProperties(items, sortBy, sortOrder);
@@ -267,8 +264,8 @@ export class PropertyRepository {
       ExclusiveStartKey: lastEvaluatedKey
     }));
 
-    let items = Items as Property[];
-    
+    let items = (Items as Property[]).filter(p => !p.deletedAt);
+
     // Apply in-memory sorting
     if (sortBy) {
       items = this.sortProperties(items, sortBy, sortOrder);
@@ -321,8 +318,8 @@ export class PropertyRepository {
       ExclusiveStartKey: filters.lastEvaluatedKey
     }));
 
-    let items = Items as Property[];
-    
+    let items = (Items as Property[]).filter(p => !p.deletedAt);
+
     // Apply in-memory sorting
     if (filters.sortBy) {
       items = this.sortProperties(items, filters.sortBy, filters.sortOrder);
@@ -348,7 +345,7 @@ export class PropertyRepository {
     }));
 
     // In-memory filtering for all searchable fields
-    const properties = Items as Property[];
+    const properties = (Items as Property[]).filter(p => !p.deletedAt);
     const filteredProperties = properties.filter(property => {
       const searchLower = query.toLowerCase();
       const titleMatch = property.title?.toLowerCase().includes(searchLower);
@@ -428,8 +425,8 @@ export class PropertyRepository {
     
     const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new ScanCommand(scanParams));
 
-    const properties = Items as Property[];
-    console.log(`DynamoDB returned ${properties.length} items`);
+    const properties = (Items as Property[]).filter(p => !p.deletedAt);
+    console.log(`DynamoDB returned ${properties.length} items (excluding deleted)`);
     console.log('LastEvaluatedKey:', LastEvaluatedKey ? 'Present (more items available)' : 'Null (no more items)');
     
     const filteredProperties = properties.filter(property => {

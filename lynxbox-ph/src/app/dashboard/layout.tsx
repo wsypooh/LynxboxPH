@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { DashboardSidebar } from './DashboardSidebar'
 
 export const metadata: Metadata = {
   title: 'Dashboard | Lynxbox PH',
@@ -10,5 +11,12 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <>{children}</>
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', paddingTop: '16px' }}>
+      <DashboardSidebar />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {children}
+      </div>
+    </div>
+  )
 }

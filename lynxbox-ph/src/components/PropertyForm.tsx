@@ -75,7 +75,7 @@ const propertySchema = z.object({
   contactInfo: z.object({
     name: z.string().min(1, 'Contact name is required'),
     email: z.string().email('Valid email is required'),
-    phone: z.string().min(1, 'Phone number is required'),
+    phone: z.string().regex(/^[+\d][\d\s\-()\\.]{6,18}$/, 'Enter a valid phone number'),
   }),
 });
 

@@ -18,7 +18,10 @@ export const ddbDocClient = DynamoDBDocumentClient.from(dynamoDbClient, {
 
 export enum EntityType {
   PROPERTY = 'PROPERTY',
-  USER = 'USER'
+  USER = 'USER',
+  BUILDING = 'BUILDING',
+  TENANT = 'TENANT',
+  INVOICE = 'INVOICE'
 }
 
 export interface BaseEntity {

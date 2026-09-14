@@ -202,6 +202,51 @@ app.all('/api/signup', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
+// Buildings routes
+app.all('/api/buildings', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/buildings/:id', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/buildings/:id/tenants', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+// Tenants routes
+app.all('/api/tenants', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/tenants/:id', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/tenants/:id/invoices', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+// Invoices routes
+app.all('/api/invoices', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/invoices/batch-pdf', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/invoices/:id', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/invoices/:id/payments', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/invoices/:id/send', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/invoices/:id/rollover', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/invoices/:id/pdf', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
 async function handlePropertyRequest(req: express.Request, res: express.Response) {
   try {
     const event = createApiGatewayEvent(req);
@@ -223,7 +268,15 @@ async function handlePropertyRequest(req: express.Request, res: express.Response
     
     // Send response body
     if (result.body) {
-      res.send(JSON.parse(result.body));
+      if (result.isBase64Encoded) {
+        res.send(Buffer.from(result.body, 'base64'));
+      } else {
+        try {
+          res.send(JSON.parse(result.body));
+        } catch {
+          res.send(result.body);
+        }
+      }
     } else {
       res.end();
     }

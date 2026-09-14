@@ -60,7 +60,7 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
   return (
     <Card maxW="sm" overflow="hidden" shadow="md" _hover={{ shadow: 'lg', transform: 'translateY(-2px)' }} transition="all 0.2s">
       <Box position="relative">
-        {property.images.length > 0 && property.images[property.defaultImageIndex || 0] ? (
+        {(property.images?.length ?? 0) > 0 && property.images[property.defaultImageIndex || 0] ? (
           <SecureImage
             propertyId={property.id}
             imageKey={property.images[property.defaultImageIndex || 0]}

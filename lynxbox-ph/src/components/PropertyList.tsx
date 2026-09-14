@@ -627,7 +627,7 @@ export function PropertyList({
         {(properties || []).map((property) => (
           <Card key={property.id} borderRadius="lg" overflow="hidden" boxShadow="md">
             <Box position="relative">
-              {property.images.length > 0 ? (
+              {(property.images?.length ?? 0) > 0 ? (
                 <SecureImage
                   propertyId={property.id}
                   imageKey={property.images[property.defaultImageIndex ?? 0]}

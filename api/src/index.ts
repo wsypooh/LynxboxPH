@@ -2,27 +2,41 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { handler as propertyHandler } from './handlers/properties/handler';
 import { SignupHandler } from './handlers/signup/handler';
+import { BuildingHandler } from './handlers/buildings/handler';
+import { TenantHandler } from './handlers/tenants/handler';
+import { InvoiceHandler } from './handlers/invoices/handler';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
-    // Debug logging
     console.log('=== MAIN HANDLER DEBUG ===');
     console.log('Path:', event.path);
     console.log('HTTP Method:', event.httpMethod);
     console.log('Resource:', event.resource);
     console.log('Path Parameters:', event.pathParameters);
     console.log('==========================');
-    
-    // Route signup requests - handle both with and without stage prefix
-    if ((event.path?.endsWith('/api/signup')) && event.httpMethod === 'POST') {
-      console.log('Routing to SignupHandler.signup()');
+
+    if (event.path?.endsWith('/api/signup') && event.httpMethod === 'POST') {
       return await SignupHandler.signup(event);
     }
-    
-    // Route all other requests to the property handler
-    console.log('Routing to property handler');
+
+    if (event.path?.includes('/api/buildings')) {
+      return await BuildingHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/tenants') && event.path?.includes('/invoices')) {
+      return await InvoiceHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/tenants')) {
+      return await TenantHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/invoices')) {
+      return await InvoiceHandler.handle(event);
+    }
+
     return await propertyHandler(event);
-    
+
   } catch (error) {
     console.error('Main handler error:', error);
     return {
@@ -31,7 +45,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 }

@@ -254,4 +254,66 @@ Helping Small Commercial Landlords Go Digital`;
     });
     console.log(`Internal notification sent for ${sourceLabel} signup from ${data.email}:`, info.messageId);
   }
+
+  async sendInvoiceEmail(invoice: any, pdfBuffer: Buffer): Promise<void> {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY;
+    if (!smtpKey) {
+      console.log('ZeptoMail not configured, skipping invoice email');
+      return;
+    }
+    if (!invoice.contactEmail) {
+      console.log('No contact email for tenant, skipping invoice email');
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #0e2949; color: white; padding: 25px 30px; border-radius: 8px 8px 0 0; }
+          .content { background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+          .amount { background-color: #0e2949; color: white; padding: 15px; border-radius: 5px; text-align: center; font-size: 18px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #999; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <strong>${invoice.buildingName}</strong><br>
+          <small>${invoice.buildingAddress} | Tel: ${invoice.buildingPhone}</small>
+        </div>
+        <div class="content">
+          <p>Dear <strong>${invoice.lesseeName}</strong>,</p>
+          <p>Please find attached your <strong>Statement of Account</strong> for:</p>
+          <div class="amount">
+            ${invoice.billingLabel}<br>
+            <strong>Total Due: &#8369;${invoice.totalDue.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</strong>
+          </div>
+          <p>Invoice Number: <strong>${invoice.invoiceNumber}</strong></p>
+          <p>Please refer to the attached PDF for the full breakdown of charges.</p>
+          <p>If you have any questions, please contact your building administrator at <strong>${invoice.buildingPhone}</strong>.</p>
+        </div>
+        <div class="footer">
+          <p>${invoice.buildingName} &mdash; Property Management</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const contactEmail = invoice.contactEmail;
+    await this.transporter.sendMail({
+      from: `"${invoice.buildingName}" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: contactEmail,
+      subject: `Statement of Account - ${invoice.billingLabel} | ${invoice.invoiceNumber}`,
+      html,
+      attachments: [{
+        filename: `${invoice.invoiceNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      }],
+    });
+    console.log(`Invoice email sent to ${contactEmail} for ${invoice.invoiceNumber}`);
+  }
 }

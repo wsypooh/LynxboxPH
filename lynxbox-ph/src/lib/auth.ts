@@ -3,7 +3,7 @@ import { fetchAuthSession, type AuthSession } from 'aws-amplify/auth'
 export async function getCurrentJWTToken(): Promise<string | null> {
   try {
     const session: AuthSession = await fetchAuthSession()
-    return session.tokens?.accessToken?.toString() || null
+    return session.tokens?.idToken?.toString() || null
   } catch (error) {
     console.error('Error fetching JWT token:', error)
     return null
@@ -13,7 +13,7 @@ export async function getCurrentJWTToken(): Promise<string | null> {
 export async function getCurrentUserId(): Promise<string | null> {
   try {
     const session: AuthSession = await fetchAuthSession()
-    const userId = session.tokens?.accessToken?.payload?.sub as string || null
+    const userId = session.tokens?.idToken?.payload?.sub as string || null
     
     // Fallback for local development
     if (!userId && process.env.NODE_ENV === 'development') {

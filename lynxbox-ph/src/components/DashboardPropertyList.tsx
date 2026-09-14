@@ -934,7 +934,7 @@ export function DashboardPropertyList({
                 >
                   {/* Property Image */}
                   <Box position="relative" h="200px">
-                    {property.images.length > 0 ? (
+                    {(property.images?.length ?? 0) > 0 ? (
                       <SecureImage
                         propertyId={property.id}
                         imageKey={property.images[property.defaultImageIndex ?? 0]}
@@ -977,17 +977,17 @@ export function DashboardPropertyList({
                       </Text>
 
                       <Text fontSize="sm" color="gray.500">
-                        📍 {property.location.address}, {property.location.city}
+                        📍 {property.location?.address}, {property.location?.city}
                       </Text>
 
                       <HStack spacing={2} fontSize="xs" color="gray.600">
-                        {property.features.area && (
+                        {property.features?.area && (
                           <Text>📐 {property.features.area}m²</Text>
                         )}
-                        {property.features.parking > 0 && (
+                        {(property.features?.parking ?? 0) > 0 && (
                           <Text>🚗 {property.features.parking} parking</Text>
                         )}
-                        {property.features.furnished && (
+                        {property.features?.furnished && (
                           <Text>🪑 Furnished</Text>
                         )}
                         {property.viewCount !== undefined && (
@@ -1147,7 +1147,7 @@ export function DashboardPropertyList({
                         </Td>
                         <Td>
                           <Text fontSize="xs" noOfLines={2} maxW="150px">
-                            {property.location.address}, {property.location.city}
+                            {property.location?.address}, {property.location?.city}
                           </Text>
                         </Td>
                         <Td>
@@ -1160,7 +1160,7 @@ export function DashboardPropertyList({
                         </Td>
                         <Td>
                           <Text fontSize="xs">
-                            {property.features.area}m²
+                            {property.features?.area}m²
                           </Text>
                         </Td>
                         <Td>

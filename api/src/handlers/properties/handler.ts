@@ -256,7 +256,7 @@ export class PropertyHandler {
       }
 
       const property = await PropertyRepository.findById(id);
-      if (!property) {
+      if (!property || property.deletedAt) {
         return ApiResponse.notFound('Property not found');
       }
 
@@ -298,7 +298,7 @@ export class PropertyHandler {
 
       // Combine existing images (minus removed ones) with new uploads
       const property = await PropertyRepository.findById(id);
-      if (!property) {
+      if (!property || property.deletedAt) {
         return ApiResponse.notFound('Property not found');
       }
 
@@ -354,9 +354,8 @@ export class PropertyHandler {
         return ApiResponse.error('Property ID is required', 400);
       }
 
-      // Verify ownership (in a real app, you'd check if the current user is the owner)
       const property = await PropertyRepository.findById(id);
-      if (!property) {
+      if (!property || property.deletedAt) {
         return ApiResponse.notFound('Property not found');
       }
 

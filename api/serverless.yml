@@ -113,6 +113,166 @@ functions:
           method: post
           cors: true
 
+      # Buildings
+      - http:
+          path: /api/buildings
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/buildings
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/buildings/{id}
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/buildings/{id}
+          method: put
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/buildings/{id}
+          method: delete
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/buildings/{id}/tenants
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+
+      # Tenants
+      - http:
+          path: /api/tenants
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/tenants
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/tenants/{id}
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/tenants/{id}
+          method: put
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/tenants/{id}
+          method: delete
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/tenants/{id}/invoices
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+
+      # Invoices
+      - http:
+          path: /api/invoices
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices/batch-pdf
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices/{id}
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices/{id}
+          method: put
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices/{id}
+          method: delete
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices/{id}/payments
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices/{id}/send
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices/{id}/rollover
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices/{id}/pdf
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+
 plugins:
   - serverless-offline
 
