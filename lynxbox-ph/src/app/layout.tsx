@@ -2,7 +2,8 @@
 
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Script from 'next/script';
 import { Amplify } from 'aws-amplify';
 import { ResourcesConfig } from 'aws-amplify';
 import { Providers } from '@/components/providers';
@@ -69,6 +70,8 @@ if (typeof window !== 'undefined') {
   }
 }
 
+const GA_ID = 'G-FJ0B3CH614';
+
 export default function RootLayout({
   children,
 }: {
@@ -78,8 +81,32 @@ export default function RootLayout({
   const isComingSoonPage = pathname?.startsWith('/coming-soon.html') || pathname?.startsWith('/coming-soon');
   const isLandingPage = pathname?.startsWith('/landlord') || pathname?.startsWith('/realtor') || pathname?.startsWith('/business-address') || pathname?.startsWith('/properties/bacolod-condo-for-sale') || isComingSoonPage;
 
+  const [isProduction, setIsProduction] = useState(false);
+  useEffect(() => {
+    setIsProduction(window.location.hostname === 'lynxbox.ph');
+  }, []);
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.png" type="image/png" />
+        {isProduction && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_ID}');
+              `}
+            </Script>
+          </>
+        )}
+      </head>
       <body className={inter.className}>
         <Providers>
           {!isLandingPage && <Navigation />}
