@@ -41,7 +41,15 @@ export interface PreviousBalanceEntry {
   penalty: number;
 }
 
-export type InvoiceStatus = 'draft' | 'sent' | 'partial' | 'paid' | 'printed';
+export interface ReceivedPayment {
+  paymentEntryId: string;
+  paymentDate: string;
+  totalAmount: number;
+  paymentMethod: PaymentMethod;
+  note?: string;
+}
+
+export type InvoiceStatus = 'draft' | 'sent' | 'partial' | 'paid' | 'printed' | 'void';
 
 export interface StatusChange {
   from: InvoiceStatus;
@@ -83,6 +91,7 @@ export interface Invoice extends BaseEntity {
   outstanding: number;
   payments: Payment[];
   previousBalanceHistory: PreviousBalanceEntry[];
+  paymentsReceived: ReceivedPayment[];
   status: InvoiceStatus;
   statusHistory: StatusChange[];
   deletedAt?: string;
@@ -112,6 +121,7 @@ export type InvoiceInput = {
   discount?: number;
   previousBalance?: number;
   previousBalanceHistory?: PreviousBalanceEntry[];
+  paymentsReceived?: ReceivedPayment[];
 };
 
 function computeTotals(data: InvoiceInput) {
@@ -171,6 +181,7 @@ export function createInvoice(data: InvoiceInput, invoiceNumber: string): Invoic
     outstanding: totalDue,
     payments: [],
     previousBalanceHistory: data.previousBalanceHistory ?? [],
+    paymentsReceived: data.paymentsReceived ?? [],
     status: 'draft',
     statusHistory: [],
     createdAt: now,

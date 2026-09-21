@@ -175,7 +175,7 @@ module "api" {
 
   # Lambda function settings
   lambda_runtime     = "nodejs24.x"
-  lambda_memory_size = 256
+  lambda_memory_size = 512
 
   # Environment variables for Lambda
   environment_variables = {

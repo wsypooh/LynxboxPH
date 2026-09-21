@@ -3,11 +3,18 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Heading, Text, VStack, HStack, Badge, Button, Card, CardBody, CardHeader,
-  useToast, Spinner, Table, Thead, Tbody, Tr, Th, Td,
+  useToast, Spinner, Table, Thead, Tbody, Tr, Th, Td, useDisclosure,
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody,
 } from '@chakra-ui/react';
 import { tenantService } from '@/services/tenantService';
 import { buildingService } from '@/services/buildingService';
+import { invoiceService } from '@/services/invoiceService';
 import { InvoiceList } from '@/features/invoicing/components/InvoiceList';
+import { InvoiceCsvUpload } from '@/features/invoicing/components/InvoiceCsvUpload';
+import { LedgerView } from '@/features/invoicing/components/LedgerView';
+import { LedgerCsvUpload } from '@/features/invoicing/components/LedgerCsvUpload';
+import { PaymentModal } from '@/features/invoicing/components/PaymentModal';
+import { TenantForm } from '@/features/invoicing/components/TenantForm';
 import { Tenant, Building, Invoice } from '@/features/invoicing/types';
 
 export default function TenantDetailClient({ id }: { id: string }) {
@@ -15,18 +22,29 @@ export default function TenantDetailClient({ id }: { id: string }) {
   const toast = useToast();
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [building, setBuilding] = useState<Building | null>(null);
+  const [buildings, setBuildings] = useState<Building[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ledgerReloadToken, setLedgerReloadToken] = useState(0);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const { isOpen: paymentOpen, onOpen: openPayment, onClose: closePayment } = useDisclosure();
+  const { isOpen: editOpen, onOpen: openEdit, onClose: closeEdit } = useDisclosure();
+  const { isOpen: invoiceCsvOpen, onOpen: openInvoiceCsv, onClose: closeInvoiceCsv } = useDisclosure();
+  const { isOpen: ledgerCsvOpen, onOpen: openLedgerCsv, onClose: closeLedgerCsv } = useDisclosure();
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [t, invs] = await Promise.all([
+        const [t, invs, allBuildings] = await Promise.all([
           tenantService.getTenant(id),
           tenantService.listInvoicesByTenant(id),
+          buildingService.listBuildings(),
         ]);
         setTenant(t);
         setInvoices(invs);
+        setBuildings(allBuildings);
         if (t.buildingId) {
           const b = await buildingService.getBuilding(t.buildingId);
           setBuilding(b);
@@ -40,15 +58,98 @@ export default function TenantDetailClient({ id }: { id: string }) {
     load();
   }, [id]);
 
+  const handleUpdate = async (data: any) => {
+    setSaving(true);
+    try {
+      const updated = await tenantService.updateTenant(id, data);
+      setTenant(updated);
+      if (updated.buildingId) {
+        const b = await buildingService.getBuilding(updated.buildingId);
+        setBuilding(b);
+      }
+      toast({ title: 'Tenant updated', status: 'success' });
+      closeEdit();
+    } catch (err: any) {
+      toast({ title: err.message || 'Error updating tenant', status: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const reloadInvoices = async () => {
+    const invs = await tenantService.listInvoicesByTenant(id);
+    setInvoices(invs);
+    setLedgerReloadToken(t => t + 1);
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    if (!confirm('Delete this invoice? This cannot be undone.')) return;
+    try {
+      await invoiceService.deleteInvoice(invoiceId);
+      setInvoices(prev => prev.filter(i => i.id !== invoiceId));
+      setLedgerReloadToken(t => t + 1);
+      toast({ title: 'Invoice deleted', status: 'info' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Error deleting invoice', status: 'error' });
+    }
+  };
+
+  const handleVoidInvoice = async (invoiceId: string) => {
+    if (!confirm('Void this invoice? It will be excluded from balances but kept on record.')) return;
+    try {
+      const updated = await invoiceService.voidInvoice(invoiceId);
+      setInvoices(prev => prev.map(i => i.id === invoiceId ? updated : i));
+      setLedgerReloadToken(t => t + 1);
+      toast({ title: 'Invoice voided', status: 'info' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Error voiding invoice', status: 'error' });
+    }
+  };
+
+  const handleLedgerPayment = async (data: any) => {
+    setPaymentLoading(true);
+    try {
+      await tenantService.recordLedgerPayment(id, data);
+      setLedgerReloadToken(t => t + 1);
+      toast({ title: 'Payment recorded', status: 'success' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Error recording payment', status: 'error' });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const handleResetLedger = async () => {
+    if (!confirm(
+      `Reset the ledger for ${tenant?.lesseeName}?\n\nThis clears ALL imported balances and payments recorded for this tenant (soft-deleted, not permanently erased, but there's no undo in this screen). Only do this to recover from a bad import — not as routine cleanup.`
+    )) return;
+    setResetLoading(true);
+    try {
+      const result = await tenantService.resetLedger(id);
+      setLedgerReloadToken(t => t + 1);
+      toast({
+        title: `Ledger reset: ${result.chargesCleared} charge(s), ${result.paymentsCleared} payment(s) cleared`,
+        status: 'info',
+      });
+    } catch (err: any) {
+      toast({ title: err.message || 'Error resetting ledger', status: 'error' });
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   if (loading) return <Box p={6}><Spinner /></Box>;
   if (!tenant) return <Box p={6}><Text>Tenant not found.</Text></Box>;
 
   return (
     <Box p={6}>
-      <HStack mb={4}>
-        <Button variant="ghost" onClick={() => router.back()}>← Back</Button>
-        <Heading size="lg">{tenant.lesseeName}</Heading>
-        <Badge colorScheme={tenant.status === 'active' ? 'green' : 'gray'} ml={2}>{tenant.status}</Badge>
+      <HStack mb={4} justify="space-between">
+        <HStack>
+          <Button variant="ghost" onClick={() => router.back()}>← Back</Button>
+          <Heading size="lg">{tenant.lesseeName}</Heading>
+          <Badge colorScheme={tenant.status === 'active' ? 'green' : 'gray'} ml={2}>{tenant.status}</Badge>
+        </HStack>
+        <Button size="sm" variant="outline" onClick={openEdit}>Edit Tenant</Button>
       </HStack>
 
       <VStack align="stretch" spacing={4}>
@@ -165,10 +266,33 @@ export default function TenantDetailClient({ id }: { id: string }) {
         <Card>
           <CardHeader pb={1}>
             <HStack justify="space-between">
-              <Heading size="sm">Invoices</Heading>
-              <Button size="sm" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices/new?tenantId=${id}`)}>
-                + New Invoice
+              <Heading size="sm">Ledger &amp; Outstanding Balances</Heading>
+              <HStack>
+                <Button size="sm" variant="outline" onClick={openLedgerCsv}>Import Historical Balances</Button>
+                <Button size="sm" colorScheme="green" onClick={openPayment}>Record Payment</Button>
+              </HStack>
+            </HStack>
+          </CardHeader>
+          <CardBody>
+            <LedgerView tenantId={id} penaltyEnabled={tenant.penaltyEnabled} reloadToken={ledgerReloadToken} />
+            <HStack justify="flex-end" mt={4}>
+              <Button size="xs" variant="ghost" colorScheme="red" onClick={handleResetLedger} isLoading={resetLoading}>
+                Reset Ledger for This Tenant
               </Button>
+            </HStack>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader pb={1}>
+            <HStack justify="space-between">
+              <Heading size="sm">Invoices</Heading>
+              <HStack>
+                <Button size="sm" variant="outline" onClick={openInvoiceCsv}>Import CSV</Button>
+                <Button size="sm" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices/new?tenantId=${id}`)}>
+                  + New Invoice
+                </Button>
+              </HStack>
             </HStack>
           </CardHeader>
           <CardBody>
@@ -177,10 +301,51 @@ export default function TenantDetailClient({ id }: { id: string }) {
               selectedIds={new Set()}
               onToggle={() => {}}
               onToggleAll={() => {}}
+              onDelete={handleDeleteInvoice}
+              onVoid={handleVoidInvoice}
             />
           </CardBody>
         </Card>
       </VStack>
+
+      <InvoiceCsvUpload
+        isOpen={invoiceCsvOpen}
+        onClose={closeInvoiceCsv}
+        tenants={[tenant]}
+        invoices={invoices}
+        onImported={reloadInvoices}
+      />
+
+      <LedgerCsvUpload
+        isOpen={ledgerCsvOpen}
+        onClose={closeLedgerCsv}
+        tenants={[tenant]}
+        onImported={() => setLedgerReloadToken(t => t + 1)}
+      />
+
+      <PaymentModal
+        isOpen={paymentOpen}
+        onClose={closePayment}
+        onSubmit={handleLedgerPayment}
+        isLoading={paymentLoading}
+      />
+
+      <Modal isOpen={editOpen} onClose={closeEdit} size="2xl" scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Tenant</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <TenantForm
+              buildings={buildings}
+              defaultValues={tenant}
+              onSubmit={handleUpdate}
+              onCancel={closeEdit}
+              isLoading={saving}
+            />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }

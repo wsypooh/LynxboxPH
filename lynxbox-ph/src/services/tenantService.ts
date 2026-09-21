@@ -1,5 +1,8 @@
 import { getAuthHeaders } from '@/lib/auth';
-import { Tenant, TenantInput, TenantContract, Invoice } from '@/features/invoicing/types';
+import {
+  Tenant, TenantInput, TenantContract, Invoice,
+  LedgerSummary, PaymentLedgerEntry, ChargeEntry, LedgerChargeInput,
+} from '@/features/invoicing/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.execute-api.ap-southeast-1.amazonaws.com/dev';
 
@@ -79,6 +82,36 @@ class TenantService {
   async listInvoicesByTenant(id: string): Promise<Invoice[]> {
     const res = await this.request<{ invoices: Invoice[] }>(`/api/invoices?tenantId=${id}`);
     return res.invoices ?? [];
+  }
+
+  async getLedger(id: string, asOf?: string): Promise<LedgerSummary> {
+    const qs = asOf ? `?asOf=${asOf}` : '';
+    return this.request<LedgerSummary>(`/api/tenants/${id}/ledger${qs}`);
+  }
+
+  async recordLedgerPayment(
+    id: string,
+    data: { amount: number; date: string; paymentMethod: string; note?: string }
+  ): Promise<PaymentLedgerEntry> {
+    const res = await this.request<{ paymentEntry: PaymentLedgerEntry }>(`/api/tenants/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return res.paymentEntry;
+  }
+
+  async createLedgerCharge(data: LedgerChargeInput): Promise<ChargeEntry> {
+    const res = await this.request<{ chargeEntry: ChargeEntry }>('/api/ledger/charges', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return res.chargeEntry;
+  }
+
+  async resetLedger(id: string): Promise<{ chargesCleared: number; paymentsCleared: number }> {
+    return this.request<{ chargesCleared: number; paymentsCleared: number }>(`/api/tenants/${id}/ledger/reset`, {
+      method: 'POST',
+    });
   }
 }
 

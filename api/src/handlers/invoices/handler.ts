@@ -3,6 +3,7 @@ import { InvoiceRepository } from '../../repositories/invoiceRepository';
 import { Invoice } from '../../models/invoice';
 import { TenantRepository } from '../../repositories/tenantRepository';
 import { BuildingRepository } from '../../repositories/buildingRepository';
+import { LedgerRepository } from '../../repositories/ledgerRepository';
 import { PdfService } from '../../lib/pdf';
 import { ZeptoMailService } from '../../lib/zeptomail';
 import { ApiResponse } from '../../lib/apiResponse';
@@ -56,6 +57,8 @@ export class InvoiceHandler {
         return await InvoiceHandler.sendInvoice(event, userId);
       } else if (method === 'POST' && path.match(/\/api\/invoices\/[^/]+\/rollover$/)) {
         return await InvoiceHandler.rolloverInvoice(event, userId);
+      } else if (method === 'POST' && path.match(/\/api\/invoices\/[^/]+\/void$/)) {
+        return await InvoiceHandler.voidInvoice(event, userId);
       } else if (method === 'GET' && path.match(/\/api\/invoices\/[^/]+\/pdf$/)) {
         return await InvoiceHandler.downloadPdf(event, userId);
       } else if (method === 'GET' && path.match(/\/api\/invoices\/[^/]+$/) && !path.endsWith('/api/invoices')) {
@@ -93,6 +96,19 @@ export class InvoiceHandler {
     return ApiResponse.success({ invoices });
   }
 
+  private static async getPaymentsReceivedSinceLastInvoice(tenantId: string) {
+    const existingInvoices = await InvoiceRepository.listByTenant(tenantId);
+    const lastInvoice = [...existingInvoices].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    const payments = await LedgerRepository.listPaymentsSince(tenantId, lastInvoice?.createdAt);
+    return payments.map(p => ({
+      paymentEntryId: p.id,
+      paymentDate: p.paymentDate,
+      totalAmount: p.totalAmount,
+      paymentMethod: p.paymentMethod,
+      note: p.note,
+    }));
+  }
+
   static async createInvoice(event: APIGatewayProxyEvent, userId: string) {
     const body = JSON.parse(event.body || '{}');
     const { tenantId, billingMonth } = body;
@@ -105,18 +121,10 @@ export class InvoiceHandler {
     if (!building) return ApiResponse.notFound('Building not found');
 
     const billingLabel = getBillingLabel(billingMonth);
-    const unpaid = await InvoiceRepository.getUnpaidByTenant(tenantId);
-    const penaltyRate = (tenant.penaltyEnabled ?? true) ? building.penaltyRate : 0;
-    const previousBalanceHistory = unpaid.map(inv => ({
-      invoiceNumber: inv.invoiceNumber,
-      billingMonth: inv.billingMonth,
-      billingLabel: inv.billingLabel,
-      amountDue: inv.totalDue,
-      amountPaid: inv.amountPaid,
-      outstanding: inv.outstanding,
-      penalty: inv.outstanding * penaltyRate,
-    }));
-    const previousBalance = previousBalanceHistory.reduce((s, e) => s + e.outstanding + e.penalty, 0);
+    const [{ previousBalance, previousBalanceHistory }, paymentsReceived] = await Promise.all([
+      LedgerRepository.getLedgerSummary(tenantId, billingMonth, tenant.penaltyEnabled ?? true),
+      InvoiceHandler.getPaymentsReceivedSinceLastInvoice(tenantId),
+    ]);
 
     const vatRate = building.vatRate ?? 0.12;
     const withholdingTaxRate = building.withholdingTaxRate ?? 0.05;
@@ -172,16 +180,28 @@ export class InvoiceHandler {
       discount: body.discount ?? 0,
       previousBalance,
       previousBalanceHistory,
+      paymentsReceived,
     };
 
     const invoice = await InvoiceRepository.create(invoiceData);
+    await LedgerRepository.createChargeEntry({
+      tenantId,
+      ownerId: userId,
+      billingMonth,
+      principalAmount: invoice.currentChargesTotal,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceId: invoice.id,
+      description: `Invoice ${invoice.invoiceNumber} — ${billingLabel}`,
+      source: 'invoice',
+    });
     return ApiResponse.success({ invoice }, 201);
   }
 
   private static async enrichInvoice(invoice: Invoice) {
-    const [building, tenant] = await Promise.all([
+    const [building, tenant, ledgerPayments] = await Promise.all([
       BuildingRepository.findById(invoice.buildingId),
       TenantRepository.findById(invoice.tenantId),
+      LedgerRepository.listPaymentsForInvoice(invoice.tenantId, invoice.id),
     ]);
     return {
       ...invoice,
@@ -191,6 +211,7 @@ export class InvoiceHandler {
       buildingEmail: building?.email ?? invoice.buildingEmail,
       lesseeName: tenant?.lesseeName ?? invoice.lesseeName,
       tenantCode: tenant?.tenantCode ?? invoice.tenantCode,
+      ledgerPayments,
     };
   }
 
@@ -248,8 +269,27 @@ export class InvoiceHandler {
     if (!id) return ApiResponse.notFound('Invoice not found');
     const invoice = await InvoiceRepository.findById(id);
     if (!invoice || invoice.ownerId !== userId || invoice.deletedAt) return ApiResponse.notFound('Invoice not found');
+    if (invoice.status !== 'draft') {
+      return ApiResponse.error('Only draft invoices can be deleted. Void this invoice instead to keep it on record.', 400);
+    }
     await InvoiceRepository.delete(id);
+    await LedgerRepository.deleteChargeEntryByInvoiceId(invoice.tenantId, id);
     return ApiResponse.success({ message: 'Deleted' });
+  }
+
+  static async voidInvoice(event: APIGatewayProxyEvent, userId: string) {
+    const id = getInvoiceId(event);
+    if (!id) return ApiResponse.notFound('Invoice not found');
+    const invoice = await InvoiceRepository.findById(id);
+    if (!invoice || invoice.ownerId !== userId || invoice.deletedAt) return ApiResponse.notFound('Invoice not found');
+    if (invoice.status === 'void') return ApiResponse.error('Invoice is already void', 400);
+
+    const statusHistory = invoice.statusHistory ?? [];
+    statusHistory.push({ from: invoice.status, to: 'void', changedAt: new Date().toISOString(), changedBy: getUserDisplayName(event) });
+
+    const updated = (await InvoiceRepository.update(id, { status: 'void', statusHistory }))!;
+    await LedgerRepository.deleteChargeEntryByInvoiceId(invoice.tenantId, id);
+    return ApiResponse.success({ invoice: await InvoiceHandler.enrichInvoice(updated) });
   }
 
   static async recordPayment(event: APIGatewayProxyEvent, userId: string) {
@@ -317,18 +357,9 @@ export class InvoiceHandler {
     ]);
     const electricityRate = building?.currentElectricityRate ?? invoice.electricity.rate;
 
-    const unpaid = await InvoiceRepository.getUnpaidByTenant(invoice.tenantId);
-    const rolloverPenaltyRate = (tenant?.penaltyEnabled ?? true) ? (building?.penaltyRate ?? 0.05) : 0;
-    const previousBalanceHistory = unpaid.map(inv => ({
-      invoiceNumber: inv.invoiceNumber,
-      billingMonth: inv.billingMonth,
-      billingLabel: inv.billingLabel,
-      amountDue: inv.totalDue,
-      amountPaid: inv.amountPaid,
-      outstanding: inv.outstanding,
-      penalty: inv.outstanding * rolloverPenaltyRate,
-    }));
-    const previousBalance = previousBalanceHistory.reduce((s, e) => s + e.outstanding + e.penalty, 0);
+    const { previousBalance, previousBalanceHistory } = await LedgerRepository.getLedgerSummary(
+      invoice.tenantId, nextMonth, tenant?.penaltyEnabled ?? true
+    );
 
     const draftData = {
       ownerId: invoice.ownerId,

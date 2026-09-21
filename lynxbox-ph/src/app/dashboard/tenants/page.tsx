@@ -10,20 +10,32 @@ import { buildingService } from '@/services/buildingService';
 import { TenantForm } from '@/features/invoicing/components/TenantForm';
 import { TenantList } from '@/features/invoicing/components/TenantList';
 import { TenantCsvUpload } from '@/features/invoicing/components/TenantCsvUpload';
+import { LedgerCsvUpload } from '@/features/invoicing/components/LedgerCsvUpload';
 import { Tenant, Building } from '@/features/invoicing/types';
+
+const FILTERS_KEY = 'tenants-filters-v1';
+
+function loadStoredFilters(): { building: string; status: string; lessee: string } {
+  try {
+    return { building: '', status: '', lessee: '', ...JSON.parse(localStorage.getItem(FILTERS_KEY) ?? '{}') };
+  } catch {
+    return { building: '', status: '', lessee: '' };
+  }
+}
 
 export default function TenantsPage() {
   const searchParams = useSearchParams();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
-  const [filterBuilding, setFilterBuilding] = useState(searchParams.get('buildingId') || '');
+  const [filterBuilding, setFilterBuilding] = useState(() => searchParams.get('buildingId') || loadStoredFilters().building);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterLessee, setFilterLessee] = useState('');
+  const [filterStatus, setFilterStatus] = useState(() => loadStoredFilters().status);
+  const [filterLessee, setFilterLessee] = useState(() => loadStoredFilters().lessee);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isCsvOpen, onOpen: onCsvOpen, onClose: onCsvClose } = useDisclosure();
+  const { isOpen: isLedgerCsvOpen, onOpen: onLedgerCsvOpen, onClose: onLedgerCsvClose } = useDisclosure();
   const toast = useToast();
 
   const loadData = async () => {
@@ -42,6 +54,12 @@ export default function TenantsPage() {
   };
 
   useEffect(() => { loadData(); }, [filterBuilding]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTERS_KEY, JSON.stringify({ building: filterBuilding, status: filterStatus, lessee: filterLessee }));
+    } catch {}
+  }, [filterBuilding, filterStatus, filterLessee]);
 
   const filteredTenants = useMemo(() => {
     let result = filterStatus ? tenants.filter(t => t.status === filterStatus) : tenants;
@@ -115,6 +133,7 @@ export default function TenantsPage() {
             <option value="inactive">Inactive</option>
           </Select>
           <Button variant="outline" onClick={onCsvOpen}>Import CSV</Button>
+          <Button variant="outline" onClick={onLedgerCsvOpen}>Import Historical Balances</Button>
           <Button colorScheme="blue" onClick={() => { setEditTenant(null); onOpen(); }}>+ Add Tenant</Button>
         </HStack>
       </HStack>
@@ -134,6 +153,13 @@ export default function TenantsPage() {
         isOpen={isCsvOpen}
         onClose={onCsvClose}
         buildings={buildings}
+        tenants={tenants}
+        onImported={loadData}
+      />
+
+      <LedgerCsvUpload
+        isOpen={isLedgerCsvOpen}
+        onClose={onLedgerCsvClose}
         tenants={tenants}
         onImported={loadData}
       />

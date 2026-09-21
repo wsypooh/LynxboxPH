@@ -76,6 +76,13 @@ class InvoiceService {
     return res.invoice;
   }
 
+  async voidInvoice(id: string): Promise<Invoice> {
+    const res = await this.request<{ invoice: Invoice }>(`/api/invoices/${id}/void`, {
+      method: 'POST',
+    });
+    return res.invoice;
+  }
+
   async revertToDraft(id: string): Promise<Invoice> {
     const res = await this.request<{ invoice: Invoice }>(`/api/invoices/${id}`, {
       method: 'PUT',

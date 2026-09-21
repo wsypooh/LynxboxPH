@@ -29,7 +29,7 @@ export interface TenantContract {
 
 export type WaterMode = 'metered' | 'fixed' | 'direct';
 export type ElectricityMode = 'metered' | 'direct';
-export type InvoiceStatus = 'draft' | 'sent' | 'partial' | 'paid' | 'printed';
+export type InvoiceStatus = 'draft' | 'sent' | 'partial' | 'paid' | 'printed' | 'void';
 
 export interface StatusChange {
   from: InvoiceStatus;
@@ -110,6 +110,14 @@ export interface PreviousBalanceEntry {
   penalty: number;
 }
 
+export interface ReceivedPayment {
+  paymentEntryId: string;
+  paymentDate: string;
+  totalAmount: number;
+  paymentMethod: PaymentMethod;
+  note?: string;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -142,10 +150,77 @@ export interface Invoice {
   outstanding: number;
   payments: Payment[];
   previousBalanceHistory: PreviousBalanceEntry[];
+  paymentsReceived?: ReceivedPayment[];
   status: InvoiceStatus;
   statusHistory: StatusChange[];
+  ledgerPayments?: LedgerPaymentApplied[];
   createdAt: string;
   updatedAt: string;
 }
 
-export type InvoiceInput = Omit<Invoice, 'id' | 'invoiceNumber' | 'ownerId' | 'subtotal' | 'currentChargesTotal' | 'totalDue' | 'amountPaid' | 'outstanding' | 'payments' | 'status' | 'createdAt' | 'updatedAt'>;
+export interface LedgerPaymentApplied {
+  paymentEntryId: string;
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  note?: string;
+  principalApplied: number;
+  penaltyApplied: number;
+}
+
+export type InvoiceInput = Omit<Invoice, 'id' | 'invoiceNumber' | 'ownerId' | 'subtotal' | 'currentChargesTotal' | 'totalDue' | 'amountPaid' | 'outstanding' | 'payments' | 'status' | 'createdAt' | 'updatedAt' | 'ledgerPayments'>;
+
+export interface AppliedTo {
+  chargeEntryId: string;
+  penaltyApplied: number;
+  principalApplied: number;
+}
+
+export interface ChargeEntry {
+  id: string;
+  entryType: 'charge';
+  tenantId: string;
+  ownerId: string;
+  billingMonth: string;
+  principalAmount: number;
+  principalOutstanding: number;
+  penaltyPaid: number;
+  pendingPenalty?: number;
+  invoiceNumber?: string;
+  invoiceId?: string;
+  description: string;
+  source: 'import' | 'invoice';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentLedgerEntry {
+  id: string;
+  entryType: 'payment';
+  tenantId: string;
+  ownerId: string;
+  paymentDate: string;
+  totalAmount: number;
+  paymentMethod: PaymentMethod;
+  note?: string;
+  appliedTo: AppliedTo[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type LedgerEntry = ChargeEntry | PaymentLedgerEntry;
+
+export interface LedgerSummary {
+  charges: ChargeEntry[];
+  payments: PaymentLedgerEntry[];
+  previousBalance: number;
+  previousBalanceHistory: PreviousBalanceEntry[];
+  asOf: string;
+}
+
+export type LedgerChargeInput = {
+  tenantId: string;
+  billingMonth: string;
+  principalAmount: number;
+  invoiceNumber?: string;
+  description?: string;
+};

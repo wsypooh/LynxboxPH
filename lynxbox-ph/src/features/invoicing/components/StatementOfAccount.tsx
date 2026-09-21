@@ -12,6 +12,15 @@ function fmt(n: number) {
   return (n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: 'Cash',
+  check: 'Check',
+  gcash: 'GCash',
+  credit_card: 'Credit Card',
+  bank: 'Bank',
+  online_banking: 'Online Banking',
+};
+
 function formatPhone(phone: string): string {
   const d = phone.replace(/\D/g, '');
   if (d.length === 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
@@ -64,6 +73,35 @@ export function StatementOfAccount({ invoice }: Props) {
           <Box><b>Lessee No.:</b> {invoice.tenantCode}</Box>
         </HStack>
 
+        {/* Payments Received */}
+        {invoice.paymentsReceived && invoice.paymentsReceived.length > 0 && (
+          <>
+            <Text fontWeight="bold" bg="#0e2949" color="white" px={3} py={1} mb={0}>
+              Payments Received Since Last Invoice
+            </Text>
+            <Text fontSize="xs" color="gray.500" mt={1} mb={2}>
+              Already applied to the balance below.
+            </Text>
+            <Table size="sm" variant="simple" mb={4}>
+              <Thead>
+                <Tr>
+                  <Th>Date</Th><Th>Method</Th><Th>Note</Th><Th isNumeric>Amount</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {invoice.paymentsReceived.map(p => (
+                  <Tr key={p.paymentEntryId}>
+                    <Td>{p.paymentDate}</Td>
+                    <Td>{PAYMENT_METHOD_LABELS[p.paymentMethod] || '—'}</Td>
+                    <Td>{p.note || '—'}</Td>
+                    <Td isNumeric>{fmt(p.totalAmount)}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </>
+        )}
+
         {/* Current Charges */}
         <HStack justify="space-between" bg="#0e2949" color="white" px={3} py={1} mb={0}>
           <Text fontWeight="bold">Current Charges</Text>
@@ -111,16 +149,13 @@ export function StatementOfAccount({ invoice }: Props) {
             <Table size="sm" variant="simple" mb={4}>
               <Thead>
                 <Tr>
-                  <Th>Invoice #</Th><Th>Period</Th><Th isNumeric>Due</Th>
-                  <Th isNumeric>Paid</Th><Th isNumeric>Outstanding</Th><Th isNumeric>Penalty</Th>
+                  <Th>Invoice #</Th><Th>Period</Th><Th isNumeric>Outstanding</Th><Th isNumeric>Penalty</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {invoice.previousBalanceHistory.map((e, i) => (
                   <Tr key={i}>
                     <Td>{e.invoiceNumber}</Td><Td>{e.billingLabel}</Td>
-                    <Td isNumeric>{fmt(e.amountDue)}</Td>
-                    <Td isNumeric>{fmt(e.amountPaid)}</Td>
                     <Td isNumeric>{fmt(e.outstanding)}</Td>
                     <Td isNumeric>{fmt(e.penalty)}</Td>
                   </Tr>

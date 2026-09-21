@@ -201,6 +201,36 @@ functions:
             name: ApiGatewayAuthorizer
             type: request
 
+      # Ledger
+      - http:
+          path: /api/ledger/charges
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/tenants/{id}/ledger
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/tenants/{id}/ledger/reset
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/tenants/{id}/payments
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+
       # Invoices
       - http:
           path: /api/invoices
@@ -260,6 +290,13 @@ functions:
             type: request
       - http:
           path: /api/invoices/{id}/rollover
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/invoices/{id}/void
           method: post
           cors: true
           authorizer:

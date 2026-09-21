@@ -13,18 +13,27 @@ import { InvoiceCsvUpload } from '@/features/invoicing/components/InvoiceCsvUplo
 import { Invoice, Building, Tenant } from '@/features/invoicing/types';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+const FILTERS_KEY = 'invoices-filters-v1';
+
+function loadStoredFilters(): { month: string; status: string; building: string; lessee: string } {
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  try {
+    return { month: defaultMonth, status: '', building: '', lessee: '', ...JSON.parse(localStorage.getItem(FILTERS_KEY) ?? '{}') };
+  } catch {
+    return { month: defaultMonth, status: '', building: '', lessee: '' };
+  }
+}
+
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [csvOpen, setCsvOpen] = useState(false);
-  const [filterMonth, setFilterMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterBuilding, setFilterBuilding] = useState('');
-  const [filterLessee, setFilterLessee] = useState('');
+  const [filterMonth, setFilterMonth] = useState(() => loadStoredFilters().month);
+  const [filterStatus, setFilterStatus] = useState(() => loadStoredFilters().status);
+  const [filterBuilding, setFilterBuilding] = useState(() => loadStoredFilters().building);
+  const [filterLessee, setFilterLessee] = useState(() => loadStoredFilters().lessee);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -57,6 +66,14 @@ export default function InvoicesPage() {
 
   useEffect(() => { loadData(); }, [filterMonth, filterStatus]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTERS_KEY, JSON.stringify({
+        month: filterMonth, status: filterStatus, building: filterBuilding, lessee: filterLessee,
+      }));
+    } catch {}
+  }, [filterMonth, filterStatus, filterBuilding, filterLessee]);
+
   const filtered = useMemo(() => {
     let result = filterBuilding ? invoices.filter(inv => inv.buildingId === filterBuilding) : invoices;
     if (filterLessee.trim()) {
@@ -79,6 +96,17 @@ export default function InvoicesPage() {
     try {
       await invoiceService.deleteInvoice(id);
       toast({ title: 'Invoice deleted', status: 'info' });
+      await loadData();
+    } catch (err: any) {
+      toast({ title: err.message || 'Error', status: 'error' });
+    }
+  };
+
+  const handleVoid = async (id: string) => {
+    if (!confirm('Void this invoice? It will be excluded from balances but kept on record.')) return;
+    try {
+      await invoiceService.voidInvoice(id);
+      toast({ title: 'Invoice voided', status: 'info' });
       await loadData();
     } catch (err: any) {
       toast({ title: err.message || 'Error', status: 'error' });
@@ -244,6 +272,7 @@ export default function InvoicesPage() {
           onToggle={handleToggle}
           onToggleAll={handleToggleAll}
           onDelete={handleDelete}
+          onVoid={handleVoid}
         />
       )}
     </Box>

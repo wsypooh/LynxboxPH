@@ -224,6 +224,20 @@ app.all('/api/tenants/:id/invoices', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
+// Ledger routes
+app.all('/api/ledger/charges', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/tenants/:id/ledger', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/tenants/:id/ledger/reset', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/tenants/:id/payments', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
 // Invoices routes
 app.all('/api/invoices', async (req, res) => {
   await handlePropertyRequest(req, res);
@@ -241,6 +255,9 @@ app.all('/api/invoices/:id/send', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 app.all('/api/invoices/:id/rollover', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/invoices/:id/void', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 app.all('/api/invoices/:id/pdf', async (req, res) => {

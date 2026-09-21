@@ -131,8 +131,9 @@ resource "aws_lambda_function" "api" {
   filename         = data.archive_file.lambda_placeholder.output_path
   source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
 
-  role    = aws_iam_role.lambda.arn
-  timeout = 30
+  role        = aws_iam_role.lambda.arn
+  timeout     = 30
+  memory_size = var.lambda_memory_size
 
   environment {
     variables = merge(

@@ -19,6 +19,7 @@ const statusColor: Record<InvoiceStatus, string> = {
   partial: 'orange',
   paid: 'green',
   printed: 'purple',
+  void: 'red',
 };
 
 const PAYMENT_METHOD_LABELS = {
@@ -135,6 +136,20 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
     }
   };
 
+  const handleVoid = async () => {
+    if (!confirm('Void this invoice? It will be excluded from balances but kept on record.')) return;
+    setActionLoading(true);
+    try {
+      const updated = await invoiceService.voidInvoice(id);
+      setInvoice(updated);
+      toast({ title: 'Invoice voided', status: 'info' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Error voiding invoice', status: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handlePayment = async (data: any) => {
     setActionLoading(true);
     try {
@@ -165,13 +180,17 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
               Revert to Draft
             </Button>
           )}
-          {invoice.status !== 'printed' && invoice.status !== 'paid' && (
+          {invoice.status !== 'printed' && invoice.status !== 'paid' && invoice.status !== 'void' && (
             <Button size="sm" colorScheme="green" onClick={openPayment} isLoading={actionLoading}>Record Payment</Button>
           )}
           <Button size="sm" colorScheme="blue" onClick={handleSend} isLoading={actionLoading}>Send Email</Button>
           <Button size="sm" variant="outline" onClick={handleDownloadPdf} isLoading={actionLoading}>Download PDF</Button>
           <Button size="sm" variant="outline" onClick={handleRollover} isLoading={actionLoading}>Roll Over</Button>
-          <Button size="sm" colorScheme="red" variant="ghost" onClick={handleDelete}>Delete</Button>
+          {invoice.status === 'draft' ? (
+            <Button size="sm" colorScheme="red" variant="ghost" onClick={handleDelete}>Delete</Button>
+          ) : invoice.status !== 'void' ? (
+            <Button size="sm" colorScheme="red" variant="ghost" onClick={handleVoid} isLoading={actionLoading}>Void</Button>
+          ) : null}
         </HStack>
       </HStack>
 
@@ -179,7 +198,9 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
         <TabList>
           <Tab isDisabled={invoice.status !== 'draft'}>Edit</Tab>
           <Tab>Statement</Tab>
-          {invoice.payments.length > 0 && <Tab>Payments ({invoice.payments.length})</Tab>}
+          {(invoice.payments.length > 0 || (invoice.ledgerPayments?.length ?? 0) > 0) && (
+            <Tab>Payments ({invoice.payments.length + (invoice.ledgerPayments?.length ?? 0)})</Tab>
+          )}
           {(invoice.statusHistory?.length ?? 0) > 0 && <Tab>History ({invoice.statusHistory.length})</Tab>}
         </TabList>
         <TabPanels>
@@ -194,39 +215,76 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
                 onSubmit={handleUpdate}
                 isLoading={saving}
                 previousBalanceHistory={invoice.previousBalanceHistory}
-                previousBalance={invoice.previousBalance}
               />
             )}
           </TabPanel>
           <TabPanel px={0}>
             <StatementOfAccount invoice={invoice} />
           </TabPanel>
-          {invoice.payments.length > 0 && (
+          {(invoice.payments.length > 0 || (invoice.ledgerPayments?.length ?? 0) > 0) && (
             <TabPanel px={0}>
-              <Box overflowX="auto">
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <th style={{ textAlign: 'left', padding: '8px' }}>Date</th>
-                      <th style={{ textAlign: 'right', padding: '8px' }}>Amount</th>
-                      <th style={{ textAlign: 'left', padding: '8px' }}>Method</th>
-                      <th style={{ textAlign: 'left', padding: '8px' }}>Note</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoice.payments.map((p, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                        <td style={{ padding: '8px' }}>{p.date}</td>
-                        <td style={{ textAlign: 'right', padding: '8px' }}>
-                          ₱{p.amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td style={{ padding: '8px' }}>{PAYMENT_METHOD_LABELS[p.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || '—'}</td>
-                        <td style={{ padding: '8px' }}>{p.note || '—'}</td>
+              {invoice.payments.length > 0 && (
+                <Box overflowX="auto" mb={(invoice.ledgerPayments?.length ?? 0) > 0 ? 6 : 0}>
+                  <Text fontWeight="semibold" fontSize="sm" mb={2}>Recorded Directly on This Invoice</Text>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Date</th>
+                        <th style={{ textAlign: 'right', padding: '8px' }}>Amount</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Method</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Note</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Box>
+                    </thead>
+                    <tbody>
+                      {invoice.payments.map((p, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                          <td style={{ padding: '8px' }}>{p.date}</td>
+                          <td style={{ textAlign: 'right', padding: '8px' }}>
+                            ₱{p.amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ padding: '8px' }}>{PAYMENT_METHOD_LABELS[p.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || '—'}</td>
+                          <td style={{ padding: '8px' }}>{p.note || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Box>
+              )}
+              {(invoice.ledgerPayments?.length ?? 0) > 0 && (
+                <Box overflowX="auto">
+                  <Text fontWeight="semibold" fontSize="sm" mb={2}>Applied from Tenant Ledger Payments</Text>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Date</th>
+                        <th style={{ textAlign: 'right', padding: '8px' }}>Principal Applied</th>
+                        <th style={{ textAlign: 'right', padding: '8px' }}>Penalty Applied</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Method</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoice.ledgerPayments!.map(p => (
+                        <tr key={p.paymentEntryId} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                          <td style={{ padding: '8px' }}>{p.paymentDate}</td>
+                          <td style={{ textAlign: 'right', padding: '8px' }}>
+                            ₱{p.principalApplied.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '8px' }}>
+                            ₱{p.penaltyApplied.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ padding: '8px' }}>{PAYMENT_METHOD_LABELS[p.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || '—'}</td>
+                          <td style={{ padding: '8px' }}>{p.note || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <Text fontSize="xs" color="gray.500" mt={2}>
+                    These were recorded as tenant-level payments and applied here via FIFO — they may also
+                    have applied to other outstanding charges for this tenant.
+                  </Text>
+                </Box>
+              )}
             </TabPanel>
           )}
           {(invoice.statusHistory?.length ?? 0) > 0 && (

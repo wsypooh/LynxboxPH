@@ -65,6 +65,7 @@ const STATUS_COLOR: Record<InvoiceStatus, { bg: string; text: string }> = {
   partial:  { bg: '#feebc8', text: '#c05621' },
   paid:     { bg: '#c6f6d5', text: '#276749' },
   printed:  { bg: '#e9d8fd', text: '#553c9a' },
+  void:     { bg: '#fed7d7', text: '#c53030' },
 };
 
 function StatusPill({ status }: { status: InvoiceStatus }) {

@@ -5,6 +5,7 @@ import { SignupHandler } from './handlers/signup/handler';
 import { BuildingHandler } from './handlers/buildings/handler';
 import { TenantHandler } from './handlers/tenants/handler';
 import { InvoiceHandler } from './handlers/invoices/handler';
+import { LedgerHandler } from './handlers/ledger/handler';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
@@ -31,12 +32,24 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return await InvoiceHandler.handle(event);
     }
 
+    if (event.path?.includes('/api/tenants') && event.path?.includes('/ledger')) {
+      return await LedgerHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/tenants') && event.path?.includes('/payments')) {
+      return await LedgerHandler.handle(event);
+    }
+
     if (event.path?.includes('/api/tenants')) {
       return await TenantHandler.handle(event);
     }
 
     if (event.path?.includes('/api/invoices')) {
       return await InvoiceHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/ledger')) {
+      return await LedgerHandler.handle(event);
     }
 
     return await propertyHandler(event);

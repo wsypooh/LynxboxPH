@@ -16,6 +16,7 @@ export default function NewInvoicePage() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [previousReadings, setPreviousReadings] = useState<{ electricity?: number; water?: number }>({});
 
   const preselectedTenantId = searchParams.get('tenantId') || '';
   const prefillParam = searchParams.get('prefill');
@@ -26,6 +27,24 @@ export default function NewInvoicePage() {
       const [t, b] = await Promise.all([tenantService.listTenants(), buildingService.listBuildings()]);
       setTenants(t);
       setBuildings(b);
+
+      // Coming from "+ New Invoice" on the tenant page (not a Roll Over prefill) — carry
+      // forward meter readings from the tenant's most recent invoice so they don't reset to 0.
+      if (preselectedTenantId && !prefillParam) {
+        try {
+          const invs = await tenantService.listInvoicesByTenant(preselectedTenantId);
+          const latest = [...invs].sort((a, b) => b.billingMonth.localeCompare(a.billingMonth))[0];
+          if (latest) {
+            setPreviousReadings({
+              electricity: latest.electricity?.mode !== 'direct' ? latest.electricity?.presentReading : undefined,
+              water: latest.water?.mode === 'metered' ? latest.water?.presentReading : undefined,
+            });
+          }
+        } catch {
+          // No prior invoices for this tenant — leave readings blank.
+        }
+      }
+
       setLoading(false);
     };
     load().catch(() => setLoading(false));
@@ -57,7 +76,8 @@ export default function NewInvoicePage() {
         onCancel={() => router.back()}
         isLoading={saving}
         previousBalanceHistory={draftData?.previousBalanceHistory}
-        previousBalance={draftData?.previousBalance}
+        previousElectricityReading={previousReadings.electricity}
+        previousWaterReading={previousReadings.water}
       />
     </Box>
   );

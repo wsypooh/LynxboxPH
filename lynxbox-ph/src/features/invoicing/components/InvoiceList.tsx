@@ -73,7 +73,7 @@ const OPTIONAL: ColDef[] = [
 ];
 
 const statusColor: Record<InvoiceStatus, string> = {
-  draft: 'gray', sent: 'blue', partial: 'orange', paid: 'green', printed: 'purple',
+  draft: 'gray', sent: 'blue', partial: 'orange', paid: 'green', printed: 'purple', void: 'red',
 };
 
 function fmt(n: number) {
@@ -161,9 +161,10 @@ interface Props {
   onToggle: (id: string) => void;
   onToggleAll: (ids: string[]) => void;
   onDelete?: (id: string) => void;
+  onVoid?: (id: string) => void;
 }
 
-export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDelete }: Props) {
+export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDelete, onVoid }: Props) {
   const router = useRouter();
 
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => {
@@ -307,7 +308,9 @@ export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDe
                 <Td>
                   <HStack spacing={1}>
                     <Button size="xs" variant="outline" onClick={() => router.push(`/dashboard/invoices/detail?id=${inv.id}`)}>View</Button>
-                    {onDelete && <Button size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(inv.id)}>Del</Button>}
+                    {inv.status === 'draft'
+                      ? (onDelete && <Button size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(inv.id)}>Del</Button>)
+                      : (onVoid && inv.status !== 'void' && <Button size="xs" variant="ghost" colorScheme="red" onClick={() => onVoid(inv.id)}>Void</Button>)}
                   </HStack>
                 </Td>
               </Tr>

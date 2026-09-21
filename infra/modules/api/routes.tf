@@ -347,3 +347,44 @@ resource "aws_apigatewayv2_route" "invoice_rollover" {
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
+
+resource "aws_apigatewayv2_route" "invoice_void" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/invoices/{id}/void"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+# Ledger Routes
+resource "aws_apigatewayv2_route" "ledger_create_charge" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/ledger/charges"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "tenant_ledger" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/tenants/{id}/ledger"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "tenant_ledger_reset" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/tenants/{id}/ledger/reset"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "tenant_payment" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/tenants/{id}/payments"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}

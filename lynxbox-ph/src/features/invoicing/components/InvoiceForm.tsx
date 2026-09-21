@@ -31,6 +31,15 @@ const schema = z.object({
   guard: z.number().min(0),
   otherCharges: z.array(z.object({ description: z.string(), amount: z.number() })),
   discount: z.number().min(0),
+  previousBalanceHistory: z.array(z.object({
+    invoiceNumber: z.string(),
+    billingMonth: z.string(),
+    billingLabel: z.string(),
+    amountDue: z.number(),
+    amountPaid: z.number(),
+    outstanding: z.number(),
+    penalty: z.number().min(0),
+  })),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -40,11 +49,12 @@ interface Props {
   buildings: Building[];
   defaultValues?: Partial<Invoice>;
   draftData?: Partial<FormValues>;
-  onSubmit: (data: FormValues) => Promise<void>;
+  onSubmit: (data: FormValues & { previousBalance: number }) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
   previousBalanceHistory?: PreviousBalanceEntry[];
-  previousBalance?: number;
+  previousElectricityReading?: number;
+  previousWaterReading?: number;
 }
 
 function fmt(n: number) {
@@ -60,7 +70,8 @@ export function InvoiceForm({
   onCancel,
   isLoading,
   previousBalanceHistory = [],
-  previousBalance = 0,
+  previousElectricityReading,
+  previousWaterReading,
 }: Props) {
   const { register, handleSubmit, setValue, watch, control } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -75,10 +86,12 @@ export function InvoiceForm({
       guard: defaultValues?.guard ?? 0,
       otherCharges: defaultValues?.otherCharges ?? [],
       discount: defaultValues?.discount ?? 0,
+      previousBalanceHistory,
     },
   });
 
   const { fields: otherFields, append: appendOther, remove: removeOther } = useFieldArray({ control, name: 'otherCharges' });
+  const { fields: prevBalanceFields } = useFieldArray({ control, name: 'previousBalanceHistory' });
   const vals = watch();
 
   const tenantId = vals.tenantId;
@@ -105,6 +118,12 @@ export function InvoiceForm({
       }
       if (selectedBuilding) {
         setValue('electricity.rate', selectedBuilding.currentElectricityRate);
+      }
+      if (previousElectricityReading !== undefined && !electricityDirect) {
+        setValue('electricity.previousReading', previousElectricityReading);
+      }
+      if (previousWaterReading !== undefined && selectedTenant.waterMode === 'metered') {
+        setValue('water.previousReading', previousWaterReading);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,10 +157,12 @@ export function InvoiceForm({
   const othersTotal = (vals.otherCharges || []).reduce((s, c) => s + (c.amount || 0), 0);
   const discount = vals.discount || 0;
   const currentChargesTotal = subtotal + waterAmt + elecAmt + guard + othersTotal - discount;
+  const previousBalanceHistoryVals = vals.previousBalanceHistory || [];
+  const previousBalance = previousBalanceHistoryVals.reduce((s, e) => s + (e.outstanding || 0) + (e.penalty || 0), 0);
   const totalDue = currentChargesTotal + previousBalance;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form onSubmit={handleSubmit(data => onSubmit({ ...data, previousBalance }))}>
       <VStack spacing={5} align="stretch">
         <HStack>
           <FormControl isRequired>
@@ -345,9 +366,14 @@ export function InvoiceForm({
           </VStack>
         </Box>
 
-        {previousBalanceHistory.length > 0 && (
+        {prevBalanceFields.length > 0 && (
           <>
             <Heading size="sm">Previous Balance Detail</Heading>
+            <Text fontSize="xs" color="gray.500">
+              Penalty is auto-computed from the ledger but can be overridden below before this draft is sent —
+              e.g. to waive or adjust a penalty for a specific charge. This only changes what&apos;s billed on
+              this invoice; it doesn&apos;t change the ledger&apos;s own penalty formula going forward.
+            </Text>
             <Box overflowX="auto">
               <Table size="sm">
                 <Thead>
@@ -357,14 +383,22 @@ export function InvoiceForm({
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {previousBalanceHistory.map((e, i) => (
-                    <Tr key={i}>
-                      <Td>{e.invoiceNumber}</Td>
-                      <Td>{e.billingLabel}</Td>
-                      <Td isNumeric>{fmt(e.amountDue)}</Td>
-                      <Td isNumeric>{fmt(e.amountPaid)}</Td>
-                      <Td isNumeric>{fmt(e.outstanding)}</Td>
-                      <Td isNumeric>{fmt(e.penalty)}</Td>
+                  {prevBalanceFields.map((field, i) => (
+                    <Tr key={field.id}>
+                      <Td>{field.invoiceNumber || '—'}</Td>
+                      <Td>{field.billingLabel}</Td>
+                      <Td isNumeric>{fmt(field.amountDue)}</Td>
+                      <Td isNumeric>{fmt(field.amountPaid)}</Td>
+                      <Td isNumeric>{fmt(field.outstanding)}</Td>
+                      <Td isNumeric>
+                        <NumberInput
+                          size="sm" min={0}
+                          value={vals.previousBalanceHistory?.[i]?.penalty ?? field.penalty}
+                          onChange={(_, v) => setValue(`previousBalanceHistory.${i}.penalty`, v)}
+                        >
+                          <NumberInputField textAlign="right" />
+                        </NumberInput>
+                      </Td>
                     </Tr>
                   ))}
                 </Tbody>

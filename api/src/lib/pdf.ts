@@ -1,6 +1,15 @@
 import PDFDocument = require('pdfkit');
 import { Invoice } from '../models/invoice';
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: 'Cash',
+  check: 'Check',
+  gcash: 'GCash',
+  credit_card: 'Credit Card',
+  bank: 'Bank',
+  online_banking: 'Online Banking',
+};
+
 export class PdfService {
   static generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
     return new Promise((resolve, reject) => {
@@ -50,16 +59,49 @@ export class PdfService {
     doc.font('Helvetica').text(`Door No.: ${invoice.floor} ${invoice.roomNumber}`, 50, lesseeY + 15);
     doc.text(`Lessee No.: ${invoice.tenantCode}`, 50, lesseeY + 15, { width: fullW, align: 'right' });
 
-    // ---- Current Charges Table ----
-    const tableTop = lesseeY + 40;
     const col1 = 50;
     const col2 = doc.page.width - 200;
     const col3 = doc.page.width - 100;
 
-    doc.fill(primary).rect(col1, tableTop, doc.page.width - 100, 18).fill(primary);
+    let y = lesseeY + 40;
+
+    // ---- Payments Received Since Last Invoice ----
+    if (invoice.paymentsReceived && invoice.paymentsReceived.length > 0) {
+      doc.fill(primary).rect(col1, y, doc.page.width - 100, 18).fill(primary);
+      doc.fill('white').fontSize(10).font('Helvetica-Bold')
+        .text('Payments Received Since Last Invoice', col1 + 5, y + 4);
+      y += 18;
+      doc.fill('#666666').fontSize(7).font('Helvetica')
+        .text('Already applied to the balance below.', col1 + 5, y + 3);
+      y += 12;
+
+      const rcols = [col1, col1 + 90, col1 + 190, col1 + 340];
+      doc.rect(col1, y, doc.page.width - 100, 14).fill('#dde4ee');
+      doc.fill(primary).fontSize(8).font('Helvetica-Bold')
+        .text('Date', rcols[0] + 3, y + 2)
+        .text('Method', rcols[1], y + 2)
+        .text('Note', rcols[2], y + 2)
+        .text('Amount', rcols[3], y + 2, { align: 'right', width: 75 });
+      y += 14;
+
+      invoice.paymentsReceived.forEach((p, i) => {
+        const bg = i % 2 === 0 ? '#ffffff' : lightGray;
+        doc.rect(col1, y, doc.page.width - 100, 14).fill(bg);
+        doc.fill('#333333').fontSize(8).font('Helvetica')
+          .text(p.paymentDate, rcols[0] + 3, y + 2, { width: 85 })
+          .text(PAYMENT_METHOD_LABELS[p.paymentMethod] || '—', rcols[1], y + 2, { width: 95 })
+          .text(p.note || '—', rcols[2], y + 2, { width: 145 })
+          .text(formatAmount(p.totalAmount), rcols[3], y + 2, { align: 'right', width: 75 });
+        y += 14;
+      });
+      y += 10;
+    }
+
+    // ---- Current Charges Table ----
+    doc.fill(primary).rect(col1, y, doc.page.width - 100, 18).fill(primary);
     doc.fill('white').fontSize(10).font('Helvetica-Bold')
-      .text('Current Charges', col1 + 5, tableTop + 4, { width: col2 - col1 - 5 })
-      .text('Amount', col1, tableTop + 4, { width: col3 - col1 - 5, align: 'right' });
+      .text('Current Charges', col1 + 5, y + 4, { width: col2 - col1 - 5 })
+      .text('Amount', col1, y + 4, { width: col3 - col1 - 5, align: 'right' });
 
     const rows: { label: string; amount: number | string; bold?: boolean; currency?: boolean; spacerAfter?: boolean }[] = [];
     rows.push({ label: 'Rent', amount: invoice.rent });
@@ -88,7 +130,7 @@ export class PdfService {
     if (invoice.discount > 0) rows.push({ label: 'Discount', amount: -invoice.discount });
     rows.push({ label: 'Total Current Charges', amount: invoice.currentChargesTotal, bold: true });
 
-    let y = tableTop + 18;
+    y += 18;
     rows.forEach((row, i) => {
       const bg = i % 2 === 0 ? '#ffffff' : lightGray;
       doc.rect(col1, y, doc.page.width - 100, 16).fill(bg);
@@ -110,15 +152,13 @@ export class PdfService {
       y += 18;
 
       // Headers
-      const pcols = [col1, col1 + 90, col1 + 190, col1 + 270, col1 + 340, col1 + 415];
+      const pcols = [col1, col1 + 90, col1 + 190, col1 + 340];
       doc.rect(col1, y, doc.page.width - 100, 14).fill('#dde4ee');
       doc.fill(primary).fontSize(8).font('Helvetica-Bold')
         .text('Invoice #', pcols[0] + 3, y + 2)
         .text('Period', pcols[1], y + 2)
-        .text('Due', pcols[2], y + 2, { align: 'right', width: 60 })
-        .text('Paid', pcols[3], y + 2, { align: 'right', width: 60 })
-        .text('Outstanding', pcols[4], y + 2, { align: 'right', width: 65 })
-        .text('Penalty', pcols[5], y + 2, { align: 'right', width: 55 });
+        .text('Outstanding', pcols[2], y + 2, { align: 'right', width: 65 })
+        .text('Penalty', pcols[3], y + 2, { align: 'right', width: 75 });
       y += 14;
 
       invoice.previousBalanceHistory.forEach((entry, i) => {
@@ -126,11 +166,9 @@ export class PdfService {
         doc.rect(col1, y, doc.page.width - 100, 14).fill(bg);
         doc.fill('#333333').fontSize(8).font('Helvetica')
           .text(entry.invoiceNumber, pcols[0] + 3, y + 2, { width: 85 })
-          .text(entry.billingLabel, pcols[1], y + 2, { width: 95 })
-          .text(formatAmount(entry.amountDue), pcols[2], y + 2, { align: 'right', width: 60 })
-          .text(formatAmount(entry.amountPaid), pcols[3], y + 2, { align: 'right', width: 60 })
-          .text(formatAmount(entry.outstanding), pcols[4], y + 2, { align: 'right', width: 65 })
-          .text(formatAmount(entry.penalty), pcols[5], y + 2, { align: 'right', width: 55 });
+          .text(entry.billingLabel, pcols[1], y + 2, { width: 145 })
+          .text(formatAmount(entry.outstanding), pcols[2], y + 2, { align: 'right', width: 65 })
+          .text(formatAmount(entry.penalty), pcols[3], y + 2, { align: 'right', width: 75 });
         y += 14;
       });
     }
