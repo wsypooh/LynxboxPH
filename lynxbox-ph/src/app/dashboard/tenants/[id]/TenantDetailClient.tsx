@@ -16,6 +16,10 @@ import { LedgerCsvUpload } from '@/features/invoicing/components/LedgerCsvUpload
 import { PaymentModal } from '@/features/invoicing/components/PaymentModal';
 import { TenantForm } from '@/features/invoicing/components/TenantForm';
 import { Tenant, Building, Invoice } from '@/features/invoicing/types';
+import { documentService } from '@/services/documentService';
+import { DocumentList } from '@/features/documents/components/DocumentList';
+import { DocumentUploadModal } from '@/features/documents/components/DocumentUploadModal';
+import { Document } from '@/features/documents/types';
 
 export default function TenantDetailClient({ id }: { id: string }) {
   const router = useRouter();
@@ -24,6 +28,7 @@ export default function TenantDetailClient({ id }: { id: string }) {
   const [building, setBuilding] = useState<Building | null>(null);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [ledgerReloadToken, setLedgerReloadToken] = useState(0);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -33,18 +38,21 @@ export default function TenantDetailClient({ id }: { id: string }) {
   const { isOpen: editOpen, onOpen: openEdit, onClose: closeEdit } = useDisclosure();
   const { isOpen: invoiceCsvOpen, onOpen: openInvoiceCsv, onClose: closeInvoiceCsv } = useDisclosure();
   const { isOpen: ledgerCsvOpen, onOpen: openLedgerCsv, onClose: closeLedgerCsv } = useDisclosure();
+  const { isOpen: uploadOpen, onOpen: openUpload, onClose: closeUpload } = useDisclosure();
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [t, invs, allBuildings] = await Promise.all([
+        const [t, invs, allBuildings, docs] = await Promise.all([
           tenantService.getTenant(id),
           tenantService.listInvoicesByTenant(id),
           buildingService.listBuildings(),
+          documentService.listDocuments('TENANT', id),
         ]);
         setTenant(t);
         setInvoices(invs);
         setBuildings(allBuildings);
+        setDocuments(docs);
         if (t.buildingId) {
           const b = await buildingService.getBuilding(t.buildingId);
           setBuilding(b);
@@ -136,6 +144,11 @@ export default function TenantDetailClient({ id }: { id: string }) {
     } finally {
       setResetLoading(false);
     }
+  };
+
+  const contractLabel = (contractId: string) => {
+    const contract = tenant?.contracts.find(c => c.id === contractId);
+    return contract ? `Contract: ${contract.startDate} – ${contract.endDate}` : undefined;
   };
 
   if (loading) return <Box p={6}><Spinner /></Box>;
@@ -306,7 +319,32 @@ export default function TenantDetailClient({ id }: { id: string }) {
             />
           </CardBody>
         </Card>
+
+        <Card>
+          <CardHeader pb={1}>
+            <HStack justify="space-between">
+              <Heading size="sm">Documents</Heading>
+              <Button size="sm" colorScheme="blue" onClick={openUpload}>+ Upload Document</Button>
+            </HStack>
+          </CardHeader>
+          <CardBody>
+            <DocumentList
+              documents={documents}
+              onDelete={(docId) => setDocuments(prev => prev.filter(d => d.id !== docId))}
+              onUpdate={(updated) => setDocuments(prev => prev.map(d => d.id === updated.id ? updated : d))}
+              contractLabel={contractLabel}
+            />
+          </CardBody>
+        </Card>
       </VStack>
+
+      <DocumentUploadModal
+        isOpen={uploadOpen}
+        onClose={closeUpload}
+        parentType="TENANT"
+        parentId={id}
+        onUploaded={(doc) => setDocuments(prev => [...prev, doc])}
+      />
 
       <InvoiceCsvUpload
         isOpen={invoiceCsvOpen}

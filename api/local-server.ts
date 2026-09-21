@@ -238,6 +238,20 @@ app.all('/api/tenants/:id/payments', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
+// Documents routes
+app.all('/api/documents', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/documents/upload-url', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/documents/:id', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/documents/:id/view-url', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
 // Invoices routes
 app.all('/api/invoices', async (req, res) => {
   await handlePropertyRequest(req, res);

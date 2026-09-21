@@ -1,9 +1,11 @@
 'use client';
 import {
-  Table, Thead, Tbody, Tr, Th, Td, Badge, Button, HStack, Box, Text,
+  Table, Thead, Tbody, Tr, Th, Td, Badge, Button, IconButton, HStack, Box, Text,
   Menu, MenuButton, MenuList, MenuItem, Checkbox, Select,
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
+import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { MdReceipt } from 'react-icons/md';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { Tenant, Building } from '@/features/invoicing/types';
@@ -302,10 +304,10 @@ export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
                 ))}
                 <Td>
                   <HStack spacing={1}>
-                    <Button size="xs" variant="outline" onClick={() => router.push(`/dashboard/tenants/detail?id=${t.id}`)}>View</Button>
-                    <Button size="xs" variant="outline" onClick={() => onEdit(t)}>Edit</Button>
-                    <Button size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices?tenantId=${t.id}`)}>Invoices</Button>
-                    <Button size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(t.id)}>Del</Button>
+                    <IconButton aria-label="View tenant" icon={<FiEye />} size="xs" variant="outline" onClick={() => router.push(`/dashboard/tenants/detail?id=${t.id}`)} />
+                    <IconButton aria-label="Edit tenant" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => onEdit(t)} />
+                    <IconButton aria-label="View invoices" icon={<MdReceipt />} size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices?tenantId=${t.id}`)} />
+                    <IconButton aria-label="Delete tenant" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(t.id)} />
                   </HStack>
                 </Td>
               </Tr>

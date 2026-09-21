@@ -231,6 +231,50 @@ functions:
             name: ApiGatewayAuthorizer
             type: request
 
+      # Documents
+      - http:
+          path: /api/documents/upload-url
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/documents
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/documents
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/documents/{id}/view-url
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/documents/{id}
+          method: put
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/documents/{id}
+          method: delete
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+
       # Invoices
       - http:
           path: /api/invoices

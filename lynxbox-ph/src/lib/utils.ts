@@ -38,6 +38,33 @@ export function validateImageFile(file: File): { isValid: boolean; error?: strin
   return { isValid: true };
 }
 
+export function validateDocumentFile(file: File): { isValid: boolean; error?: string } {
+  const validTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ];
+  const maxSize = 15 * 1024 * 1024; // 15MB
+
+  if (!validTypes.includes(file.type)) {
+    return {
+      isValid: false,
+      error: 'Invalid file type. Please upload a PDF, JPEG, PNG, or Word document.',
+    };
+  }
+
+  if (file.size > maxSize) {
+    return {
+      isValid: false,
+      error: 'File size too large. Please upload a file smaller than 15MB.',
+    };
+  }
+
+  return { isValid: true };
+}
+
 export function convertFileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

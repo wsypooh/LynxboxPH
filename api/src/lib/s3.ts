@@ -8,6 +8,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { ImageProcessingService } from './imageProcessing';
 import { WatermarkOptions } from './watermark';
 
+function buildContentDisposition(fileName: string): string {
+  const sanitized = fileName.replace(/[\r\n"]/g, '_');
+  const asciiFallback = sanitized.replace(/[^\x20-\x7E]/g, '_');
+  return `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(sanitized)}`;
+}
+
 export interface UploadResult {
   url: string;
   key: string;
@@ -85,14 +91,15 @@ export class S3Service {
    * Uploads an image file with additional image-specific handling
    * This is a convenience method that wraps uploadFile with image-specific defaults
    */
-  async getSignedUrl(key: string, operation: 'getObject' | 'putObject' = 'getObject', expiresIn: number = 3600): Promise<string> {
+  async getSignedUrl(key: string, operation: 'getObject' | 'putObject' = 'getObject', expiresIn: number = 3600, responseContentDisposition?: string): Promise<string> {
     try {
       let command;
-      
+
       if (operation === 'getObject') {
         command = new GetObjectCommand({
           Bucket: this.bucketName,
           Key: key,
+          ...(responseContentDisposition ? { ResponseContentDisposition: responseContentDisposition } : {}),
         });
       } else {
         command = new PutObjectCommand({
@@ -234,11 +241,11 @@ export class S3Service {
     }
   }
 
-  async getPresignedUploadUrl(fileName: string, contentType: string, propertyId?: string): Promise<{ url: string; key: string }> {
+  async getPresignedUploadUrl(fileName: string, contentType: string, propertyId?: string, folderPrefix?: string): Promise<{ url: string; key: string }> {
     const fileExtension = fileName.split('.').pop();
-    const propertyFolder = propertyId ? `properties/${propertyId}` : 'properties';
-    const key = `${propertyFolder}/images/${uuidv4()}.${fileExtension}`;
-    
+    const folder = folderPrefix ?? (propertyId ? `properties/${propertyId}/images` : 'properties/images');
+    const key = `${folder}/${uuidv4()}.${fileExtension}`;
+
 
     try {
       const command = new PutObjectCommand({
@@ -256,9 +263,10 @@ export class S3Service {
     }
   }
 
-  async getPresignedViewUrl(key: string, expiresIn: number = 3600): Promise<{ url: string }> {
+  async getPresignedViewUrl(key: string, expiresIn: number = 3600, downloadFileName?: string): Promise<{ url: string }> {
     try {
-      const url = await this.getSignedUrl(key, 'getObject', expiresIn);
+      const disposition = downloadFileName ? buildContentDisposition(downloadFileName) : undefined;
+      const url = await this.getSignedUrl(key, 'getObject', expiresIn, disposition);
       return { url };
     } catch (error) {
       console.error('Error generating presigned view URL:', error);
@@ -282,6 +290,31 @@ export class S3Service {
 
     if (size > maxSize) {
       throw new Error(`File size too large. Maximum size: 5MB`);
+    }
+  }
+
+  validateDocumentFile(fileName: string, contentType: string, size: number): void {
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
+    const maxSize = 15 * 1024 * 1024; // 15MB
+
+    if (!allowedTypes.includes(contentType)) {
+      throw new Error(`Invalid file type. Allowed types: ${allowedTypes.join(', ')}`);
+    }
+
+    const fileExtension = fileName.split('.').pop()?.toLowerCase();
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+      throw new Error(`Invalid file extension. Allowed extensions: ${allowedExtensions.join(', ')}`);
+    }
+
+    if (size > maxSize) {
+      throw new Error(`File size too large. Maximum size: 15MB`);
     }
   }
 

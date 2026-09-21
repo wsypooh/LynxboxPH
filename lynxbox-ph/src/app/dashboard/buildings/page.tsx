@@ -2,13 +2,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Box, Heading, Button, HStack, Card, CardBody, CardHeader, Text,
+  Box, Heading, Button, IconButton, HStack, Card, CardBody, CardHeader, Text,
   Badge, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody,
   useToast, Spinner, SimpleGrid,
 } from '@chakra-ui/react';
+import { FiEdit2, FiTrash2, FiUsers, FiFileText } from 'react-icons/fi';
 import { buildingService } from '@/services/buildingService';
 import { BuildingForm } from '@/features/invoicing/components/BuildingForm';
 import { Building } from '@/features/invoicing/types';
+import { documentService } from '@/services/documentService';
+import { DocumentList } from '@/features/documents/components/DocumentList';
+import { DocumentUploadModal } from '@/features/documents/components/DocumentUploadModal';
+import { Document } from '@/features/documents/types';
 
 function formatPhone(phone: string): string {
   const d = phone.replace(/\D/g, '');
@@ -27,6 +32,10 @@ export default function BuildingsPage() {
   const [saving, setSaving] = useState(false);
   const [editBuilding, setEditBuilding] = useState<Building | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const [docsBuilding, setDocsBuilding] = useState<Building | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const { isOpen: docsOpen, onOpen: openDocs, onClose: closeDocs } = useDisclosure();
+  const { isOpen: uploadOpen, onOpen: openUpload, onClose: closeUpload } = useDisclosure();
   const toast = useToast();
   const router = useRouter();
 
@@ -66,6 +75,17 @@ export default function BuildingsPage() {
 
   const handleEdit = (b: Building) => { setEditBuilding(b); onOpen(); };
 
+  const handleOpenDocs = async (b: Building) => {
+    setDocsBuilding(b);
+    openDocs();
+    try {
+      const docs = await documentService.listDocuments('BUILDING', b.id);
+      setDocuments(docs);
+    } catch (err: any) {
+      toast({ title: err.message || 'Error loading documents', status: 'error' });
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this building?')) return;
     try {
@@ -104,9 +124,10 @@ export default function BuildingsPage() {
                   )}
                 </HStack>
                 <HStack mt={3} spacing={2}>
-                  <Button size="xs" variant="outline" onClick={() => handleEdit(b)}>Edit</Button>
-                  <Button size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/tenants?buildingId=${b.id}`)}>Tenants</Button>
-                  <Button size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(b.id)}>Delete</Button>
+                  <IconButton aria-label="Edit building" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => handleEdit(b)} />
+                  <IconButton aria-label="View tenants" icon={<FiUsers />} size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/tenants?buildingId=${b.id}`)} />
+                  <IconButton aria-label="View documents" icon={<FiFileText />} size="xs" variant="outline" colorScheme="purple" onClick={() => handleOpenDocs(b)} />
+                  <IconButton aria-label="Delete building" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(b.id)} />
                 </HStack>
               </CardBody>
             </Card>
@@ -132,6 +153,34 @@ export default function BuildingsPage() {
           </ModalBody>
         </ModalContent>
       </Modal>
+
+      <Modal isOpen={docsOpen} onClose={() => { closeDocs(); setDocsBuilding(null); }} size="3xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Documents — {docsBuilding?.name}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <HStack justify="flex-end" mb={4}>
+              <Button size="sm" colorScheme="blue" onClick={openUpload}>+ Upload Document</Button>
+            </HStack>
+            <DocumentList
+              documents={documents}
+              onDelete={(docId) => setDocuments(prev => prev.filter(d => d.id !== docId))}
+              onUpdate={(updated) => setDocuments(prev => prev.map(d => d.id === updated.id ? updated : d))}
+            />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      {docsBuilding && (
+        <DocumentUploadModal
+          isOpen={uploadOpen}
+          onClose={closeUpload}
+          parentType="BUILDING"
+          parentId={docsBuilding.id}
+          onUploaded={(doc) => setDocuments(prev => [...prev, doc])}
+        />
+      )}
     </Box>
   );
 }

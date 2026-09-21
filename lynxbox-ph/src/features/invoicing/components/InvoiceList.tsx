@@ -1,9 +1,10 @@
 'use client';
 import {
-  Table, Thead, Tbody, Tfoot, Tr, Th, Td, Badge, Button, HStack, Box, Checkbox,
+  Table, Thead, Tbody, Tfoot, Tr, Th, Td, Badge, Button, IconButton, HStack, Box, Checkbox,
   Menu, MenuButton, MenuList, MenuItem, Text, Select,
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
+import { FiEye, FiTrash2, FiSlash } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { Invoice, InvoiceStatus } from '@/features/invoicing/types';
@@ -307,10 +308,10 @@ export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDe
                 <Td><Badge colorScheme={statusColor[inv.status]}>{inv.status}</Badge></Td>
                 <Td>
                   <HStack spacing={1}>
-                    <Button size="xs" variant="outline" onClick={() => router.push(`/dashboard/invoices/detail?id=${inv.id}`)}>View</Button>
+                    <IconButton aria-label="View invoice" icon={<FiEye />} size="xs" variant="outline" onClick={() => router.push(`/dashboard/invoices/detail?id=${inv.id}`)} />
                     {inv.status === 'draft'
-                      ? (onDelete && <Button size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(inv.id)}>Del</Button>)
-                      : (onVoid && inv.status !== 'void' && <Button size="xs" variant="ghost" colorScheme="red" onClick={() => onVoid(inv.id)}>Void</Button>)}
+                      ? (onDelete && <IconButton aria-label="Delete invoice" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(inv.id)} />)
+                      : (onVoid && inv.status !== 'void' && <IconButton aria-label="Void invoice" icon={<FiSlash />} size="xs" variant="ghost" colorScheme="red" onClick={() => onVoid(inv.id)} />)}
                   </HStack>
                 </Td>
               </Tr>

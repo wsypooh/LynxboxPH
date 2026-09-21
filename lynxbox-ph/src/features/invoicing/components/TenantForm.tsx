@@ -1,15 +1,21 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   VStack, HStack, FormControl, FormLabel, FormErrorMessage, Input,
   NumberInput, NumberInputField, Button, Select, Switch, Heading,
-  Divider, Box,
+  Divider, Box, Text, useDisclosure,
 } from '@chakra-ui/react';
 import { Building, Tenant } from '@/features/invoicing/types';
+import { documentService } from '@/services/documentService';
+import { Document } from '@/features/documents/types';
+import { DocumentUploadModal } from '@/features/documents/components/DocumentUploadModal';
+import { DocumentList } from '@/features/documents/components/DocumentList';
 
 const contractSchema = z.object({
+  id: z.string().optional(),
   startDate: z.string().min(1),
   endDate: z.string().min(1),
   rentAmount: z.number().min(0),
@@ -77,8 +83,24 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
     },
   });
 
-  const { fields: contractFields, append: appendContract } = useFieldArray({ control, name: 'contracts' });
+  // keyName avoids colliding RHF's internal row key with our own TenantContract.id field
+  const { fields: contractFields, append: appendContract } = useFieldArray({ control, name: 'contracts', keyName: '_key' });
   const waterMode = watch('waterMode');
+
+  const tenantId = defaultValues?.id;
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [uploadContractId, setUploadContractId] = useState<string | null>(null);
+  const { isOpen: uploadOpen, onOpen: openUpload, onClose: closeUpload } = useDisclosure();
+
+  useEffect(() => {
+    if (!tenantId) return;
+    documentService.listDocuments('TENANT', tenantId).then(setDocuments).catch(() => {});
+  }, [tenantId]);
+
+  const handleAttachClick = (contractId: string) => {
+    setUploadContractId(contractId);
+    openUpload();
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -219,13 +241,15 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
           <Button
             size="sm"
             variant="outline"
-            onClick={() => appendContract({ startDate: '', endDate: '', rentAmount: 0, deposit: 0, notes: '' })}
+            onClick={() => appendContract({ id: crypto.randomUUID(), startDate: '', endDate: '', rentAmount: 0, deposit: 0, notes: '' })}
           >
             + Add Contract
           </Button>
         </HStack>
-        {contractFields.map((field, idx) => (
-          <Box key={field.id} p={3} border="1px" borderColor="gray.200" borderRadius="md">
+        {contractFields.map((field, idx) => {
+          const contractDocs = tenantId && field.id ? documents.filter(d => d.contractId === field.id) : [];
+          return (
+          <Box key={field._key} p={3} border="1px" borderColor="gray.200" borderRadius="md">
             <HStack mb={2}>
               <FormControl>
                 <FormLabel fontSize="sm">Start Date</FormLabel>
@@ -250,12 +274,31 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
                 </NumberInput>
               </FormControl>
             </HStack>
-            <FormControl mt={2}>
-              <FormLabel fontSize="sm">Notes</FormLabel>
-              <Input size="sm" {...register(`contracts.${idx}.notes`)} placeholder="Optional notes" />
-            </FormControl>
+            <HStack mt={2} align="end">
+              <FormControl>
+                <FormLabel fontSize="sm">Notes</FormLabel>
+                <Input size="sm" {...register(`contracts.${idx}.notes`)} placeholder="Optional notes" />
+              </FormControl>
+              {tenantId && field.id ? (
+                <Button size="xs" variant="outline" whiteSpace="nowrap" onClick={() => handleAttachClick(field.id!)}>
+                  Attach lease PDF
+                </Button>
+              ) : (
+                <Text fontSize="xs" color="gray.500" whiteSpace="nowrap">Save tenant to attach files</Text>
+              )}
+            </HStack>
+            {contractDocs.length > 0 && (
+              <Box mt={2}>
+                <DocumentList
+                  documents={contractDocs}
+                  onDelete={(id) => setDocuments(prev => prev.filter(d => d.id !== id))}
+                  onUpdate={(updated) => setDocuments(prev => prev.map(d => d.id === updated.id ? updated : d))}
+                />
+              </Box>
+            )}
           </Box>
-        ))}
+          );
+        })}
 
         <HStack justify="flex-end" pt={2}>
           {onCancel && <Button variant="ghost" onClick={onCancel}>Cancel</Button>}
@@ -264,6 +307,18 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
           </Button>
         </HStack>
       </VStack>
+
+      {tenantId && uploadContractId && (
+        <DocumentUploadModal
+          isOpen={uploadOpen}
+          onClose={closeUpload}
+          parentType="TENANT"
+          parentId={tenantId}
+          contractId={uploadContractId}
+          defaultCategory="lease_contract"
+          onUploaded={(doc) => setDocuments(prev => [...prev, doc])}
+        />
+      )}
     </form>
   );
 }

@@ -20,6 +20,7 @@ export interface Building {
 export type BuildingInput = Omit<Building, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>;
 
 export interface TenantContract {
+  id?: string;
   startDate: string;
   endDate: string;
   rentAmount: number;

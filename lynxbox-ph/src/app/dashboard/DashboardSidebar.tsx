@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Box, VStack, Text, Icon, Flex } from '@chakra-ui/react';
-import { FiUsers, FiFileText, FiLayout } from 'react-icons/fi';
+import { FiUsers, FiLayout } from 'react-icons/fi';
 import { BsBuilding, BsBuildings } from 'react-icons/bs';
 import { MdReceipt } from 'react-icons/md';
 
@@ -12,7 +12,6 @@ const navItems = [
   { label: 'Buildings',          href: '/dashboard/buildings',          icon: BsBuilding },
   { label: 'Tenants',            href: '/dashboard/tenants',            icon: FiUsers },
   { label: 'Invoices',           href: '/dashboard/invoices',           icon: MdReceipt },
-  { label: 'Documents',          href: '/dashboard/documents',          icon: FiFileText },
 ];
 
 export function DashboardSidebar() {

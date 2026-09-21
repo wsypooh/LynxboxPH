@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { EntityType, BaseEntity } from '../lib/dynamodb';
 
 export interface TenantContract {
+  id?: string;
   startDate: string;
   endDate: string;
   rentAmount: number;

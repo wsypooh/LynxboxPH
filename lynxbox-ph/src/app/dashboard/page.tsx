@@ -26,7 +26,7 @@ import {
   AlertIcon,
   useToast
 } from '@chakra-ui/react';
-import { FiUsers, FiFileText } from 'react-icons/fi';
+import { FiUsers } from 'react-icons/fi';
 import { BsBuilding, BsBuildings } from 'react-icons/bs';
 import { MdReceipt } from 'react-icons/md';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -264,7 +264,7 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <Heading size="md" mb={4}>Quick Actions</Heading>
-        <SimpleGrid columns={{ base: 1, md: 3, lg: 5 }} spacing={6} mb={8}>
+        <SimpleGrid columns={{ base: 1, md: 3, lg: 4 }} spacing={6} mb={8}>
           <Card
             as={Link}
             href={getManagePropertyUrl()}
@@ -341,26 +341,6 @@ export default function DashboardPage() {
                 </Box>
                 <Heading size="md">Invoices</Heading>
                 <Text color="gray.600">Create and manage rental invoices</Text>
-              </VStack>
-            </CardBody>
-          </Card>
-
-          <Card
-            as={Link}
-            href="/dashboard/documents"
-            _hover={{ transform: 'translateY(-2px)', shadow: 'md', textDecoration: 'none' }}
-            transition="all 0.2s"
-            bg={cardBg}
-            border="1px"
-            borderColor={borderColor}
-          >
-            <CardBody>
-              <VStack spacing={4} textAlign="center">
-                <Box p={3} bg="purple.50" borderRadius="full" color="purple.600">
-                  <Icon as={FiFileText} boxSize={6} />
-                </Box>
-                <Heading size="md">Documents</Heading>
-                <Text color="gray.600">View and manage your documents</Text>
               </VStack>
             </CardBody>
           </Card>

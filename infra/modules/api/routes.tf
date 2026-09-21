@@ -388,3 +388,52 @@ resource "aws_apigatewayv2_route" "tenant_payment" {
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
+
+# Document Routes
+resource "aws_apigatewayv2_route" "document_upload_url" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/documents/upload-url"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "create_document" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/documents"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "list_documents" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/documents"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "get_document_view_url" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/documents/{id}/view-url"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "update_document" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /api/documents/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "delete_document" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /api/documents/{id}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}

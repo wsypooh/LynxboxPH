@@ -22,7 +22,8 @@ export enum EntityType {
   BUILDING = 'BUILDING',
   TENANT = 'TENANT',
   INVOICE = 'INVOICE',
-  LEDGER_ENTRY = 'LEDGER_ENTRY'
+  LEDGER_ENTRY = 'LEDGER_ENTRY',
+  DOCUMENT = 'DOCUMENT'
 }
 
 export interface BaseEntity {
