@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import {
-  Table, TableContainer, Thead, Tbody, Tr, Th, Td, Badge, IconButton, HStack, Text, useToast, useDisclosure,
+  Table, TableContainer, Thead, Tbody, Tr, Th, Td, Badge, IconButton, HStack, Text, Tooltip, useToast, useDisclosure,
 } from '@chakra-ui/react';
 import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { documentService } from '@/services/documentService';
@@ -85,9 +85,15 @@ export function DocumentList({ documents, onDelete, onUpdate, contractLabel }: P
             <Td whiteSpace="nowrap">{expiryBadge(doc.expiryDate)}</Td>
             <Td whiteSpace="nowrap">
               <HStack spacing={1}>
-                <IconButton aria-label="View document" icon={<FiEye />} size="xs" variant="outline" onClick={() => handleView(doc.id)} />
-                <IconButton aria-label="Edit document" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => handleEdit(doc)} />
-                <IconButton aria-label="Delete document" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(doc.id)} />
+                <Tooltip label="View">
+                  <IconButton aria-label="View document" icon={<FiEye />} size="xs" variant="outline" onClick={() => handleView(doc.id)} />
+                </Tooltip>
+                <Tooltip label="Edit">
+                  <IconButton aria-label="Edit document" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => handleEdit(doc)} />
+                </Tooltip>
+                <Tooltip label="Delete">
+                  <IconButton aria-label="Delete document" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(doc.id)} />
+                </Tooltip>
               </HStack>
             </Td>
           </Tr>

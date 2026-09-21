@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
   Box, Heading, Button, IconButton, HStack, Card, CardBody, CardHeader, Text,
   Badge, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody,
-  useToast, Spinner, SimpleGrid,
+  useToast, Spinner, SimpleGrid, Tooltip,
 } from '@chakra-ui/react';
 import { FiEdit2, FiTrash2, FiUsers, FiFileText } from 'react-icons/fi';
 import { buildingService } from '@/services/buildingService';
@@ -124,10 +124,18 @@ export default function BuildingsPage() {
                   )}
                 </HStack>
                 <HStack mt={3} spacing={2}>
-                  <IconButton aria-label="Edit building" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => handleEdit(b)} />
-                  <IconButton aria-label="View tenants" icon={<FiUsers />} size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/tenants?buildingId=${b.id}`)} />
-                  <IconButton aria-label="View documents" icon={<FiFileText />} size="xs" variant="outline" colorScheme="purple" onClick={() => handleOpenDocs(b)} />
-                  <IconButton aria-label="Delete building" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(b.id)} />
+                  <Tooltip label="Edit">
+                    <IconButton aria-label="Edit building" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => handleEdit(b)} />
+                  </Tooltip>
+                  <Tooltip label="Tenants">
+                    <IconButton aria-label="View tenants" icon={<FiUsers />} size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/tenants?buildingId=${b.id}`)} />
+                  </Tooltip>
+                  <Tooltip label="Documents">
+                    <IconButton aria-label="View documents" icon={<FiFileText />} size="xs" variant="outline" colorScheme="purple" onClick={() => handleOpenDocs(b)} />
+                  </Tooltip>
+                  <Tooltip label="Delete">
+                    <IconButton aria-label="Delete building" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(b.id)} />
+                  </Tooltip>
                 </HStack>
               </CardBody>
             </Card>

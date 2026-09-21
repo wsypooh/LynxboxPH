@@ -5,9 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   VStack, HStack, FormControl, FormLabel, FormErrorMessage, Input,
-  NumberInput, NumberInputField, Button, Select, Switch, Heading,
-  Divider, Box, Text, useDisclosure,
+  NumberInput, NumberInputField, Button, IconButton, Select, Switch, Heading,
+  Divider, Box, Text, Tooltip, useDisclosure,
 } from '@chakra-ui/react';
+import { FiTrash2 } from 'react-icons/fi';
 import { Building, Tenant } from '@/features/invoicing/types';
 import { documentService } from '@/services/documentService';
 import { Document } from '@/features/documents/types';
@@ -84,7 +85,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
   });
 
   // keyName avoids colliding RHF's internal row key with our own TenantContract.id field
-  const { fields: contractFields, append: appendContract } = useFieldArray({ control, name: 'contracts', keyName: '_key' });
+  const { fields: contractFields, append: appendContract, remove: removeContract } = useFieldArray({ control, name: 'contracts', keyName: '_key' });
   const waterMode = watch('waterMode');
 
   const tenantId = defaultValues?.id;
@@ -100,6 +101,15 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
   const handleAttachClick = (contractId: string) => {
     setUploadContractId(contractId);
     openUpload();
+  };
+
+  const handleRemoveContract = (idx: number, contractId?: string) => {
+    const attachedCount = contractId ? documents.filter(d => d.contractId === contractId).length : 0;
+    const message = attachedCount > 0
+      ? `Remove this contract? It has ${attachedCount} attached document(s) — they will stay in the tenant's Documents list but will no longer show which contract period they belong to.`
+      : 'Remove this contract?';
+    if (!confirm(message)) return;
+    removeContract(idx);
   };
 
   return (
@@ -250,6 +260,19 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
           const contractDocs = tenantId && field.id ? documents.filter(d => d.contractId === field.id) : [];
           return (
           <Box key={field._key} p={3} border="1px" borderColor="gray.200" borderRadius="md">
+            <HStack justify="space-between" mb={2}>
+              <Text fontSize="xs" fontWeight="semibold" color="gray.500">Contract {idx + 1}</Text>
+              <Tooltip label="Remove contract">
+                <IconButton
+                  aria-label="Remove contract"
+                  icon={<FiTrash2 />}
+                  size="xs"
+                  variant="ghost"
+                  colorScheme="red"
+                  onClick={() => handleRemoveContract(idx, field.id)}
+                />
+              </Tooltip>
+            </HStack>
             <HStack mb={2}>
               <FormControl>
                 <FormLabel fontSize="sm">Start Date</FormLabel>

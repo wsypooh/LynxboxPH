@@ -1,6 +1,6 @@
 'use client';
 import {
-  Table, Thead, Tbody, Tr, Th, Td, Badge, Button, IconButton, HStack, Box, Text,
+  Table, Thead, Tbody, Tr, Th, Td, Badge, Button, IconButton, HStack, Box, Text, Tooltip,
   Menu, MenuButton, MenuList, MenuItem, Checkbox, Select,
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
@@ -292,7 +292,12 @@ export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
           </Thead>
           <Tbody>
             {paged.map(t => (
-              <Tr key={t.id}>
+              <Tr
+                key={t.id}
+                cursor="pointer"
+                _hover={{ bg: 'gray.50' }}
+                onClick={() => router.push(`/dashboard/tenants/detail?id=${t.id}`)}
+              >
                 <Td fontFamily="mono" fontSize="xs">{t.tenantCode}</Td>
                 <Td>{t.lesseeName}</Td>
                 <Td fontSize="xs">{t.floor} {t.roomNumber}</Td>
@@ -302,12 +307,20 @@ export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
                 {visibleOptional.map(c => (
                   <Td key={c.key} isNumeric={c.isNumeric}>{c.cell(t, buildings)}</Td>
                 ))}
-                <Td>
+                <Td onClick={(e) => e.stopPropagation()}>
                   <HStack spacing={1}>
-                    <IconButton aria-label="View tenant" icon={<FiEye />} size="xs" variant="outline" onClick={() => router.push(`/dashboard/tenants/detail?id=${t.id}`)} />
-                    <IconButton aria-label="Edit tenant" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => onEdit(t)} />
-                    <IconButton aria-label="View invoices" icon={<MdReceipt />} size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices?tenantId=${t.id}`)} />
-                    <IconButton aria-label="Delete tenant" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(t.id)} />
+                    <Tooltip label="View">
+                      <IconButton aria-label="View tenant" icon={<FiEye />} size="xs" variant="outline" onClick={() => router.push(`/dashboard/tenants/detail?id=${t.id}`)} />
+                    </Tooltip>
+                    <Tooltip label="Edit">
+                      <IconButton aria-label="Edit tenant" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => onEdit(t)} />
+                    </Tooltip>
+                    <Tooltip label="Invoices">
+                      <IconButton aria-label="View invoices" icon={<MdReceipt />} size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices?tenantId=${t.id}`)} />
+                    </Tooltip>
+                    <Tooltip label="Delete">
+                      <IconButton aria-label="Delete tenant" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(t.id)} />
+                    </Tooltip>
                   </HStack>
                 </Td>
               </Tr>

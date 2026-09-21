@@ -1,6 +1,6 @@
 'use client';
 import {
-  Table, Thead, Tbody, Tfoot, Tr, Th, Td, Badge, Button, IconButton, HStack, Box, Checkbox,
+  Table, Thead, Tbody, Tfoot, Tr, Th, Td, Badge, Button, IconButton, HStack, Box, Checkbox, Tooltip,
   Menu, MenuButton, MenuList, MenuItem, Text, Select,
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
@@ -292,8 +292,14 @@ export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDe
           </Thead>
           <Tbody>
             {paged.map(inv => (
-              <Tr key={inv.id} bg={selectedIds.has(inv.id) ? 'blue.50' : undefined}>
-                <Td>
+              <Tr
+                key={inv.id}
+                bg={selectedIds.has(inv.id) ? 'blue.50' : undefined}
+                cursor="pointer"
+                _hover={{ bg: selectedIds.has(inv.id) ? 'blue.50' : 'gray.50' }}
+                onClick={() => router.push(`/dashboard/invoices/detail?id=${inv.id}`)}
+              >
+                <Td onClick={(e) => e.stopPropagation()}>
                   <Checkbox isChecked={selectedIds.has(inv.id)} onChange={() => onToggle(inv.id)} />
                 </Td>
                 <Td fontFamily="mono" fontSize="xs">{inv.invoiceNumber}</Td>
@@ -306,12 +312,22 @@ export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDe
                 <Td isNumeric>{fmt(inv.amountPaid)}</Td>
                 <Td isNumeric>{fmt(inv.outstanding)}</Td>
                 <Td><Badge colorScheme={statusColor[inv.status]}>{inv.status}</Badge></Td>
-                <Td>
+                <Td onClick={(e) => e.stopPropagation()}>
                   <HStack spacing={1}>
-                    <IconButton aria-label="View invoice" icon={<FiEye />} size="xs" variant="outline" onClick={() => router.push(`/dashboard/invoices/detail?id=${inv.id}`)} />
+                    <Tooltip label="View">
+                      <IconButton aria-label="View invoice" icon={<FiEye />} size="xs" variant="outline" onClick={() => router.push(`/dashboard/invoices/detail?id=${inv.id}`)} />
+                    </Tooltip>
                     {inv.status === 'draft'
-                      ? (onDelete && <IconButton aria-label="Delete invoice" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(inv.id)} />)
-                      : (onVoid && inv.status !== 'void' && <IconButton aria-label="Void invoice" icon={<FiSlash />} size="xs" variant="ghost" colorScheme="red" onClick={() => onVoid(inv.id)} />)}
+                      ? (onDelete && (
+                        <Tooltip label="Delete">
+                          <IconButton aria-label="Delete invoice" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(inv.id)} />
+                        </Tooltip>
+                      ))
+                      : (onVoid && inv.status !== 'void' && (
+                        <Tooltip label="Void">
+                          <IconButton aria-label="Void invoice" icon={<FiSlash />} size="xs" variant="ghost" colorScheme="red" onClick={() => onVoid(inv.id)} />
+                        </Tooltip>
+                      ))}
                   </HStack>
                 </Td>
               </Tr>
