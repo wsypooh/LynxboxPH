@@ -9,6 +9,10 @@ import { InvoiceRepository } from '../../repositories/invoiceRepository';
 import { DocumentRepository } from '../../repositories/documentRepository';
 import { getCognitoUserEmail, getUserPoolUserCount } from '../../lib/cognitoAdmin';
 import { MembershipRepository } from '../../repositories/membershipRepository';
+import { AccountRepository } from '../../repositories/accountRepository';
+import { Plan } from '../../models/account';
+import { PLAN_LIMITS } from '../../lib/planLimits';
+import { reconcilePropertyListingsForPlan } from '../../lib/reconcilePropertyListings';
 
 function getAccountId(event: APIGatewayProxyEvent): string | null {
   const match = event.path.match(/\/api\/platform-admin\/accounts\/([^/]+)/);
@@ -30,6 +34,8 @@ export class PlatformAdminDashboardHandler {
     try {
       if (method === 'GET' && path.match(/\/api\/platform-admin\/accounts\/[^/]+$/)) {
         return await PlatformAdminDashboardHandler.getAccountDetail(event);
+      } else if (method === 'PUT' && path.match(/\/api\/platform-admin\/accounts\/[^/]+\/plan$/)) {
+        return await PlatformAdminDashboardHandler.updateAccountPlan(event);
       } else if (method === 'GET' && path.match(/\/api\/platform-admin\/dashboard\/summary$/)) {
         return await PlatformAdminDashboardHandler.getSummary();
       }
@@ -66,12 +72,13 @@ export class PlatformAdminDashboardHandler {
     const accountId = getAccountId(event);
     if (!accountId) return ApiResponse.notFound('Account not found');
 
-    const [properties, buildings, tenants, documents, ownerEmail] = await Promise.all([
+    const [properties, buildings, tenants, documents, ownerEmail, accountPlan] = await Promise.all([
       PropertyRepository.listByOwner(accountId, 1000),
       BuildingRepository.listByOwner(accountId),
       TenantRepository.listByOwner(accountId),
       DocumentRepository.listByOwner(accountId),
       getCognitoUserEmail(accountId).catch(() => null),
+      AccountRepository.getPlan(accountId),
     ]);
 
     const invoices = await InvoiceRepository.listByOwner(accountId, tenants.map(t => t.id));
@@ -79,11 +86,30 @@ export class PlatformAdminDashboardHandler {
     return ApiResponse.success({
       accountId,
       ownerEmail,
+      plan: accountPlan.plan,
       properties: properties.items,
       buildings,
       tenants,
       documents,
       invoices,
     });
+  }
+
+  // docs/Pricing-Strategy-Plan.md — platform-admin's first write action: manually flips an
+  // account's plan (no self-serve endpoint, since there's no payment gate behind it yet).
+  static async updateAccountPlan(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    const accountId = getAccountId(event);
+    if (!accountId) return ApiResponse.notFound('Account not found');
+
+    const body = JSON.parse(event.body || '{}');
+    const plan = body.plan as Plan | undefined;
+    if (!plan || !(plan in PLAN_LIMITS)) {
+      return ApiResponse.error('plan must be one of: free, starter, growth, business');
+    }
+
+    const updated = await AccountRepository.setPlan(accountId, plan);
+    await reconcilePropertyListingsForPlan(accountId, plan);
+
+    return ApiResponse.success({ accountId, plan: updated.plan });
   }
 }

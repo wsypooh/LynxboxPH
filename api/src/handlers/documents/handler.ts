@@ -7,6 +7,8 @@ import { ApiResponse } from '../../lib/apiResponse';
 import { DocumentParentType } from '../../models/document';
 import { v4 as uuidv4 } from 'uuid';
 import { canDestroy, canWrite, resolveActor } from '../../lib/auth';
+import { PLAN_LIMITS } from '../../lib/planLimits';
+import { Plan } from '../../models/account';
 
 function getDocumentId(event: APIGatewayProxyEvent): string | null {
   const match = event.path.match(/\/api\/documents\/([^/]+)/);
@@ -46,7 +48,7 @@ export class DocumentHandler {
         return await DocumentHandler.listDocuments(event, userId);
       } else if (method === 'POST' && path.endsWith('/api/documents')) {
         if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to create documents');
-        return await DocumentHandler.createDocument(event, userId);
+        return await DocumentHandler.createDocument(event, userId, actor.plan);
       }
       return ApiResponse.notFound('Route not found');
     } catch (err) {
@@ -83,7 +85,7 @@ export class DocumentHandler {
     return ApiResponse.success({ documentId: uuidv4(), uploadUrl: url, key });
   }
 
-  static async createDocument(event: APIGatewayProxyEvent, userId: string) {
+  static async createDocument(event: APIGatewayProxyEvent, userId: string, plan: Plan) {
     const body = JSON.parse(event.body || '{}');
     const { id, parentType, parentId, contractId, category, fileName, s3Key, mimeType, fileSize, expiryDate, notes } = body;
 
@@ -93,6 +95,15 @@ export class DocumentHandler {
 
     const owns = await verifyParentOwnership(parentType, parentId, userId);
     if (!owns) return ApiResponse.notFound('Parent not found');
+
+    // docs/Pricing-Strategy-Plan.md — capped by document count, not byte size (deliberate simplification).
+    const maxDocuments = PLAN_LIMITS[plan].maxDocuments;
+    if (maxDocuments !== Infinity) {
+      const existing = await DocumentRepository.listByOwner(userId);
+      if (existing.length >= maxDocuments) {
+        return ApiResponse.forbidden("You've reached your plan's document storage limit. Upgrade to add more.");
+      }
+    }
 
     const s3Service = new S3Service();
     try {

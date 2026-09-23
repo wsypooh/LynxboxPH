@@ -13,6 +13,15 @@ function createPropertyKeys(id: string) {
   };
 }
 
+// docs/Pricing-Strategy-Plan.md — a listing past its plan-determined visibility window
+// stops showing up publicly (no cron needed, just checked at read time), even though the
+// record itself is untouched. Only applied on the public-facing listing paths below —
+// an owner's own private "my properties" view (listByOwner/listByTypeAndOwner) always
+// shows everything, expired or not, so they can renew it.
+function isListingCurrentlyVisible(property: Property): boolean {
+  return !property.expiresAt || new Date(property.expiresAt).getTime() > Date.now();
+}
+
 export class PropertyRepository {
   static async create(propertyData: PropertyInput): Promise<Property> {
     const property = createProperty(propertyData);
@@ -261,7 +270,7 @@ export class PropertyRepository {
       ExclusiveStartKey: lastEvaluatedKey
     }));
 
-    let items = (Items as Property[]).filter(p => !p.deletedAt);
+    let items = (Items as Property[]).filter(p => !p.deletedAt && isListingCurrentlyVisible(p));
 
     // Apply in-memory sorting
     if (sortBy) {
@@ -314,7 +323,7 @@ export class PropertyRepository {
       ExclusiveStartKey: filters.lastEvaluatedKey
     }));
 
-    let items = (Items as Property[]).filter(p => !p.deletedAt);
+    let items = (Items as Property[]).filter(p => !p.deletedAt && isListingCurrentlyVisible(p));
 
     // Apply in-memory sorting
     if (filters.sortBy) {
@@ -420,7 +429,9 @@ export class PropertyRepository {
     
     const { Items = [], LastEvaluatedKey } = await ddbDocClient.send(new ScanCommand(scanParams));
 
-    const properties = (Items as Property[]).filter(p => !p.deletedAt);
+    const properties = (Items as Property[]).filter(p =>
+      !p.deletedAt && (filters.status !== 'available' || isListingCurrentlyVisible(p))
+    );
     console.log(`DynamoDB returned ${properties.length} items (excluding deleted)`);
     console.log('LastEvaluatedKey:', LastEvaluatedKey ? 'Present (more items available)' : 'Null (no more items)');
     

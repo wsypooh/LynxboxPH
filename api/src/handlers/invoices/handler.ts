@@ -12,6 +12,15 @@ const archiver = require('archiver') as (format: string, options?: any) => any;
 import { Writable } from 'stream';
 import { PDFDocument } from 'pdf-lib';
 import { canDestroy, canWrite, resolveActor } from '../../lib/auth';
+import { PLAN_LIMITS } from '../../lib/planLimits';
+import { AccountRepository } from '../../repositories/accountRepository';
+import { Plan } from '../../models/account';
+
+function getPreviousYearMonth(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-').map(Number);
+  const date = new Date(year, month - 2, 1); // month is 1-indexed here; -2 lands on the prior month
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
 
 function getUserDisplayName(event: APIGatewayProxyEvent): string {
   const claims = event.requestContext.authorizer?.claims;
@@ -73,7 +82,7 @@ export class InvoiceHandler {
         return await InvoiceHandler.listInvoices(event, userId);
       } else if (method === 'POST' && path.endsWith('/api/invoices')) {
         if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to create invoices');
-        return await InvoiceHandler.createInvoice(event, userId);
+        return await InvoiceHandler.createInvoice(event, userId, actor.plan);
       }
       return ApiResponse.notFound('Route not found');
     } catch (err) {
@@ -112,10 +121,24 @@ export class InvoiceHandler {
     }));
   }
 
-  static async createInvoice(event: APIGatewayProxyEvent, userId: string) {
+  static async createInvoice(event: APIGatewayProxyEvent, userId: string, plan: Plan) {
     const body = JSON.parse(event.body || '{}');
     const { tenantId, billingMonth } = body;
     if (!tenantId || !billingMonth) return ApiResponse.error('tenantId and billingMonth are required');
+
+    // docs/Pricing-Strategy-Plan.md — soft monthly fair-use cap: only hard-blocks once a
+    // full calendar month has passed still over the limit, so no one gets cut off mid-cycle.
+    const limits = PLAN_LIMITS[plan];
+    if (limits.maxInvoicesPerMonth !== Infinity) {
+      const currentYearMonth = new Date().toISOString().slice(0, 7);
+      const currentCount = await AccountRepository.getMonthlyInvoiceCount(userId, currentYearMonth);
+      if (currentCount >= limits.maxInvoicesPerMonth) {
+        const previousCount = await AccountRepository.getMonthlyInvoiceCount(userId, getPreviousYearMonth(currentYearMonth));
+        if (previousCount >= limits.maxInvoicesPerMonth) {
+          return ApiResponse.forbidden("You've reached your plan's monthly invoice limit two months in a row. Upgrade to continue.");
+        }
+      }
+    }
 
     const tenant = await TenantRepository.findById(tenantId);
     if (!tenant || tenant.ownerId !== userId) return ApiResponse.notFound('Tenant not found');
@@ -187,6 +210,11 @@ export class InvoiceHandler {
     };
 
     const invoice = await InvoiceRepository.create(invoiceData);
+    // Counts against the month the invoice was actually created in (not billingMonth) — the
+    // cap is about how much invoicing work is happening now, not which period it bills for.
+    // Fire-and-forget — a usage-counter write failing must never fail an already-created invoice.
+    AccountRepository.incrementMonthlyInvoiceCount(userId, new Date().toISOString().slice(0, 7))
+      .catch(err => console.error('Failed to increment monthly invoice count:', err));
     await LedgerRepository.createChargeEntry({
       tenantId,
       ownerId: userId,

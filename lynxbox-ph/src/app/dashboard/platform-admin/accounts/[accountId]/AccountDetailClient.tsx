@@ -2,10 +2,12 @@
 import { useState, useEffect } from 'react';
 import {
   Box, Heading, Text, Spinner, useToast, SimpleGrid, Card, CardHeader, CardBody,
-  Table, Thead, Tbody, Tr, Th, Td, Badge,
+  Table, Thead, Tbody, Tr, Th, Td, Badge, HStack, Select, Button,
 } from '@chakra-ui/react';
 import { platformAdminService } from '@/services/platformAdminService';
-import { AccountDetail } from '@/features/platform-admin/types';
+import { AccountDetail, Plan } from '@/features/platform-admin/types';
+
+const PLAN_OPTIONS: Plan[] = ['free', 'starter', 'growth', 'business'];
 
 function formatCurrency(amount: number): string {
   return (amount ?? 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
@@ -14,15 +16,30 @@ function formatCurrency(amount: number): string {
 export default function AccountDetailClient({ accountId }: { accountId: string }) {
   const [detail, setDetail] = useState<AccountDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedPlan, setSelectedPlan] = useState<Plan>('free');
+  const [savingPlan, setSavingPlan] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
     if (!accountId) return;
     platformAdminService.getAccountDetail(accountId)
-      .then(setDetail)
+      .then(d => { setDetail(d); setSelectedPlan(d.plan); })
       .catch(() => toast({ title: 'Failed to load account', status: 'error' }))
       .finally(() => setLoading(false));
   }, [accountId, toast]);
+
+  const handleSavePlan = async () => {
+    setSavingPlan(true);
+    try {
+      await platformAdminService.updateAccountPlan(accountId, selectedPlan);
+      setDetail(prev => prev ? { ...prev, plan: selectedPlan } : prev);
+      toast({ title: `Plan updated to ${selectedPlan}`, status: 'success' });
+    } catch {
+      toast({ title: 'Failed to update plan', status: 'error' });
+    } finally {
+      setSavingPlan(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -44,8 +61,26 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
     <Box p={8}>
       <Heading size="lg" mb={1}>Account: {detail.ownerEmail || detail.accountId}</Heading>
       <Text color="gray.500" mb={6}>
-        Read-only view &mdash; platform admin cannot edit this account&apos;s data.
+        Read-only for this account&apos;s data &mdash; the only edit action here is its plan (docs/Pricing-Strategy-Plan.md), pending real billing.
       </Text>
+
+      <HStack mb={8} spacing={3}>
+        <Text fontWeight="medium">Plan:</Text>
+        <Select value={selectedPlan} onChange={e => setSelectedPlan(e.target.value as Plan)} w="200px" size="sm">
+          {PLAN_OPTIONS.map(p => (
+            <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+          ))}
+        </Select>
+        <Button
+          size="sm"
+          colorScheme="primary"
+          isDisabled={selectedPlan === detail.plan}
+          isLoading={savingPlan}
+          onClick={handleSavePlan}
+        >
+          Save
+        </Button>
+      </HStack>
 
       <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} mb={8}>
         <Card>

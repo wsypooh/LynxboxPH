@@ -9,6 +9,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { S3Service } from '../../lib/s3';
 import { watermarkConfig, getWatermarkOptions } from '../../config/watermark';
 import { canDestroy, canWrite, resolveActor } from '../../lib/auth';
+import { PLAN_LIMITS, SEARCH_PLACEMENT_RANK } from '../../lib/planLimits';
+import { AccountRepository } from '../../repositories/accountRepository';
 
 export class PropertyHandler {
   static async createProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -68,7 +70,7 @@ export class PropertyHandler {
       // Remove base64Images from the data before storing - only keep S3 URLs
       const { base64Images, ...cleanPropertyData } = propertyData;
 
-      const finalPropertyData = {
+      const finalPropertyData: any = {
         ...cleanPropertyData,
         id: propertyId, // Use the pre-generated ID
         ownerId: userId,
@@ -76,6 +78,20 @@ export class PropertyHandler {
         status: 'available', // Default status
         images: [...(propertyData.images || []), ...uploadedImages], // Combine existing and uploaded images
       };
+
+      // docs/Pricing-Strategy-Plan.md — plan-based listing count / photo count limits.
+      const limits = PLAN_LIMITS[actor.plan];
+      const { items: existingListings } = await PropertyRepository.listByOwner(userId, 1000);
+      const activeListingCount = existingListings.filter(p => p.status !== 'unlisted').length;
+      if (activeListingCount >= limits.maxProperties) {
+        return ApiResponse.forbidden("You've reached your plan's active listing limit. Upgrade to add more.");
+      }
+      if (finalPropertyData.images.length > limits.maxPhotosPerListing) {
+        return ApiResponse.forbidden(`Your plan allows up to ${limits.maxPhotosPerListing} photos per listing. Upgrade for more.`);
+      }
+      finalPropertyData.expiresAt = limits.listingDurationDays == null
+        ? null
+        : new Date(Date.now() + limits.listingDurationDays * 24 * 60 * 60 * 1000).toISOString();
 
       const property = await PropertyRepository.create(finalPropertyData);
       return ApiResponse.success(property, 201);
@@ -178,6 +194,22 @@ export class PropertyHandler {
     return uploadedImages;
   }
 
+  // docs/Pricing-Strategy-Plan.md — public listings from higher-plan owners rank first by
+  // default (featured > priority > standard), then by recency. Only applied to the default
+  // browse order — an explicit sortBy from the caller (price/area/views) is left alone.
+  private static async sortByPlacement(items: Property[]): Promise<Property[]> {
+    if (items.length === 0) return items;
+    const ownerIds = Array.from(new Set(items.map(p => p.ownerId)));
+    const plans = await Promise.all(ownerIds.map(id => AccountRepository.getPlan(id)));
+    const placementByOwner = new Map(ownerIds.map((id, i) => [id, PLAN_LIMITS[plans[i].plan].searchPlacement]));
+
+    return [...items].sort((a, b) => {
+      const rankDiff = SEARCH_PLACEMENT_RANK[placementByOwner.get(b.ownerId)!] - SEARCH_PLACEMENT_RANK[placementByOwner.get(a.ownerId)!];
+      if (rankDiff !== 0) return rankDiff;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }
+
   static async getPublicProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const id = event.pathParameters?.id;
@@ -228,7 +260,8 @@ export class PropertyHandler {
         result = await PropertyRepository.listAllAvailableProperties(limit, lastEvaluatedKey, sortBy, sortOrder);
       }
 
-      const response: any = { items: result.items };
+      const items = sortBy ? result.items : await PropertyHandler.sortByPlacement(result.items);
+      const response: any = { items };
       if (result.lastEvaluatedKey) {
         response.lastKey = encodeURIComponent(JSON.stringify(result.lastEvaluatedKey));
       }
@@ -312,9 +345,22 @@ export class PropertyHandler {
       const remainingImages = currentImages.filter(img => !imagesToRemove.includes(img));
       const finalImages = [...remainingImages, ...uploadedImages];
 
+      const limits = PLAN_LIMITS[actor.plan];
+      if (finalImages.length > limits.maxPhotosPerListing) {
+        return ApiResponse.forbidden(`Your plan allows up to ${limits.maxPhotosPerListing} photos per listing. Upgrade for more.`);
+      }
+
       // Remove fields that shouldn't be updated
-      const { id: _, ownerId, createdAt, removeImages, base64Images, ...validUpdates } = updates;
+      const { id: _, ownerId, createdAt, removeImages, base64Images, renew, ...validUpdates } = updates;
       validUpdates.images = finalImages;
+
+      // docs/Pricing-Strategy-Plan.md — owner manually renews a listing whose visibility
+      // window (set from their plan at creation time) has run out, instead of a cron job.
+      if (renew) {
+        validUpdates.expiresAt = limits.listingDurationDays == null
+          ? null
+          : new Date(Date.now() + limits.listingDurationDays * 24 * 60 * 60 * 1000).toISOString();
+      }
 
       const updatedProperty = await PropertyRepository.update(id, validUpdates);
       if (!updatedProperty) {
@@ -580,10 +626,11 @@ export class PropertyHandler {
       
       // Use unified filter method for public search
       const result = await PropertyRepository.filter(filters);
-      
+      const items = filters.sortBy ? result.items : await PropertyHandler.sortByPlacement(result.items);
+
       return ApiResponse.success({
-        items: result.items,
-        count: result.items.length,
+        items,
+        count: items.length,
         lastKey: result.lastKey ? encodeURIComponent(JSON.stringify(result.lastKey)) : undefined
       });
 

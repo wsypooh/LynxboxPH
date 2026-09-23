@@ -5,6 +5,7 @@ import { MembershipRepository } from '../../repositories/membershipRepository';
 import { Role } from '../../models/member';
 import { findCognitoUserByEmail, createCognitoUser, generateTemporaryPassword } from '../../lib/cognitoAdmin';
 import { ZeptoMailService } from '../../lib/zeptomail';
+import { PLAN_LIMITS } from '../../lib/planLimits';
 
 const mailer = new ZeptoMailService();
 const INVITABLE_ROLES: Role[] = ['manager', 'staff', 'viewer'];
@@ -87,6 +88,13 @@ export class AccountHandler {
 
     // First invite on a solo account lazily creates the owner's own MEMBER# row too.
     const existingMembers = await MembershipRepository.listByAccount(actor.accountId);
+
+    // docs/Pricing-Strategy-Plan.md — a solo account with zero MEMBER# rows is still 1 seat (the owner).
+    const currentSeats = existingMembers.length > 0 ? existingMembers.length : 1;
+    if (currentSeats >= PLAN_LIMITS[actor.plan].maxSeats) {
+      return ApiResponse.forbidden("You've reached your plan's team seat limit. Upgrade to invite more members.");
+    }
+
     if (existingMembers.length === 0) {
       await MembershipRepository.create({
         accountId: actor.accountId,

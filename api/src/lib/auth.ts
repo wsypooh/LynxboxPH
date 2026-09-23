@@ -1,5 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { MembershipRepository } from '../repositories/membershipRepository';
+import { AccountRepository } from '../repositories/accountRepository';
+import { Plan } from '../models/account';
 
 export type Role = 'owner' | 'manager' | 'staff' | 'viewer';
 
@@ -10,6 +12,7 @@ export interface Actor {
   isPlatformAdmin: boolean;
   displayName: string;
   email: string;
+  plan: Plan;
 }
 
 // Confirmed via CloudWatch on the real deployed API (not guessed): API Gateway's HTTP API
@@ -101,13 +104,18 @@ export async function resolveActor(event: APIGatewayProxyEvent): Promise<Actor |
       .catch(err => console.error('Failed to mark member active on first login:', err));
   }
 
+  const accountId = membership?.accountId ?? sub;
+  // See docs/Pricing-Strategy-Plan.md — one extra Get, same per-request cost pattern as everything else here.
+  const { plan } = await AccountRepository.getPlan(accountId);
+
   return {
     sub,
-    accountId: membership?.accountId ?? sub,
+    accountId,
     role: membership?.role ?? 'owner',
     isPlatformAdmin: isPlatformAdmin(event),
     displayName,
     email,
+    plan,
   };
 }
 

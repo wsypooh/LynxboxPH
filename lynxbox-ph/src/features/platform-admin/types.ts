@@ -20,9 +20,12 @@ export interface PlatformSummary {
   generatedAt: string;
 }
 
+export type Plan = 'free' | 'starter' | 'growth' | 'business';
+
 export interface AccountDetail {
   accountId: string;
   ownerEmail: string | null;
+  plan: Plan;
   properties: Property[];
   buildings: Building[];
   tenants: Tenant[];

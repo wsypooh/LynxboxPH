@@ -455,6 +455,14 @@ resource "aws_apigatewayv2_route" "platform_admin_account_detail" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "platform_admin_account_update_plan" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /api/platform-admin/accounts/{accountId}/plan"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # Account / Member Routes
 resource "aws_apigatewayv2_route" "account_me" {
   api_id             = aws_apigatewayv2_api.main.id

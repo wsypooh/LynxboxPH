@@ -44,6 +44,8 @@ export interface Property extends BaseEntity {
   viewCount?: number;  // Make this optional
   contactInfo: PropertyContactInfo;
   deletedAt?: string;
+  // Set at creation from the owner's plan (docs/Pricing-Strategy-Plan.md) — null means it never expires.
+  expiresAt?: string | null;
 }
 
 // Type for creating a new property (excludes auto-generated fields, but allows optional id)
@@ -80,6 +82,7 @@ export function createProperty(data: PropertyInput): Property {
     status: data.status || 'available',
     ownerId: data.ownerId,
     contactInfo: data.contactInfo,
+    expiresAt: data.expiresAt ?? null,
   };
 
   return property;

@@ -265,6 +265,9 @@ app.all('/api/platform-admin/dashboard/summary', async (req, res) => {
 app.all('/api/platform-admin/accounts/:accountId', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
+app.all('/api/platform-admin/accounts/:accountId/plan', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
 
 // Account / Member routes
 app.all('/api/account/me', async (req, res) => {

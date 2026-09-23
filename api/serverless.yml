@@ -377,6 +377,13 @@ functions:
           authorizer:
             name: ApiGatewayAuthorizer
             type: request
+      - http:
+          path: /api/platform-admin/accounts/{accountId}/plan
+          method: put
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
 
       # Account / Members
       - http:
