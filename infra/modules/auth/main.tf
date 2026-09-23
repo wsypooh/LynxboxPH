@@ -112,6 +112,13 @@ resource "aws_cognito_user_pool_client" "main" {
   prevent_user_existence_errors = "ENABLED"
 }
 
+# Platform Admin Group — read-only cross-account access, see docs/RBAC-Admin-Plan.md
+resource "aws_cognito_user_group" "platform_admin" {
+  name         = "platform-admin"
+  user_pool_id = aws_cognito_user_pool.main.id
+  description  = "Read-only cross-account platform administrators"
+}
+
 # User Pool Domain
 resource "aws_cognito_user_pool_domain" "main" {
   domain       = var.cognito_domain != "" ? var.cognito_domain : "${var.project_name}-${var.environment}-auth"

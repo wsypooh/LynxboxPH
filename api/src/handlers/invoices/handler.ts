@@ -11,12 +11,7 @@ import { ApiResponse } from '../../lib/apiResponse';
 const archiver = require('archiver') as (format: string, options?: any) => any;
 import { Writable } from 'stream';
 import { PDFDocument } from 'pdf-lib';
-
-function getUserId(event: APIGatewayProxyEvent): string | null {
-  return event.requestContext.authorizer?.claims?.sub
-    || event.requestContext.authorizer?.claims?.['cognito:username']
-    || (process.env.IS_OFFLINE ? 'local-test-user-123' : null);
-}
+import { canDestroy, canWrite, resolveActor } from '../../lib/auth';
 
 function getUserDisplayName(event: APIGatewayProxyEvent): string {
   const claims = event.requestContext.authorizer?.claims;
@@ -43,8 +38,9 @@ export class InvoiceHandler {
   static async handle(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const method = event.httpMethod;
     const path = event.path;
-    const userId = getUserId(event);
-    if (!userId) return ApiResponse.unauthorized('Not authenticated');
+    const actor = await resolveActor(event);
+    if (!actor) return ApiResponse.unauthorized('Not authenticated');
+    const userId = actor.accountId;
 
     try {
       if (method === 'POST' && path.match(/\/api\/invoices\/batch-pdf$/)) {
@@ -52,24 +48,31 @@ export class InvoiceHandler {
       } else if (method === 'GET' && path.match(/\/api\/invoices\/batch-pdf$/)) {
         return await InvoiceHandler.downloadBatchPdf(event, userId);
       } else if (method === 'POST' && path.match(/\/api\/invoices\/[^/]+\/payments$/)) {
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to record payments');
         return await InvoiceHandler.recordPayment(event, userId);
       } else if (method === 'POST' && path.match(/\/api\/invoices\/[^/]+\/send$/)) {
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to send invoices');
         return await InvoiceHandler.sendInvoice(event, userId);
       } else if (method === 'POST' && path.match(/\/api\/invoices\/[^/]+\/rollover$/)) {
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to roll over invoices');
         return await InvoiceHandler.rolloverInvoice(event, userId);
       } else if (method === 'POST' && path.match(/\/api\/invoices\/[^/]+\/void$/)) {
+        if (!canDestroy(actor)) return ApiResponse.forbidden('You do not have permission to void invoices');
         return await InvoiceHandler.voidInvoice(event, userId);
       } else if (method === 'GET' && path.match(/\/api\/invoices\/[^/]+\/pdf$/)) {
         return await InvoiceHandler.downloadPdf(event, userId);
       } else if (method === 'GET' && path.match(/\/api\/invoices\/[^/]+$/) && !path.endsWith('/api/invoices')) {
         return await InvoiceHandler.getInvoice(event, userId);
       } else if (method === 'PUT' && path.match(/\/api\/invoices\/[^/]+$/)) {
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to edit invoices');
         return await InvoiceHandler.updateInvoice(event, userId);
       } else if (method === 'DELETE' && path.match(/\/api\/invoices\/[^/]+$/)) {
+        if (!canDestroy(actor)) return ApiResponse.forbidden('You do not have permission to delete invoices');
         return await InvoiceHandler.deleteInvoice(event, userId);
       } else if (method === 'GET' && path.endsWith('/api/invoices')) {
         return await InvoiceHandler.listInvoices(event, userId);
       } else if (method === 'POST' && path.endsWith('/api/invoices')) {
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to create invoices');
         return await InvoiceHandler.createInvoice(event, userId);
       }
       return ApiResponse.notFound('Route not found');

@@ -88,6 +88,30 @@ resource "aws_iam_role_policy_attachment" "lambda_dynamodb" {
   policy_arn = var.dynamodb_policy_arn
 }
 
+data "aws_caller_identity" "current" {}
+
+# Cognito admin access for the account-members invite flow (AdminCreateUser/AdminGetUser),
+# scoped to this environment's own User Pool only. See docs/RBAC-Admin-Plan.md, Phase 2.
+resource "aws_iam_role_policy" "lambda_cognito_admin" {
+  name = "${var.project_name}-lambda-cognito-admin-${var.environment}"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:DescribeUserPool"
+        ]
+        Resource = "arn:aws:cognito-idp:${var.aws_region}:${data.aws_caller_identity.current.account_id}:userpool/${var.user_pool_id}"
+      }
+    ]
+  })
+}
+
 # S3 access policy for CSV operations
 resource "aws_iam_role_policy" "lambda_s3_csv" {
   name = "${var.project_name}-lambda-s3-csv-${var.environment}"
@@ -143,6 +167,7 @@ resource "aws_lambda_function" "api" {
         USER_POOL_ID   = var.user_pool_id
         CLIENT_ID      = var.user_pool_client_id
         S3_BUCKET_NAME = var.s3_bucket_name
+        FRONTEND_URL   = var.domain_name != "" ? "https://${var.domain_name}" : "http://localhost:3001"
       },
       {
         for k, v in var.environment_variables :

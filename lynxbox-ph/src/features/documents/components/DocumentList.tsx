@@ -7,6 +7,7 @@ import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { documentService } from '@/services/documentService';
 import { Document, DOCUMENT_CATEGORY_LABELS } from '@/features/documents/types';
 import { DocumentEditModal } from '@/features/documents/components/DocumentEditModal';
+import { useAccount } from '@/features/account/AccountContext';
 
 function expiryBadge(expiryDate?: string) {
   if (!expiryDate) return null;
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function DocumentList({ documents, onDelete, onUpdate, contractLabel }: Props) {
+  const { canWrite, canDestroy } = useAccount();
   const toast = useToast();
   const [editingDoc, setEditingDoc] = useState<Document | null>(null);
   const { isOpen: editOpen, onOpen: openEdit, onClose: closeEdit } = useDisclosure();
@@ -88,12 +90,16 @@ export function DocumentList({ documents, onDelete, onUpdate, contractLabel }: P
                 <Tooltip label="View">
                   <IconButton aria-label="View document" icon={<FiEye />} size="xs" variant="outline" onClick={() => handleView(doc.id)} />
                 </Tooltip>
-                <Tooltip label="Edit">
-                  <IconButton aria-label="Edit document" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => handleEdit(doc)} />
-                </Tooltip>
-                <Tooltip label="Delete">
-                  <IconButton aria-label="Delete document" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(doc.id)} />
-                </Tooltip>
+                {canWrite && (
+                  <Tooltip label="Edit">
+                    <IconButton aria-label="Edit document" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => handleEdit(doc)} />
+                  </Tooltip>
+                )}
+                {canDestroy && (
+                  <Tooltip label="Delete">
+                    <IconButton aria-label="Delete document" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(doc.id)} />
+                  </Tooltip>
+                )}
               </HStack>
             </Td>
           </Tr>

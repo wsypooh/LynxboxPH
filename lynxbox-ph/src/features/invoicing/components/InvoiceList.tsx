@@ -8,6 +8,7 @@ import { FiEye, FiTrash2, FiSlash } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { Invoice, InvoiceStatus } from '@/features/invoicing/types';
+import { useAccount } from '@/features/account/AccountContext';
 
 const LS_KEY      = 'invoice-columns-v2';
 const LS_SORT_KEY = 'invoice-sort-v1';
@@ -167,6 +168,7 @@ interface Props {
 
 export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDelete, onVoid }: Props) {
   const router = useRouter();
+  const { canDestroy } = useAccount();
 
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => {
     try {
@@ -317,7 +319,7 @@ export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDe
                     <Tooltip label="View">
                       <IconButton aria-label="View invoice" icon={<FiEye />} size="xs" variant="outline" onClick={() => router.push(`/dashboard/invoices/detail?id=${inv.id}`)} />
                     </Tooltip>
-                    {inv.status === 'draft'
+                    {canDestroy && (inv.status === 'draft'
                       ? (onDelete && (
                         <Tooltip label="Delete">
                           <IconButton aria-label="Delete invoice" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(inv.id)} />
@@ -327,7 +329,7 @@ export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDe
                         <Tooltip label="Void">
                           <IconButton aria-label="Void invoice" icon={<FiSlash />} size="xs" variant="ghost" colorScheme="red" onClick={() => onVoid(inv.id)} />
                         </Tooltip>
-                      ))}
+                      )))}
                   </HStack>
                 </Td>
               </Tr>

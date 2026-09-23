@@ -7,6 +7,7 @@ import {
   useToast, Spinner, SimpleGrid, Tooltip,
 } from '@chakra-ui/react';
 import { FiEdit2, FiTrash2, FiUsers, FiFileText } from 'react-icons/fi';
+import { useAccount } from '@/features/account/AccountContext';
 import { buildingService } from '@/services/buildingService';
 import { BuildingForm } from '@/features/invoicing/components/BuildingForm';
 import { Building } from '@/features/invoicing/types';
@@ -27,6 +28,7 @@ function formatPhone(phone: string): string {
 }
 
 export default function BuildingsPage() {
+  const { canWrite, canDestroy } = useAccount();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -101,7 +103,9 @@ export default function BuildingsPage() {
     <Box p={6}>
       <HStack justify="space-between" mb={6}>
         <Heading size="lg">Buildings</Heading>
-        <Button colorScheme="blue" onClick={() => { setEditBuilding(null); onOpen(); }}>+ Add Building</Button>
+        {canWrite && (
+          <Button colorScheme="blue" onClick={() => { setEditBuilding(null); onOpen(); }}>+ Add Building</Button>
+        )}
       </HStack>
 
       {loading ? (
@@ -124,18 +128,22 @@ export default function BuildingsPage() {
                   )}
                 </HStack>
                 <HStack mt={3} spacing={2}>
-                  <Tooltip label="Edit">
-                    <IconButton aria-label="Edit building" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => handleEdit(b)} />
-                  </Tooltip>
+                  {canWrite && (
+                    <Tooltip label="Edit">
+                      <IconButton aria-label="Edit building" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => handleEdit(b)} />
+                    </Tooltip>
+                  )}
                   <Tooltip label="Tenants">
                     <IconButton aria-label="View tenants" icon={<FiUsers />} size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/tenants?buildingId=${b.id}`)} />
                   </Tooltip>
                   <Tooltip label="Documents">
                     <IconButton aria-label="View documents" icon={<FiFileText />} size="xs" variant="outline" colorScheme="purple" onClick={() => handleOpenDocs(b)} />
                   </Tooltip>
-                  <Tooltip label="Delete">
-                    <IconButton aria-label="Delete building" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(b.id)} />
-                  </Tooltip>
+                  {canDestroy && (
+                    <Tooltip label="Delete">
+                      <IconButton aria-label="Delete building" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => handleDelete(b.id)} />
+                    </Tooltip>
+                  )}
                 </HStack>
               </CardBody>
             </Card>
@@ -168,9 +176,11 @@ export default function BuildingsPage() {
           <ModalHeader>Documents — {docsBuilding?.name}</ModalHeader>
           <ModalCloseButton />
           <ModalBody pb={6}>
-            <HStack justify="flex-end" mb={4}>
-              <Button size="sm" colorScheme="blue" onClick={openUpload}>+ Upload Document</Button>
-            </HStack>
+            {canWrite && (
+              <HStack justify="flex-end" mb={4}>
+                <Button size="sm" colorScheme="blue" onClick={openUpload}>+ Upload Document</Button>
+              </HStack>
+            )}
             <DocumentList
               documents={documents}
               onDelete={(docId) => setDocuments(prev => prev.filter(d => d.id !== docId))}

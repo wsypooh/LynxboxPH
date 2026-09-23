@@ -25,6 +25,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/features/auth/AuthContext'
 import MFAVerification from '@/components/auth/MFAVerification'
+import NewPasswordChallenge from '@/components/auth/NewPasswordChallenge'
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -38,6 +39,7 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [showMFA, setShowMFA] = useState(false)
+  const [showNewPasswordChallenge, setShowNewPasswordChallenge] = useState(false)
   const [username, setUsername] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -82,7 +84,13 @@ export default function SignInPage() {
         setShowMFA(true)
         return
       }
-      
+
+      // Invited users sign in with a temporary password and must set a real one
+      if (nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+        setShowNewPasswordChallenge(true)
+        return
+      }
+
       // If already signed in, redirect to dashboard
       if (isSignedIn) {
         router.push('/dashboard')
@@ -98,9 +106,14 @@ export default function SignInPage() {
   const handleMFASuccess = () => {
     router.push('/dashboard')
   }
-  
+
+  const handleNewPasswordSuccess = () => {
+    router.push('/dashboard')
+  }
+
   const handleBackToSignIn = () => {
     setShowMFA(false)
+    setShowNewPasswordChallenge(false)
     setError('')
   }
 
@@ -108,9 +121,21 @@ export default function SignInPage() {
   if (showMFA) {
     return (
       <Container maxW="md" py={12}>
-        <MFAVerification 
-          username={username} 
+        <MFAVerification
+          username={username}
           onSuccess={handleMFASuccess}
+          onBack={handleBackToSignIn}
+        />
+      </Container>
+    )
+  }
+
+  // Show the new-password challenge for invited users signing in with a temporary password
+  if (showNewPasswordChallenge) {
+    return (
+      <Container maxW="md" py={12}>
+        <NewPasswordChallenge
+          onSuccess={handleNewPasswordSuccess}
           onBack={handleBackToSignIn}
         />
       </Container>

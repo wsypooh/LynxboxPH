@@ -71,4 +71,17 @@ export class DocumentRepository {
     }));
     return (Items as Document[]).filter(d => !d.deletedAt);
   }
+
+  static async listByOwner(ownerId: string): Promise<Document[]> {
+    const { Items = [] } = await ddbDocClient.send(new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :gsi1pk AND begins_with(GSI1SK, :prefix)',
+      ExpressionAttributeValues: {
+        ':gsi1pk': `USER#${ownerId}`,
+        ':prefix': 'DOCUMENT#',
+      },
+    }));
+    return (Items as Document[]).filter(d => !d.deletedAt);
+  }
 }

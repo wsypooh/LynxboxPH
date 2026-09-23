@@ -51,7 +51,7 @@ const TwoFactorAuth = dynamic(
 );
 
 export default function ProfilePage() {
-  const { user, signOut, updateUserAttributes } = useAuth();
+  const { user, signOut, updateUserAttributes, confirmUserAttribute, resendAttributeVerificationCode } = useAuth();
   const router = useRouter();
   const toast = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -62,8 +62,12 @@ export default function ProfilePage() {
     phone: '',
     address: '',
   });
-  
+
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [pendingEmailConfirmation, setPendingEmailConfirmation] = useState(false);
+  const [emailConfirmCode, setEmailConfirmCode] = useState('');
+  const [isConfirmingEmail, setIsConfirmingEmail] = useState(false);
+  const [isResendingEmailCode, setIsResendingEmailCode] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -216,16 +220,27 @@ export default function ProfilePage() {
       }
       
       console.log('Submitting attributes:', attributesToUpdate);
-      
-      await updateUserAttributes(attributesToUpdate);
-      
-      toast({
-        title: 'Profile updated',
-        description: 'Your profile has been updated successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
+
+      const result = await updateUserAttributes(attributesToUpdate);
+
+      if (result.pendingConfirmationAttributeKey === 'email') {
+        setPendingEmailConfirmation(true);
+        toast({
+          title: 'Verify your new email',
+          description: `We sent a verification code to ${formData.email}. Enter it below to finish updating your email.`,
+          status: 'info',
+          duration: 6000,
+          isClosable: true,
+        });
+      } else {
+        toast({
+          title: 'Profile updated',
+          description: 'Your profile has been updated successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -238,6 +253,51 @@ export default function ProfilePage() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmEmailCode = async () => {
+    if (!emailConfirmCode.trim()) return;
+    setIsConfirmingEmail(true);
+    try {
+      const result = await confirmUserAttribute('email', emailConfirmCode.trim());
+      if (result.success) {
+        toast({
+          title: 'Email verified',
+          description: 'Your email address has been updated.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        setPendingEmailConfirmation(false);
+        setEmailConfirmCode('');
+      } else {
+        toast({
+          title: 'Verification failed',
+          description: result.error || 'The code you entered is invalid or expired.',
+          status: 'error',
+          duration: 4000,
+          isClosable: true,
+        });
+      }
+    } finally {
+      setIsConfirmingEmail(false);
+    }
+  };
+
+  const handleResendEmailCode = async () => {
+    setIsResendingEmailCode(true);
+    try {
+      const result = await resendAttributeVerificationCode('email');
+      toast({
+        title: result.success ? 'Code resent' : 'Failed to resend code',
+        description: result.success ? `A new verification code was sent to ${formData.email}.` : result.error,
+        status: result.success ? 'success' : 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setIsResendingEmailCode(false);
     }
   };
 
@@ -376,6 +436,40 @@ export default function ProfilePage() {
                           </InputGroup>
                           {errors.email && <Text color="red.500" fontSize="sm" mt={1}>{errors.email}</Text>}
                         </FormControl>
+
+                        {pendingEmailConfirmation && (
+                          <Box p={4} bg="blue.50" borderRadius="md" borderWidth="1px" borderColor="blue.200">
+                            <Text fontSize="sm" fontWeight="medium" mb={3}>
+                              Enter the verification code sent to {formData.email} to finish updating your email.
+                            </Text>
+                            <HStack spacing={3} align="flex-start">
+                              <Input
+                                placeholder="6-digit code"
+                                value={emailConfirmCode}
+                                onChange={(e) => setEmailConfirmCode(e.target.value)}
+                                maxW="180px"
+                                bg="white"
+                              />
+                              <Button
+                                colorScheme="blue"
+                                onClick={handleConfirmEmailCode}
+                                isLoading={isConfirmingEmail}
+                                loadingText="Verifying..."
+                              >
+                                Verify Email
+                              </Button>
+                              <Button
+                                variant="link"
+                                colorScheme="blue"
+                                onClick={handleResendEmailCode}
+                                isLoading={isResendingEmailCode}
+                                loadingText="Sending..."
+                              >
+                                Resend code
+                              </Button>
+                            </HStack>
+                          </Box>
+                        )}
 
                         <FormControl id="phone" isInvalid={!!errors.phone}>
                           <FormLabel>Phone Number</FormLabel>

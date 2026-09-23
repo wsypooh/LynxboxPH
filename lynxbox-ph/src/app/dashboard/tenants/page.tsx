@@ -12,6 +12,7 @@ import { TenantList } from '@/features/invoicing/components/TenantList';
 import { TenantCsvUpload } from '@/features/invoicing/components/TenantCsvUpload';
 import { LedgerCsvUpload } from '@/features/invoicing/components/LedgerCsvUpload';
 import { Tenant, Building } from '@/features/invoicing/types';
+import { useAccount } from '@/features/account/AccountContext';
 
 const FILTERS_KEY = 'tenants-filters-v1';
 
@@ -24,6 +25,7 @@ function loadStoredFilters(): { building: string; status: string; lessee: string
 }
 
 export default function TenantsPage() {
+  const { canWrite } = useAccount();
   const searchParams = useSearchParams();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -132,9 +134,13 @@ export default function TenantsPage() {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </Select>
-          <Button variant="outline" onClick={onCsvOpen}>Import CSV</Button>
-          <Button variant="outline" onClick={onLedgerCsvOpen}>Import Historical Balances</Button>
-          <Button colorScheme="blue" onClick={() => { setEditTenant(null); onOpen(); }}>+ Add Tenant</Button>
+          {canWrite && (
+            <>
+              <Button variant="outline" onClick={onCsvOpen}>Import CSV</Button>
+              <Button variant="outline" onClick={onLedgerCsvOpen}>Import Historical Balances</Button>
+              <Button colorScheme="blue" onClick={() => { setEditTenant(null); onOpen(); }}>+ Add Tenant</Button>
+            </>
+          )}
         </HStack>
       </HStack>
 

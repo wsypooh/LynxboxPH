@@ -12,6 +12,7 @@ import { InvoiceForm } from '@/features/invoicing/components/InvoiceForm';
 import { StatementOfAccount } from '@/features/invoicing/components/StatementOfAccount';
 import { PaymentModal } from '@/features/invoicing/components/PaymentModal';
 import { Invoice, Tenant, Building, InvoiceStatus } from '@/features/invoicing/types';
+import { useAccount } from '@/features/account/AccountContext';
 
 const statusColor: Record<InvoiceStatus, string> = {
   draft: 'gray',
@@ -32,6 +33,7 @@ const PAYMENT_METHOD_LABELS = {
 };
 
 export default function InvoiceDetailClient({ id }: { id: string }) {
+  const { canWrite, canDestroy } = useAccount();
   const router = useRouter();
   const toast = useToast();
   const { isOpen: paymentOpen, onOpen: openPayment, onClose: closePayment } = useDisclosure();
@@ -175,28 +177,32 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
           <Badge colorScheme={statusColor[invoice.status]} fontSize="sm">{invoice.status}</Badge>
         </HStack>
         <HStack flexWrap="wrap" gap={2}>
-          {(invoice.status === 'printed' || invoice.status === 'sent') && (
+          {canWrite && (invoice.status === 'printed' || invoice.status === 'sent') && (
             <Button size="sm" variant="outline" colorScheme="purple" onClick={handleRevertToDraft} isLoading={actionLoading}>
               Revert to Draft
             </Button>
           )}
-          {invoice.status !== 'printed' && invoice.status !== 'paid' && invoice.status !== 'void' && (
+          {canWrite && invoice.status !== 'printed' && invoice.status !== 'paid' && invoice.status !== 'void' && (
             <Button size="sm" colorScheme="green" onClick={openPayment} isLoading={actionLoading}>Record Payment</Button>
           )}
-          <Button size="sm" colorScheme="blue" onClick={handleSend} isLoading={actionLoading}>Send Email</Button>
+          {canWrite && (
+            <Button size="sm" colorScheme="blue" onClick={handleSend} isLoading={actionLoading}>Send Email</Button>
+          )}
           <Button size="sm" variant="outline" onClick={handleDownloadPdf} isLoading={actionLoading}>Download PDF</Button>
-          <Button size="sm" variant="outline" onClick={handleRollover} isLoading={actionLoading}>Roll Over</Button>
-          {invoice.status === 'draft' ? (
+          {canWrite && (
+            <Button size="sm" variant="outline" onClick={handleRollover} isLoading={actionLoading}>Roll Over</Button>
+          )}
+          {canDestroy && (invoice.status === 'draft' ? (
             <Button size="sm" colorScheme="red" variant="ghost" onClick={handleDelete}>Delete</Button>
           ) : invoice.status !== 'void' ? (
             <Button size="sm" colorScheme="red" variant="ghost" onClick={handleVoid} isLoading={actionLoading}>Void</Button>
-          ) : null}
+          ) : null)}
         </HStack>
       </HStack>
 
-      <Tabs defaultIndex={invoice.status !== 'draft' ? 1 : 0}>
+      <Tabs defaultIndex={canWrite ? (invoice.status !== 'draft' ? 1 : 0) : 0}>
         <TabList>
-          <Tab isDisabled={invoice.status !== 'draft'}>Edit</Tab>
+          {canWrite && <Tab isDisabled={invoice.status !== 'draft'}>Edit</Tab>}
           <Tab>Statement</Tab>
           {(invoice.payments.length > 0 || (invoice.ledgerPayments?.length ?? 0) > 0) && (
             <Tab>Payments ({invoice.payments.length + (invoice.ledgerPayments?.length ?? 0)})</Tab>
@@ -204,20 +210,22 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
           {(invoice.statusHistory?.length ?? 0) > 0 && <Tab>History ({invoice.statusHistory.length})</Tab>}
         </TabList>
         <TabPanels>
-          <TabPanel px={0}>
-            {invoice.status !== 'draft' ? (
-              <Text color="gray.500" fontSize="sm">Only draft invoices can be edited.</Text>
-            ) : (
-              <InvoiceForm
-                tenants={tenants}
-                buildings={buildings}
-                defaultValues={invoice}
-                onSubmit={handleUpdate}
-                isLoading={saving}
-                previousBalanceHistory={invoice.previousBalanceHistory}
-              />
-            )}
-          </TabPanel>
+          {canWrite && (
+            <TabPanel px={0}>
+              {invoice.status !== 'draft' ? (
+                <Text color="gray.500" fontSize="sm">Only draft invoices can be edited.</Text>
+              ) : (
+                <InvoiceForm
+                  tenants={tenants}
+                  buildings={buildings}
+                  defaultValues={invoice}
+                  onSubmit={handleUpdate}
+                  isLoading={saving}
+                  previousBalanceHistory={invoice.previousBalanceHistory}
+                />
+              )}
+            </TabPanel>
+          )}
           <TabPanel px={0}>
             <StatementOfAccount invoice={invoice} />
           </TabPanel>

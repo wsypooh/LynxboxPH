@@ -69,26 +69,30 @@ const createApiGatewayEvent = (req: express.Request): APIGatewayProxyEvent => {
   let userId = 'local-test-user-123'; // Default fallback
   let username = 'local-test-user';
   let email = 'test@example.com';
-  
+  let name: string | undefined;
+  let groups: string[] | undefined;
+
   if (req.headers.authorization && !isPublicEndpoint) {
     try {
       // Try to parse JWT token to get actual user info
       const authHeader = req.headers.authorization;
       if (authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
-        
+
         // Decode JWT token to get user ID
         try {
           // JWT tokens are base64 encoded, split by '.' and decode the payload
           const parts = token.split('.');
           if (parts.length === 3) {
             const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-            
+
             // Extract user ID from JWT payload
             if (payload.sub) {
               userId = payload.sub;
               username = payload['cognito:username'] || payload.username || 'unknown';
               email = payload.email || payload['cognito:email'] || 'unknown@example.com';
+              name = payload.name;
+              groups = payload['cognito:groups'];
             }
           }
         } catch (decodeError) {
@@ -132,7 +136,9 @@ const createApiGatewayEvent = (req: express.Request): APIGatewayProxyEvent => {
         claims: {
           sub: userId, // Use the determined user ID
           'cognito:username': username,
-          email: email
+          email: email,
+          ...(name ? { name } : {}),
+          ...(groups ? { 'cognito:groups': groups } : {}),
         }
       },
       path: req.path,
@@ -249,6 +255,28 @@ app.all('/api/documents/:id', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 app.all('/api/documents/:id/view-url', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+// Platform Admin routes
+app.all('/api/platform-admin/dashboard/summary', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/platform-admin/accounts/:accountId', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+// Account / Member routes
+app.all('/api/account/me', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/account/memberships', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/account/members', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/account/members/:sub', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 

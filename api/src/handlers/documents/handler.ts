@@ -6,12 +6,7 @@ import { S3Service } from '../../lib/s3';
 import { ApiResponse } from '../../lib/apiResponse';
 import { DocumentParentType } from '../../models/document';
 import { v4 as uuidv4 } from 'uuid';
-
-function getUserId(event: APIGatewayProxyEvent): string | null {
-  return event.requestContext.authorizer?.claims?.sub
-    || event.requestContext.authorizer?.claims?.['cognito:username']
-    || (process.env.IS_OFFLINE ? 'local-test-user-123' : null);
-}
+import { canDestroy, canWrite, resolveActor } from '../../lib/auth';
 
 function getDocumentId(event: APIGatewayProxyEvent): string | null {
   const match = event.path.match(/\/api\/documents\/([^/]+)/);
@@ -31,21 +26,26 @@ export class DocumentHandler {
   static async handle(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const method = event.httpMethod;
     const path = event.path;
-    const userId = getUserId(event);
-    if (!userId) return ApiResponse.unauthorized('Not authenticated');
+    const actor = await resolveActor(event);
+    if (!actor) return ApiResponse.unauthorized('Not authenticated');
+    const userId = actor.accountId;
 
     try {
       if (method === 'POST' && path.match(/\/api\/documents\/upload-url$/)) {
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to upload documents');
         return await DocumentHandler.getUploadUrl(event, userId);
       } else if (method === 'GET' && path.match(/\/api\/documents\/[^/]+\/view-url$/)) {
         return await DocumentHandler.getViewUrl(event, userId);
       } else if (method === 'PUT' && path.match(/\/api\/documents\/[^/]+$/)) {
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to edit documents');
         return await DocumentHandler.updateDocument(event, userId);
       } else if (method === 'DELETE' && path.match(/\/api\/documents\/[^/]+$/)) {
+        if (!canDestroy(actor)) return ApiResponse.forbidden('You do not have permission to delete documents');
         return await DocumentHandler.deleteDocument(event, userId);
       } else if (method === 'GET' && path.endsWith('/api/documents')) {
         return await DocumentHandler.listDocuments(event, userId);
       } else if (method === 'POST' && path.endsWith('/api/documents')) {
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to create documents');
         return await DocumentHandler.createDocument(event, userId);
       }
       return ApiResponse.notFound('Route not found');

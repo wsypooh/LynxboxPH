@@ -8,6 +8,8 @@ provider:
   environment:
     DYNAMODB_TABLE: ${env:DYNAMODB_TABLE}
     S3_BUCKET_NAME: ${env:S3_BUCKET_NAME}
+    USER_POOL_ID: ${env:USER_POOL_ID}
+    FRONTEND_URL: ${env:FRONTEND_URL, 'http://localhost:3001'}
     AWS_REGION: ap-southeast-1
   iam:
     role:
@@ -31,6 +33,12 @@ provider:
           Action:
             - s3:ListBucket
           Resource: "arn:aws:s3:::${env:S3_BUCKET_NAME}"
+        - Effect: Allow
+          Action:
+            - cognito-idp:AdminCreateUser
+            - cognito-idp:AdminGetUser
+            - cognito-idp:DescribeUserPool
+          Resource: "arn:aws:cognito-idp:ap-southeast-1:*:userpool/${env:USER_POOL_ID}"
   httpApi:
     authorizers:
       ApiGatewayAuthorizer:
@@ -349,6 +357,66 @@ functions:
       - http:
           path: /api/invoices/{id}/pdf
           method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+
+      # Platform Admin
+      - http:
+          path: /api/platform-admin/dashboard/summary
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/platform-admin/accounts/{accountId}
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+
+      # Account / Members
+      - http:
+          path: /api/account/me
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/account/memberships
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/account/members
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/account/members
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/account/members/{sub}
+          method: put
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/account/members/{sub}
+          method: delete
           cors: true
           authorizer:
             name: ApiGatewayAuthorizer

@@ -40,12 +40,55 @@ export async function getCurrentUserId(): Promise<string | null> {
   }
 }
 
+const ACTIVE_ACCOUNT_STORAGE_KEY = 'lynxbox-active-account-id';
+
+// Viewer-side convenience only — the backend always validates this against a real
+// membership and ignores/falls back silently if it doesn't recognize the account.
+export function getActiveAccountId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_ACCOUNT_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveAccountId(accountId: string): void {
+  try {
+    localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, accountId);
+  } catch {
+    // ignore (e.g. private browsing with storage disabled)
+  }
+}
+
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await getCurrentJWTToken();
   if (!token) {
     return {};
   }
-  return {
+  const headers: Record<string, string> = {
     'Authorization': `Bearer ${token}`
   };
+  const activeAccountId = getActiveAccountId();
+  if (activeAccountId) {
+    headers['X-Account-Id'] = activeAccountId;
+  }
+  return headers;
+}
+
+// Client-side check only — a defense-in-depth convenience for hiding/showing UI.
+// Real enforcement always happens server-side via isPlatformAdmin() in api/src/lib/auth.ts.
+export async function getIsPlatformAdmin(): Promise<boolean> {
+  try {
+    const session: AuthSession = await fetchAuthSession()
+    const raw = session.tokens?.idToken?.payload?.['cognito:groups']
+    const groups = Array.isArray(raw)
+      ? raw
+      : typeof raw === 'string'
+        ? raw.split(',').map(s => s.trim()).filter(Boolean)
+        : []
+    return groups.includes('platform-admin')
+  } catch (error) {
+    console.error('Error checking platform-admin status:', error)
+    return false
+  }
 }

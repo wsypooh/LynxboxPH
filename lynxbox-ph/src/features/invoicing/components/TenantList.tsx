@@ -9,6 +9,7 @@ import { MdReceipt } from 'react-icons/md';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { Tenant, Building } from '@/features/invoicing/types';
+import { useAccount } from '@/features/account/AccountContext';
 
 const LS_COL_KEY  = 'tenant-columns-v2';
 const LS_SORT_KEY = 'tenant-sort-v1';
@@ -180,6 +181,7 @@ interface Props {
 
 export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
   const router = useRouter();
+  const { canWrite, canDestroy } = useAccount();
 
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => {
     try {
@@ -312,15 +314,19 @@ export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
                     <Tooltip label="View">
                       <IconButton aria-label="View tenant" icon={<FiEye />} size="xs" variant="outline" onClick={() => router.push(`/dashboard/tenants/detail?id=${t.id}`)} />
                     </Tooltip>
-                    <Tooltip label="Edit">
-                      <IconButton aria-label="Edit tenant" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => onEdit(t)} />
-                    </Tooltip>
+                    {canWrite && (
+                      <Tooltip label="Edit">
+                        <IconButton aria-label="Edit tenant" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => onEdit(t)} />
+                      </Tooltip>
+                    )}
                     <Tooltip label="Invoices">
                       <IconButton aria-label="View invoices" icon={<MdReceipt />} size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices?tenantId=${t.id}`)} />
                     </Tooltip>
-                    <Tooltip label="Delete">
-                      <IconButton aria-label="Delete tenant" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(t.id)} />
-                    </Tooltip>
+                    {canDestroy && (
+                      <Tooltip label="Delete">
+                        <IconButton aria-label="Delete tenant" icon={<FiTrash2 />} size="xs" variant="ghost" colorScheme="red" onClick={() => onDelete(t.id)} />
+                      </Tooltip>
+                    )}
                   </HStack>
                 </Td>
               </Tr>

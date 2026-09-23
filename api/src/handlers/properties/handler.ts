@@ -8,6 +8,7 @@ import { ddbDocClient } from '../../lib/dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { S3Service } from '../../lib/s3';
 import { watermarkConfig, getWatermarkOptions } from '../../config/watermark';
+import { canDestroy, canWrite, resolveActor } from '../../lib/auth';
 
 export class PropertyHandler {
   static async createProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -54,23 +55,15 @@ export class PropertyHandler {
         return ApiResponse.error(`Missing required fields: ${missingFields.join(', ')}`, 400);
       }
 
-      // Extract user ID from authentication claims
-      let userId: string;
-      
-      // Check for JWT claims first (always prioritize JWT)
-      if (event.requestContext.authorizer?.claims?.sub) {
-        userId = event.requestContext.authorizer.claims.sub;
-      } 
-      // Fallback to Cognito User ID from authorizer context
-      else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
-        userId = event.requestContext.authorizer.claims['cognito:username'];
-      }
-      // Development fallback (when no auth is present)
-      else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
-        userId = 'test-user-id';
-      } else {
+      // Extract the authenticated user's account
+      const actor = await resolveActor(event);
+      if (!actor) {
         return ApiResponse.unauthorized('User authentication required');
       }
+      if (!canWrite(actor)) {
+        return ApiResponse.forbidden('You do not have permission to create properties');
+      }
+      const userId = actor.accountId;
 
       // Remove base64Images from the data before storing - only keep S3 URLs
       const { base64Images, ...cleanPropertyData } = propertyData;
@@ -279,8 +272,26 @@ export class PropertyHandler {
         return ApiResponse.error('Request body is required', 400);
       }
 
+      const actor = await resolveActor(event);
+      if (!actor) {
+        return ApiResponse.unauthorized('User authentication required');
+      }
+
+      const property = await PropertyRepository.findById(id);
+      if (!property || property.deletedAt) {
+        return ApiResponse.notFound('Property not found');
+      }
+
+      if (property.ownerId !== actor.accountId) {
+        return ApiResponse.forbidden('You do not have permission to update this property');
+      }
+
+      if (!canWrite(actor)) {
+        return ApiResponse.forbidden('You do not have permission to update properties');
+      }
+
       const updates = JSON.parse(event.body);
-      
+
       // Handle image removal and replacement
       if (updates.removeImages && Array.isArray(updates.removeImages)) {
         console.log(`=== IMAGE DELETION TRIGGERED ===`);
@@ -296,12 +307,6 @@ export class PropertyHandler {
         uploadedImages = await this.handleBase64Images(updates.base64Images, id);
       }
 
-      // Combine existing images (minus removed ones) with new uploads
-      const property = await PropertyRepository.findById(id);
-      if (!property || property.deletedAt) {
-        return ApiResponse.notFound('Property not found');
-      }
-
       const currentImages = property.images || [];
       const imagesToRemove = updates.removeImages || [];
       const remainingImages = currentImages.filter(img => !imagesToRemove.includes(img));
@@ -310,11 +315,6 @@ export class PropertyHandler {
       // Remove fields that shouldn't be updated
       const { id: _, ownerId, createdAt, removeImages, base64Images, ...validUpdates } = updates;
       validUpdates.images = finalImages;
-
-      // In a real app, you'd verify the current user is the owner
-      // if (property.ownerId !== userId) {
-      //   return ApiResponse.forbidden('You do not have permission to update this property');
-      // }
 
       const updatedProperty = await PropertyRepository.update(id, validUpdates);
       if (!updatedProperty) {
@@ -354,16 +354,23 @@ export class PropertyHandler {
         return ApiResponse.error('Property ID is required', 400);
       }
 
+      const actor = await resolveActor(event);
+      if (!actor) {
+        return ApiResponse.unauthorized('User authentication required');
+      }
+
       const property = await PropertyRepository.findById(id);
       if (!property || property.deletedAt) {
         return ApiResponse.notFound('Property not found');
       }
 
-      // In a real app, you'd verify the current user is the owner
-      // const userId = event.requestContext.authorizer?.claims?.sub;
-      // if (property.ownerId !== userId) {
-      //   return ApiResponse.forbidden('You do not have permission to delete this property');
-      // }
+      if (property.ownerId !== actor.accountId) {
+        return ApiResponse.forbidden('You do not have permission to delete this property');
+      }
+
+      if (!canDestroy(actor)) {
+        return ApiResponse.forbidden('You do not have permission to delete properties');
+      }
 
       // Delete S3 images first
       const s3Service = new S3Service();
@@ -398,23 +405,11 @@ export class PropertyHandler {
     const sortBy = event.queryStringParameters?.sortBy as 'price' | 'area' | 'date' | 'views';
     const sortOrder = event.queryStringParameters?.sortOrder as 'asc' | 'desc';
 
-    // Extract user ID from authentication claims
-    let userId: string;
-    
-    // Check for JWT claims first (always prioritize JWT)
-    if (event.requestContext.authorizer?.claims?.sub) {
-      userId = event.requestContext.authorizer.claims.sub;
-    } 
-    // Fallback to Cognito User ID from authorizer context
-    else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
-      userId = event.requestContext.authorizer.claims['cognito:username'];
-    }
-    // Development fallback (when no auth is present)
-    else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
-      userId = event.queryStringParameters?.ownerId || 'test-user-id';
-    } else {
+    const actor = await resolveActor(event);
+    if (!actor) {
       return ApiResponse.unauthorized('User authentication required');
     }
+    const userId = actor.accountId;
 
     let result;
     if (type) {
@@ -451,23 +446,13 @@ export class PropertyHandler {
       // Extract user ID only for non-public endpoints
       let userId: string | undefined;
       if (!isPublicEndpoint) {
-        // Check for JWT claims first (production)
-        if (event.requestContext.authorizer?.claims?.sub) {
-          userId = event.requestContext.authorizer.claims.sub;
-        } 
-        // Fallback to Cognito User ID from authorizer context
-        else if (event.requestContext.authorizer?.claims?.['cognito:username']) {
-          userId = event.requestContext.authorizer.claims['cognito:username'];
-        }
-        // Development fallback (when auth is disabled)
-        else if (process.env.IS_OFFLINE || process.env.NODE_ENV === 'development') {
-          userId = 'test-user-id';
-          console.log('Development mode: using fallback userId:', userId);
-        } else {
+        const actor = await resolveActor(event);
+        if (!actor) {
           return ApiResponse.unauthorized('User authentication required');
         }
+        userId = actor.accountId;
       }
-      
+
       // Build unified filters object
       const filters: any = {};
       

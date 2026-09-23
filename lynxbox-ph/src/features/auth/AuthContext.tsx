@@ -1,14 +1,14 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, type ReactNode, useCallback } from 'react'
-import { 
-  getCurrentUser, 
-  signOut as amplifySignOut, 
-  type AuthUser, 
-  fetchUserAttributes, 
+import {
+  getCurrentUser,
+  signOut as amplifySignOut,
+  type AuthUser,
+  fetchUserAttributes,
   updateUserAttributes as amplifyUpdateUserAttributes,
-  updateUserAttribute,
-  updateUserAttributes,
+  confirmUserAttribute as amplifyConfirmUserAttribute,
+  sendUserAttributeVerificationCode as amplifySendUserAttributeVerificationCode,
   fetchMFAPreference,
   updateMFAPreference,
   verifyTOTPSetup,
@@ -35,6 +35,9 @@ type VerifyTOTPResult = {
 
 type MFAPreference = 'NOMFA' | 'TOTP';
 
+// Matches Amplify's AuthVerifiableAttributeKey — the only attributes Cognito can verify by code.
+type VerifiableAttributeKey = 'email' | 'phone_number';
+
 // Extend the AuthUser type to include custom attributes
 interface CustomAuthUser extends AuthUser {
   attributes?: {
@@ -46,11 +49,19 @@ interface CustomAuthUser extends AuthUser {
 }
 import { Hub } from 'aws-amplify/utils'
 
+interface UpdateAttributesResult {
+  // Set when Cognito requires a verification code before this attribute (e.g. email)
+  // actually takes effect. The caller must prompt for the code and call confirmUserAttribute.
+  pendingConfirmationAttributeKey?: string;
+}
+
 interface AuthContextType {
   user: CustomAuthUser | null
   isLoading: boolean
   signOut: () => Promise<void>
-  updateUserAttributes: (attributes: Record<string, string>) => Promise<boolean>
+  updateUserAttributes: (attributes: Record<string, string>) => Promise<UpdateAttributesResult>
+  confirmUserAttribute: (attributeKey: VerifiableAttributeKey, confirmationCode: string) => Promise<{ success: boolean; error?: string }>
+  resendAttributeVerificationCode: (attributeKey: VerifiableAttributeKey) => Promise<{ success: boolean; error?: string }>
   changePassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>
   setupTOTP: () => Promise<TOTPSetupResult>
   verifyTOTP: (code: string) => Promise<VerifyTOTPResult>
@@ -148,27 +159,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const updateUserAttributes = async (attributes: Record<string, string>): Promise<boolean> => {
+  const updateUserAttributes = async (attributes: Record<string, string>): Promise<UpdateAttributesResult> => {
     try {
       console.log('Updating user attributes:', attributes);
-      
+
+      let pendingConfirmationAttributeKey: string | undefined;
+
       // Update each attribute one by one to handle errors individually
       for (const [key, value] of Object.entries(attributes)) {
         try {
           console.log(`Updating ${key}...`);
-          await amplifyUpdateUserAttributes({ 
-            userAttributes: { [key]: value } 
+          const result = await amplifyUpdateUserAttributes({
+            userAttributes: { [key]: value }
           });
+          // Cognito requires verifying the new value (e.g. email) before it actually
+          // takes effect — this is NOT an error, but the caller must prompt for a code.
+          if (result[key]?.nextStep?.updateAttributeStep === 'CONFIRM_ATTRIBUTE_WITH_CODE') {
+            pendingConfirmationAttributeKey = key;
+          }
           console.log(`Successfully updated ${key}`);
         } catch (error) {
           console.error(`Failed to update ${key}:`, error);
           throw error; // Re-throw to be caught by the outer catch
         }
       }
-      
+
       // Refresh user data after all updates are successful
       await checkUser();
-      return true;
+      return { pendingConfirmationAttributeKey };
     } catch (error) {
       console.error('Error updating user attributes:', error);
       if (error instanceof Error) {
@@ -179,6 +197,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
       throw error; // Re-throw to handle in the component
+    }
+  };
+
+  const confirmUserAttribute = async (attributeKey: VerifiableAttributeKey, confirmationCode: string) => {
+    try {
+      await amplifyConfirmUserAttribute({ userAttributeKey: attributeKey, confirmationCode });
+      await checkUser();
+      return { success: true };
+    } catch (error) {
+      console.error(`Error confirming ${attributeKey}:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : `Failed to confirm ${attributeKey}`,
+      };
+    }
+  };
+
+  const resendAttributeVerificationCode = async (attributeKey: VerifiableAttributeKey) => {
+    try {
+      await amplifySendUserAttributeVerificationCode({ userAttributeKey: attributeKey });
+      return { success: true };
+    } catch (error) {
+      console.error(`Error resending verification code for ${attributeKey}:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resend verification code',
+      };
     }
   };
 
@@ -333,6 +378,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     signOut,
     updateUserAttributes,
+    confirmUserAttribute,
+    resendAttributeVerificationCode,
     changePassword,
     setupTOTP,
     verifyTOTP,

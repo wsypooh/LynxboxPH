@@ -7,6 +7,8 @@ import { TenantHandler } from './handlers/tenants/handler';
 import { InvoiceHandler } from './handlers/invoices/handler';
 import { LedgerHandler } from './handlers/ledger/handler';
 import { DocumentHandler } from './handlers/documents/handler';
+import { PlatformAdminDashboardHandler } from './handlers/platformAdmin/dashboardHandler';
+import { AccountHandler } from './handlers/account/handler';
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
@@ -55,6 +57,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     if (event.path?.includes('/api/documents')) {
       return await DocumentHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/platform-admin')) {
+      return await PlatformAdminDashboardHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/account')) {
+      return await AccountHandler.handle(event);
     }
 
     return await propertyHandler(event);

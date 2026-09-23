@@ -437,3 +437,69 @@ resource "aws_apigatewayv2_route" "delete_document" {
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
+
+# Platform Admin Routes
+resource "aws_apigatewayv2_route" "platform_admin_dashboard_summary" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/platform-admin/dashboard/summary"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "platform_admin_account_detail" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/platform-admin/accounts/{accountId}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+# Account / Member Routes
+resource "aws_apigatewayv2_route" "account_me" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/account/me"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "account_memberships" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/account/memberships"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "list_account_members" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/account/members"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "invite_account_member" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/account/members"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "update_account_member" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /api/account/members/{sub}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "remove_account_member" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /api/account/members/{sub}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}

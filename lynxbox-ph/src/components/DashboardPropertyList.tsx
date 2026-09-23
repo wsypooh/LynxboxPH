@@ -55,6 +55,7 @@ import { Property, propertyService, PropertyType } from '@/services/propertyServ
 import { formatCurrency } from '@/lib/utils';
 import { PropertyStatusUpdater } from './PropertyStatusUpdater';
 import { SecureImage } from '@/components/SecureImage';
+import { useAccount } from '@/features/account/AccountContext';
 
 interface FilterState {
   type?: PropertyType[];
@@ -102,8 +103,9 @@ export function DashboardPropertyList({
   onAddNew,
   refreshTrigger = 0,
 }: DashboardPropertyListProps) {
+  const { canWrite, canDestroy } = useAccount();
   const STORAGE_KEY = 'dashboard-properties-filters';
-  
+
   // Initialize search params from localStorage
   const initializeSearchParams = (): PropertySearchParams => {
     try {
@@ -797,7 +799,7 @@ export function DashboardPropertyList({
               onClick={() => setViewMode('table')}
             />
           </HStack>
-          {onAddNew && (
+          {canWrite && onAddNew && (
             <Button
               leftIcon={<Plus />}
               colorScheme="blue"
@@ -996,15 +998,17 @@ export function DashboardPropertyList({
                       </HStack>
 
                       {/* Quick Status Update */}
-                      <Box w="full">
-                        <Text fontSize="xs" fontWeight="medium" color="gray.600" mb={2}>
-                          Quick Status Update:
-                        </Text>
-                        <PropertyStatusUpdater 
-                          property={property} 
-                          onStatusUpdate={handleStatusUpdate}
-                        />
-                      </Box>
+                      {canWrite && (
+                        <Box w="full">
+                          <Text fontSize="xs" fontWeight="medium" color="gray.600" mb={2}>
+                            Quick Status Update:
+                          </Text>
+                          <PropertyStatusUpdater
+                            property={property}
+                            onStatusUpdate={handleStatusUpdate}
+                          />
+                        </Box>
+                      )}
 
                       {/* Action Buttons */}
                       <HStack spacing={2} w="full" justify="space-between">
@@ -1017,24 +1021,28 @@ export function DashboardPropertyList({
                         >
                           View
                         </Button>
-                        <Button
-                          leftIcon={<EditIcon />}
-                          size="sm"
-                          colorScheme="blue"
-                          onClick={() => handleEditProperty?.(property)}
-                          flex={1}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          leftIcon={<DeleteIcon />}
-                          size="sm"
-                          colorScheme="red"
-                          variant="outline"
-                          onClick={() => handleDelete(property)}
-                        >
-                          Delete
-                        </Button>
+                        {canWrite && (
+                          <Button
+                            leftIcon={<EditIcon />}
+                            size="sm"
+                            colorScheme="blue"
+                            onClick={() => handleEditProperty?.(property)}
+                            flex={1}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                        {canDestroy && (
+                          <Button
+                            leftIcon={<DeleteIcon />}
+                            size="sm"
+                            colorScheme="red"
+                            variant="outline"
+                            onClick={() => handleDelete(property)}
+                          >
+                            Delete
+                          </Button>
+                        )}
                       </HStack>
                     </VStack>
                   </Box>
@@ -1178,23 +1186,27 @@ export function DashboardPropertyList({
                               onClick={() => onView?.(property)}
                               fontSize="xs"
                             />
-                            <IconButton
-                              aria-label="Edit property"
-                              icon={<EditIcon />}
-                              size="xs"
-                              colorScheme="blue"
-                              onClick={() => handleEditProperty?.(property)}
-                              fontSize="xs"
-                            />
-                            <IconButton
-                              aria-label="Delete property"
-                              icon={<DeleteIcon />}
-                              size="xs"
-                              colorScheme="red"
-                              variant="outline"
-                              onClick={() => handleDelete(property)}
-                              fontSize="xs"
-                            />
+                            {canWrite && (
+                              <IconButton
+                                aria-label="Edit property"
+                                icon={<EditIcon />}
+                                size="xs"
+                                colorScheme="blue"
+                                onClick={() => handleEditProperty?.(property)}
+                                fontSize="xs"
+                              />
+                            )}
+                            {canDestroy && (
+                              <IconButton
+                                aria-label="Delete property"
+                                icon={<DeleteIcon />}
+                                size="xs"
+                                colorScheme="red"
+                                variant="outline"
+                                onClick={() => handleDelete(property)}
+                                fontSize="xs"
+                              />
+                            )}
                           </HStack>
                         </Td>
                       </Tr>
@@ -1215,7 +1227,7 @@ export function DashboardPropertyList({
           <Text color="gray.400">
             {hasActiveFilters() ? 'Try adjusting your search criteria or filters' : 'Get started by adding your first property'}
           </Text>
-          {!hasActiveFilters() && onAddNew && (
+          {!hasActiveFilters() && canWrite && onAddNew && (
             <Button
               leftIcon={<Plus />}
               colorScheme="blue"

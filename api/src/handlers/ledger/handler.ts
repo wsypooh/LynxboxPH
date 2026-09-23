@@ -2,12 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { LedgerRepository, pendingPenalty } from '../../repositories/ledgerRepository';
 import { TenantRepository } from '../../repositories/tenantRepository';
 import { ApiResponse } from '../../lib/apiResponse';
-
-function getUserId(event: APIGatewayProxyEvent): string | null {
-  return event.requestContext.authorizer?.claims?.sub
-    || event.requestContext.authorizer?.claims?.['cognito:username']
-    || (process.env.IS_OFFLINE ? 'local-test-user-123' : null);
-}
+import { Actor, canDestroy, canWrite, resolveActor } from '../../lib/auth';
 
 function getTenantId(event: APIGatewayProxyEvent): string | null {
   const match = event.path.match(/\/api\/tenants\/([^/]+)/);
@@ -18,18 +13,21 @@ export class LedgerHandler {
   static async handle(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const method = event.httpMethod;
     const path = event.path;
-    const userId = getUserId(event);
-    if (!userId) return ApiResponse.unauthorized('Not authenticated');
+    const actor = await resolveActor(event);
+    if (!actor) return ApiResponse.unauthorized('Not authenticated');
 
     try {
       if (method === 'POST' && path.match(/\/api\/tenants\/[^/]+\/ledger\/reset$/)) {
-        return await LedgerHandler.resetLedger(event, userId);
+        if (!canDestroy(actor)) return ApiResponse.forbidden('You do not have permission to reset the ledger');
+        return await LedgerHandler.resetLedger(event, actor);
       } else if (method === 'GET' && path.match(/\/api\/tenants\/[^/]+\/ledger$/)) {
-        return await LedgerHandler.getLedger(event, userId);
+        return await LedgerHandler.getLedger(event, actor);
       } else if (method === 'POST' && path.match(/\/api\/tenants\/[^/]+\/payments$/)) {
-        return await LedgerHandler.recordPayment(event, userId);
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to record payments');
+        return await LedgerHandler.recordPayment(event, actor);
       } else if (method === 'POST' && path.endsWith('/api/ledger/charges')) {
-        return await LedgerHandler.createCharge(event, userId);
+        if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to create charges');
+        return await LedgerHandler.createCharge(event, actor);
       }
       return ApiResponse.notFound('Route not found');
     } catch (err) {
@@ -38,7 +36,7 @@ export class LedgerHandler {
     }
   }
 
-  static async createCharge(event: APIGatewayProxyEvent, userId: string) {
+  static async createCharge(event: APIGatewayProxyEvent, actor: Actor) {
     const body = JSON.parse(event.body || '{}');
     const { tenantId, billingMonth, principalAmount } = body;
     if (!tenantId || !billingMonth || !principalAmount) {
@@ -46,11 +44,11 @@ export class LedgerHandler {
     }
 
     const tenant = await TenantRepository.findById(tenantId);
-    if (!tenant || tenant.ownerId !== userId) return ApiResponse.notFound('Tenant not found');
+    if (!tenant || tenant.ownerId !== actor.accountId) return ApiResponse.notFound('Tenant not found');
 
     const chargeEntry = await LedgerRepository.createChargeEntry({
       tenantId,
-      ownerId: userId,
+      ownerId: actor.accountId,
       billingMonth,
       principalAmount,
       invoiceNumber: body.invoiceNumber,
@@ -60,11 +58,11 @@ export class LedgerHandler {
     return ApiResponse.success({ chargeEntry }, 201);
   }
 
-  static async getLedger(event: APIGatewayProxyEvent, userId: string) {
+  static async getLedger(event: APIGatewayProxyEvent, actor: Actor) {
     const tenantId = getTenantId(event);
     if (!tenantId) return ApiResponse.notFound('Tenant not found');
     const tenant = await TenantRepository.findById(tenantId);
-    if (!tenant || tenant.ownerId !== userId) return ApiResponse.notFound('Tenant not found');
+    if (!tenant || tenant.ownerId !== actor.accountId) return ApiResponse.notFound('Tenant not found');
 
     const penaltyEnabled = tenant.penaltyEnabled ?? true;
     const asOf = event.queryStringParameters?.asOf;
@@ -87,11 +85,11 @@ export class LedgerHandler {
     });
   }
 
-  static async recordPayment(event: APIGatewayProxyEvent, userId: string) {
+  static async recordPayment(event: APIGatewayProxyEvent, actor: Actor) {
     const tenantId = getTenantId(event);
     if (!tenantId) return ApiResponse.notFound('Tenant not found');
     const tenant = await TenantRepository.findById(tenantId);
-    if (!tenant || tenant.ownerId !== userId) return ApiResponse.notFound('Tenant not found');
+    if (!tenant || tenant.ownerId !== actor.accountId) return ApiResponse.notFound('Tenant not found');
 
     const body = JSON.parse(event.body || '{}');
     if (!body.amount || body.amount <= 0) return ApiResponse.error('amount must be a positive number');
@@ -99,7 +97,7 @@ export class LedgerHandler {
 
     const paymentEntry = await LedgerRepository.recordPaymentWithFIFO({
       tenantId,
-      ownerId: userId,
+      ownerId: actor.accountId,
       paymentDate: body.date || new Date().toISOString().slice(0, 10),
       totalAmount: body.amount,
       paymentMethod: body.paymentMethod,
@@ -109,11 +107,11 @@ export class LedgerHandler {
     return ApiResponse.success({ paymentEntry }, 201);
   }
 
-  static async resetLedger(event: APIGatewayProxyEvent, userId: string) {
+  static async resetLedger(event: APIGatewayProxyEvent, actor: Actor) {
     const tenantId = getTenantId(event);
     if (!tenantId) return ApiResponse.notFound('Tenant not found');
     const tenant = await TenantRepository.findById(tenantId);
-    if (!tenant || tenant.ownerId !== userId) return ApiResponse.notFound('Tenant not found');
+    if (!tenant || tenant.ownerId !== actor.accountId) return ApiResponse.notFound('Tenant not found');
 
     const result = await LedgerRepository.resetTenantLedger(tenantId);
     return ApiResponse.success(result);

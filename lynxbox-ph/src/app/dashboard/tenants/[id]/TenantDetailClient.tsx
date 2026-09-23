@@ -20,8 +20,10 @@ import { documentService } from '@/services/documentService';
 import { DocumentList } from '@/features/documents/components/DocumentList';
 import { DocumentUploadModal } from '@/features/documents/components/DocumentUploadModal';
 import { Document } from '@/features/documents/types';
+import { useAccount } from '@/features/account/AccountContext';
 
 export default function TenantDetailClient({ id }: { id: string }) {
+  const { canWrite, canDestroy } = useAccount();
   const router = useRouter();
   const toast = useToast();
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -162,7 +164,9 @@ export default function TenantDetailClient({ id }: { id: string }) {
           <Heading size="lg">{tenant.lesseeName}</Heading>
           <Badge colorScheme={tenant.status === 'active' ? 'green' : 'gray'} ml={2}>{tenant.status}</Badge>
         </HStack>
-        <Button size="sm" variant="outline" onClick={openEdit}>Edit Tenant</Button>
+        {canWrite && (
+          <Button size="sm" variant="outline" onClick={openEdit}>Edit Tenant</Button>
+        )}
       </HStack>
 
       <VStack align="stretch" spacing={4}>
@@ -281,18 +285,24 @@ export default function TenantDetailClient({ id }: { id: string }) {
             <HStack justify="space-between">
               <Heading size="sm">Ledger &amp; Outstanding Balances</Heading>
               <HStack>
-                <Button size="sm" variant="outline" onClick={openLedgerCsv}>Import Historical Balances</Button>
-                <Button size="sm" colorScheme="green" onClick={openPayment}>Record Payment</Button>
+                {canWrite && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={openLedgerCsv}>Import Historical Balances</Button>
+                    <Button size="sm" colorScheme="green" onClick={openPayment}>Record Payment</Button>
+                  </>
+                )}
               </HStack>
             </HStack>
           </CardHeader>
           <CardBody>
             <LedgerView tenantId={id} penaltyEnabled={tenant.penaltyEnabled} reloadToken={ledgerReloadToken} />
-            <HStack justify="flex-end" mt={4}>
-              <Button size="xs" variant="ghost" colorScheme="red" onClick={handleResetLedger} isLoading={resetLoading}>
-                Reset Ledger for This Tenant
-              </Button>
-            </HStack>
+            {canDestroy && (
+              <HStack justify="flex-end" mt={4}>
+                <Button size="xs" variant="ghost" colorScheme="red" onClick={handleResetLedger} isLoading={resetLoading}>
+                  Reset Ledger for This Tenant
+                </Button>
+              </HStack>
+            )}
           </CardBody>
         </Card>
 
@@ -301,10 +311,14 @@ export default function TenantDetailClient({ id }: { id: string }) {
             <HStack justify="space-between">
               <Heading size="sm">Invoices</Heading>
               <HStack>
-                <Button size="sm" variant="outline" onClick={openInvoiceCsv}>Import CSV</Button>
-                <Button size="sm" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices/new?tenantId=${id}`)}>
-                  + New Invoice
-                </Button>
+                {canWrite && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={openInvoiceCsv}>Import CSV</Button>
+                    <Button size="sm" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices/new?tenantId=${id}`)}>
+                      + New Invoice
+                    </Button>
+                  </>
+                )}
               </HStack>
             </HStack>
           </CardHeader>
@@ -324,7 +338,9 @@ export default function TenantDetailClient({ id }: { id: string }) {
           <CardHeader pb={1}>
             <HStack justify="space-between">
               <Heading size="sm">Documents</Heading>
-              <Button size="sm" colorScheme="blue" onClick={openUpload}>+ Upload Document</Button>
+              {canWrite && (
+                <Button size="sm" colorScheme="blue" onClick={openUpload}>+ Upload Document</Button>
+              )}
             </HStack>
           </CardHeader>
           <CardBody>

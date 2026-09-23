@@ -316,4 +316,63 @@ Helping Small Commercial Landlords Go Digital`;
     });
     console.log(`Invoice email sent to ${contactEmail} for ${invoice.invoiceNumber}`);
   }
+
+  async sendAccountInviteEmail(params: {
+    toEmail: string;
+    inviterEmail: string;
+    role: string;
+    temporaryPassword: string;
+    signInUrl: string;
+  }): Promise<void> {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY;
+    if (!smtpKey) {
+      console.log('ZeptoMail not configured, skipping account invite email');
+      return;
+    }
+
+    const { toEmail, inviterEmail, role, temporaryPassword, signInUrl } = params;
+    const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #0e2949; color: white; padding: 25px 30px; border-radius: 8px 8px 0 0; }
+          .content { background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+          .credentials { background-color: white; border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px 20px; margin: 20px 0; font-family: monospace; }
+          .button { display: inline-block; background-color: #0e2949; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; margin-top: 15px; }
+          .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #999; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <strong>You've been invited to Lynxbox PH</strong>
+        </div>
+        <div class="content">
+          <p><strong>${inviterEmail}</strong> has invited you to join their account as a <strong>${roleLabel}</strong>.</p>
+          <p>Use these temporary credentials to sign in — you'll be asked to set your own password on first login:</p>
+          <div class="credentials">
+            Email: ${toEmail}<br>
+            Temporary password: ${temporaryPassword}
+          </div>
+          <a class="button" href="${signInUrl}">Sign in to Lynxbox PH</a>
+        </div>
+        <div class="footer">
+          <p>Lynxbox PH &mdash; Property Management</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: toEmail,
+      subject: `You've been invited to Lynxbox PH as a ${roleLabel}`,
+      html,
+    });
+    console.log(`Account invite email sent to ${toEmail}`);
+  }
 }
