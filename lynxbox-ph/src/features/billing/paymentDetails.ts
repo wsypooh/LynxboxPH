@@ -17,9 +17,9 @@ export interface PaymentMethodDetails {
 // "QR code coming soon" placeholder instead.
 export const PAYMENT_METHOD_DETAILS: Record<PaymentMethod, PaymentMethodDetails> = {
   gcash: {
-    qrImage: '/payment-qr/gcash-qr.jpg',
-    accountName: 'Rollyn Sy',
-    accountNumber: '09177199309',
+    qrImage: '/payment-qr/gcash-qr.png',
+    accountName: 'Willie Jr Sy',
+    accountNumber: '09088109279',
   },
   maya: {
     qrImage: undefined,

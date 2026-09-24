@@ -90,7 +90,7 @@ export default function TeamPage() {
 
   return (
     <Box p={8}>
-      <HStack justify="space-between" mb={6}>
+      <HStack justify="space-between" mb={6} flexWrap="wrap" gap={3}>
         <Box>
           <Heading size="lg" mb={1}>Team</Heading>
           <Text color="gray.500">Invite people to help manage this account.</Text>
@@ -98,49 +98,51 @@ export default function TeamPage() {
         <Button colorScheme="blue" leftIcon={<FiUserPlus />} onClick={onOpen}>Invite Member</Button>
       </HStack>
 
-      <Table variant="simple">
-        <Thead>
-          <Tr><Th>Email</Th><Th>Role</Th><Th>Status</Th><Th></Th></Tr>
-        </Thead>
-        <Tbody>
-          {members.map(m => (
-            <Tr key={m.sub}>
-              <Td>{m.email}</Td>
-              <Td>
-                {m.role === 'owner' ? (
-                  <Badge colorScheme="purple">Owner</Badge>
-                ) : (
-                  <Select
-                    size="sm"
-                    width="140px"
-                    value={m.role}
-                    onChange={(e) => handleRoleChange(m.sub, e.target.value as Role)}
-                  >
-                    <option value="manager">Manager</option>
-                    <option value="staff">Staff</option>
-                    <option value="viewer">Viewer</option>
-                  </Select>
-                )}
-              </Td>
-              <Td>
-                <Badge colorScheme={m.status === 'active' ? 'green' : 'yellow'}>{m.status}</Badge>
-              </Td>
-              <Td>
-                {m.role !== 'owner' && (
-                  <IconButton
-                    aria-label="Remove member"
-                    icon={<FiTrash2 />}
-                    size="sm"
-                    variant="ghost"
-                    colorScheme="red"
-                    onClick={() => handleRemove(m.sub)}
-                  />
-                )}
-              </Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
+      <Box overflowX="auto">
+        <Table variant="simple">
+          <Thead>
+            <Tr><Th>Email</Th><Th>Role</Th><Th>Status</Th><Th></Th></Tr>
+          </Thead>
+          <Tbody>
+            {members.map(m => (
+              <Tr key={m.sub}>
+                <Td>{m.email}</Td>
+                <Td>
+                  {m.role === 'owner' ? (
+                    <Badge colorScheme="purple">Owner</Badge>
+                  ) : (
+                    <Select
+                      size="sm"
+                      width="140px"
+                      value={m.role}
+                      onChange={(e) => handleRoleChange(m.sub, e.target.value as Role)}
+                    >
+                      <option value="manager">Manager</option>
+                      <option value="staff">Staff</option>
+                      <option value="viewer">Viewer</option>
+                    </Select>
+                  )}
+                </Td>
+                <Td>
+                  <Badge colorScheme={m.status === 'active' ? 'green' : 'yellow'}>{m.status}</Badge>
+                </Td>
+                <Td>
+                  {m.role !== 'owner' && (
+                    <IconButton
+                      aria-label="Remove member"
+                      icon={<FiTrash2 />}
+                      size="sm"
+                      variant="ghost"
+                      colorScheme="red"
+                      onClick={() => handleRemove(m.sub)}
+                    />
+                  )}
+                </Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </Box>
 
       <Modal isOpen={isOpen} onClose={onClose}>
         <ModalOverlay />

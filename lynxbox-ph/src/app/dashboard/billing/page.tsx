@@ -224,28 +224,30 @@ export default function BillingPage() {
           {submissions.length === 0 ? (
             <Text color="gray.500">No payment submissions yet.</Text>
           ) : (
-            <Table variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>Date</Th>
-                  <Th>Plan</Th>
-                  <Th>Method</Th>
-                  <Th>Amount</Th>
-                  <Th>Status</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {submissions.map(s => (
-                  <Tr key={s.id}>
-                    <Td>{new Date(s.submittedAt).toLocaleDateString('en-PH')}</Td>
-                    <Td>{s.requestedPlan} ({s.requestedBillingCycle})</Td>
-                    <Td>{PAYMENT_METHOD_LABELS[s.method]}</Td>
-                    <Td>₱{s.amountClaimed.toLocaleString()}</Td>
-                    <Td><Badge colorScheme={SUBMISSION_STATUS_COLOR[s.status]}>{s.status}</Badge></Td>
+            <Box overflowX="auto">
+              <Table variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Date</Th>
+                    <Th>Plan</Th>
+                    <Th>Method</Th>
+                    <Th>Amount</Th>
+                    <Th>Status</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
+                </Thead>
+                <Tbody>
+                  {submissions.map(s => (
+                    <Tr key={s.id}>
+                      <Td>{new Date(s.submittedAt).toLocaleDateString('en-PH')}</Td>
+                      <Td>{s.requestedPlan} ({s.requestedBillingCycle})</Td>
+                      <Td>{PAYMENT_METHOD_LABELS[s.method]}</Td>
+                      <Td>₱{s.amountClaimed.toLocaleString()}</Td>
+                      <Td><Badge colorScheme={SUBMISSION_STATUS_COLOR[s.status]}>{s.status}</Badge></Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
           )}
         </Box>
       </VStack>

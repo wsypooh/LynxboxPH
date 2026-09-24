@@ -64,6 +64,7 @@ export default function PlatformAdminDashboardPage() {
         Read-only view across every account &mdash; {summary.totalAccounts} account{summary.totalAccounts === 1 ? '' : 's'} total.
       </Text>
 
+      <Box overflowX="auto">
       <Table variant="simple">
         <Thead>
           <Tr>
@@ -140,6 +141,7 @@ export default function PlatformAdminDashboardPage() {
           ))}
         </Tbody>
       </Table>
+      </Box>
     </Box>
   );
 }

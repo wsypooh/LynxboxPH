@@ -115,8 +115,8 @@ export default function PropertyManagePage() {
     <Box minH="calc(100vh - 70px)" p={6}>
       <VStack spacing={6} align="stretch" maxW="7xl" mx="auto">
         {/* Header */}
-        <HStack justify="space-between" align="center">
-          <HStack spacing={4}>
+        <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
+          <HStack spacing={4} flexWrap="wrap">
             {currentView !== 'list' && (
               <Button
                 leftIcon={<ArrowBackIcon />}

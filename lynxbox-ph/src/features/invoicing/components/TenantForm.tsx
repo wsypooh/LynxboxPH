@@ -4,7 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  VStack, HStack, FormControl, FormLabel, FormErrorMessage, Input,
+  VStack, HStack, Stack, FormControl, FormLabel, FormErrorMessage, Input,
   NumberInput, NumberInputField, Button, IconButton, Select, Switch, Heading,
   Divider, Box, Text, Tooltip, useDisclosure,
 } from '@chakra-ui/react';
@@ -116,7 +116,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
     <form onSubmit={handleSubmit(onSubmit)}>
       <VStack spacing={5} align="stretch">
         <Heading size="sm">Unit Information</Heading>
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl isInvalid={!!errors.buildingId}>
             <FormLabel>Building</FormLabel>
             <Select {...register('buildingId')} placeholder="Select building">
@@ -134,8 +134,8 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
             <Input {...register('roomNumber')} placeholder="e.g. Rm 10" />
             <FormErrorMessage>{errors.roomNumber?.message}</FormErrorMessage>
           </FormControl>
-        </HStack>
-        <HStack>
+        </Stack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl isInvalid={!!errors.area}>
             <FormLabel>Area (sqm)</FormLabel>
             <NumberInput min={0} defaultValue={defaultValues?.area ?? 0} onChange={(_, v) => setValue('area', v)}>
@@ -154,11 +154,11 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
               <option value="inactive">Inactive</option>
             </Select>
           </FormControl>
-        </HStack>
+        </Stack>
 
         <Divider />
         <Heading size="sm">Lessee Information</Heading>
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl isInvalid={!!errors.lesseeName}>
             <FormLabel>Lessee Name</FormLabel>
             <Input {...register('lesseeName')} placeholder="Full name or company" />
@@ -169,8 +169,8 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
             <Input {...register('contactEmail')} type="email" placeholder="email@example.com" />
             <FormErrorMessage>{errors.contactEmail?.message}</FormErrorMessage>
           </FormControl>
-        </HStack>
-        <HStack>
+        </Stack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl isInvalid={!!errors.contactPhone}>
             <FormLabel>Phone</FormLabel>
             <Input {...register('contactPhone')} placeholder="09XX-XXX-XXXX" />
@@ -180,7 +180,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
             <FormLabel>TIN</FormLabel>
             <Input {...register('tin')} placeholder="Tax Identification Number" />
           </FormControl>
-        </HStack>
+        </Stack>
 
         <Divider />
         <Heading size="sm">Billing Defaults</Heading>
@@ -191,7 +191,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
           </NumberInput>
           <FormErrorMessage>{errors.defaultRent?.message}</FormErrorMessage>
         </FormControl>
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl display="flex" alignItems="center">
             <FormLabel mb={0}>VAT Enabled</FormLabel>
             <Switch {...register('vatEnabled')} />
@@ -200,7 +200,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
             <FormLabel mb={0}>Withholding Tax</FormLabel>
             <Switch {...register('withholdingTaxEnabled')} />
           </FormControl>
-        </HStack>
+        </Stack>
         <FormControl>
           <FormLabel>Electricity Billing</FormLabel>
           <Select {...register('electricityMode')}>
@@ -208,7 +208,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
             <option value="direct">Direct</option>
           </Select>
         </FormControl>
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl>
             <FormLabel>Water Billing</FormLabel>
             <Select {...register('waterMode')}>
@@ -233,7 +233,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
               </NumberInput>
             </FormControl>
           )}
-        </HStack>
+        </Stack>
         <FormControl>
           <FormLabel>Default Guard (₱)</FormLabel>
           <NumberInput min={0} defaultValue={defaultValues?.defaultGuard ?? 0} onChange={(_, v) => setValue('defaultGuard', v)}>
@@ -246,7 +246,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
         </FormControl>
 
         <Divider />
-        <HStack justify="space-between">
+        <HStack justify="space-between" flexWrap="wrap" gap={2}>
           <Heading size="sm">Contracts</Heading>
           <Button
             size="sm"
@@ -273,7 +273,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
                 />
               </Tooltip>
             </HStack>
-            <HStack mb={2}>
+            <Stack direction={{ base: 'column', md: 'row' }} spacing={4} mb={2}>
               <FormControl>
                 <FormLabel fontSize="sm">Start Date</FormLabel>
                 <Input type="date" {...register(`contracts.${idx}.startDate`)} size="sm" />
@@ -282,8 +282,8 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
                 <FormLabel fontSize="sm">End Date</FormLabel>
                 <Input type="date" {...register(`contracts.${idx}.endDate`)} size="sm" />
               </FormControl>
-            </HStack>
-            <HStack>
+            </Stack>
+            <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
               <FormControl>
                 <FormLabel fontSize="sm">Rent Amount (₱)</FormLabel>
                 <NumberInput size="sm" min={0} defaultValue={field.rentAmount} onChange={(_, v) => setValue(`contracts.${idx}.rentAmount`, v)}>
@@ -296,8 +296,8 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
                   <NumberInputField />
                 </NumberInput>
               </FormControl>
-            </HStack>
-            <HStack mt={2} align="end">
+            </Stack>
+            <HStack mt={2} align="end" flexWrap="wrap">
               <FormControl>
                 <FormLabel fontSize="sm">Notes</FormLabel>
                 <Input size="sm" {...register(`contracts.${idx}.notes`)} placeholder="Optional notes" />
@@ -323,7 +323,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
           );
         })}
 
-        <HStack justify="flex-end" pt={2}>
+        <HStack justify="flex-end" pt={2} flexWrap="wrap" gap={2}>
           {onCancel && <Button variant="ghost" onClick={onCancel}>Cancel</Button>}
           <Button type="submit" colorScheme="blue" isLoading={isLoading}>
             {defaultValues?.id ? 'Update Tenant' : 'Create Tenant'}

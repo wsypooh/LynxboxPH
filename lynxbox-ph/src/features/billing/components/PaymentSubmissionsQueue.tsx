@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  Table, Thead, Tbody, Tr, Th, Td, HStack, IconButton, Tooltip, Badge, useToast,
+  Box, Table, Thead, Tbody, Tr, Th, Td, HStack, IconButton, Tooltip, Badge, useToast,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
   Textarea, Button, Text,
 } from '@chakra-ui/react'
@@ -69,6 +69,7 @@ export default function PaymentSubmissionsQueue({
 
   return (
     <>
+      <Box overflowX="auto">
       <Table variant="simple">
         <Thead>
           <Tr>
@@ -128,6 +129,7 @@ export default function PaymentSubmissionsQueue({
           ))}
         </Tbody>
       </Table>
+      </Box>
 
       <Modal isOpen={!!rejectTarget} onClose={() => setRejectTarget(null)}>
         <ModalOverlay />

@@ -82,23 +82,25 @@ export function StatementOfAccount({ invoice }: Props) {
             <Text fontSize="xs" color="gray.500" mt={1} mb={2}>
               Already applied to the balance below.
             </Text>
-            <Table size="sm" variant="simple" mb={4}>
-              <Thead>
-                <Tr>
-                  <Th>Date</Th><Th>Method</Th><Th>Note</Th><Th isNumeric>Amount</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {invoice.paymentsReceived.map(p => (
-                  <Tr key={p.paymentEntryId}>
-                    <Td>{p.paymentDate}</Td>
-                    <Td>{PAYMENT_METHOD_LABELS[p.paymentMethod] || '—'}</Td>
-                    <Td>{p.note || '—'}</Td>
-                    <Td isNumeric>{fmt(p.totalAmount)}</Td>
+            <Box overflowX="auto" mb={4}>
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Date</Th><Th>Method</Th><Th>Note</Th><Th isNumeric>Amount</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
+                </Thead>
+                <Tbody>
+                  {invoice.paymentsReceived.map(p => (
+                    <Tr key={p.paymentEntryId}>
+                      <Td>{p.paymentDate}</Td>
+                      <Td>{PAYMENT_METHOD_LABELS[p.paymentMethod] || '—'}</Td>
+                      <Td>{p.note || '—'}</Td>
+                      <Td isNumeric>{fmt(p.totalAmount)}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
           </>
         )}
 
@@ -107,7 +109,8 @@ export function StatementOfAccount({ invoice }: Props) {
           <Text fontWeight="bold">Current Charges</Text>
           <Text fontWeight="bold">Amount</Text>
         </HStack>
-        <Table size="sm" variant="simple" mb={4}>
+        <Box overflowX="auto" mb={4}>
+        <Table size="sm" variant="simple">
           <Tbody>
             <Tr><Td>Rent</Td><Td isNumeric>{fmt(invoice.rent)}</Td></Tr>
             {invoice.vat !== 0 && <Tr><Td>VAT (12%)</Td><Td isNumeric>{fmt(invoice.vat)}</Td></Tr>}
@@ -141,27 +144,30 @@ export function StatementOfAccount({ invoice }: Props) {
             </Tr>
           </Tbody>
         </Table>
+        </Box>
 
         {/* Previous Balance */}
         {invoice.previousBalanceHistory && invoice.previousBalanceHistory.length > 0 && (
           <>
             <Text fontWeight="bold" bg="#0e2949" color="white" px={3} py={1} mb={0}>Previous Balance</Text>
-            <Table size="sm" variant="simple" mb={4}>
-              <Thead>
-                <Tr>
-                  <Th>Invoice #</Th><Th>Period</Th><Th isNumeric>Outstanding</Th><Th isNumeric>Penalty</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {invoice.previousBalanceHistory.map((e, i) => (
-                  <Tr key={i}>
-                    <Td>{e.invoiceNumber}</Td><Td>{e.billingLabel}</Td>
-                    <Td isNumeric>{fmt(e.outstanding)}</Td>
-                    <Td isNumeric>{fmt(e.penalty)}</Td>
+            <Box overflowX="auto" mb={4}>
+              <Table size="sm" variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Invoice #</Th><Th>Period</Th><Th isNumeric>Outstanding</Th><Th isNumeric>Penalty</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
+                </Thead>
+                <Tbody>
+                  {invoice.previousBalanceHistory.map((e, i) => (
+                    <Tr key={i}>
+                      <Td>{e.invoiceNumber}</Td><Td>{e.billingLabel}</Td>
+                      <Td isNumeric>{fmt(e.outstanding)}</Td>
+                      <Td isNumeric>{fmt(e.penalty)}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
           </>
         )}
 

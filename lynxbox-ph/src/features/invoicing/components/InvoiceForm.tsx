@@ -4,7 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  VStack, HStack, FormControl, FormLabel, Input, NumberInput, NumberInputField,
+  VStack, HStack, Stack, FormControl, FormLabel, Input, NumberInput, NumberInputField,
   Button, Select, Heading, Divider, Box, Text, Table, Thead, Tbody, Tr, Th, Td,
 } from '@chakra-ui/react';
 import { Invoice, Tenant, Building, PreviousBalanceEntry } from '@/features/invoicing/types';
@@ -164,7 +164,7 @@ export function InvoiceForm({
   return (
     <form onSubmit={handleSubmit(data => onSubmit({ ...data, previousBalance }))}>
       <VStack spacing={5} align="stretch">
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl isRequired>
             <FormLabel>Tenant</FormLabel>
             <Select {...register('tenantId')} placeholder="Select tenant">
@@ -177,7 +177,7 @@ export function InvoiceForm({
             <FormLabel>Billing Month</FormLabel>
             <Input type="month" {...register('billingMonth')} />
           </FormControl>
-        </HStack>
+        </Stack>
 
         {selectedBuilding && (
           <Box p={2} bg="blue.50" borderRadius="md" fontSize="sm">
@@ -187,7 +187,7 @@ export function InvoiceForm({
 
         <Divider />
         <Heading size="sm">Rent &amp; Tax</Heading>
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl>
             <FormLabel>Rent (₱)</FormLabel>
             <NumberInput min={0} value={vals.rent} onChange={(_, v) => {
@@ -210,7 +210,7 @@ export function InvoiceForm({
               <NumberInputField />
             </NumberInput>
           </FormControl>
-        </HStack>
+        </Stack>
         <Box p={2} bg="gray.50" borderRadius="md">
           <Text fontSize="sm"><b>Subtotal:</b> {fmt(subtotal)}</Text>
         </Box>
@@ -231,7 +231,7 @@ export function InvoiceForm({
             <Text color="orange.700">This tenant pays water directly to the provider — not billed here.</Text>
           </Box>
         ) : vals.water?.mode === 'metered' ? (
-          <HStack>
+          <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
             <FormControl>
               <FormLabel>Present Reading (m³)</FormLabel>
               <NumberInput min={0} value={vals.water.presentReading ?? 0} onChange={(_, v) => setValue('water.presentReading', v)}>
@@ -262,7 +262,7 @@ export function InvoiceForm({
                 <NumberInputField />
               </NumberInput>
             </FormControl>
-          </HStack>
+          </Stack>
         ) : (
           <FormControl>
             <FormLabel>Fixed Water Amount (₱)</FormLabel>
@@ -278,7 +278,7 @@ export function InvoiceForm({
           <Box p={2} bg="orange.50" borderRadius="md" fontSize="sm">
             <Text color="orange.700">This tenant pays electricity directly to the provider — not billed here.</Text>
           </Box>
-        ) : (<HStack>
+        ) : (<Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl>
             <FormLabel>Present Reading (kWh)</FormLabel>
             <NumberInput min={0} value={vals.electricity.presentReading} onChange={(_, v) => setValue('electricity.presentReading', v)}>
@@ -309,7 +309,7 @@ export function InvoiceForm({
               <NumberInputField bg="gray.50" />
             </NumberInput>
           </FormControl>
-        </HStack>)}
+        </Stack>)}
 
         <Divider />
         <Heading size="sm">Other Charges</Heading>
@@ -320,7 +320,7 @@ export function InvoiceForm({
           </NumberInput>
         </FormControl>
         {otherFields.map((field, idx) => (
-          <HStack key={field.id}>
+          <Stack key={field.id} direction={{ base: 'column', md: 'row' }} spacing={4}>
             <FormControl>
               <FormLabel fontSize="sm">Description</FormLabel>
               <Input {...register(`otherCharges.${idx}.description`)} placeholder="e.g. Generator Fee" size="sm" />
@@ -331,8 +331,8 @@ export function InvoiceForm({
                 <NumberInputField />
               </NumberInput>
             </FormControl>
-            <Button size="sm" variant="ghost" colorScheme="red" mt={6} onClick={() => removeOther(idx)}>Remove</Button>
-          </HStack>
+            <Button size="sm" variant="ghost" colorScheme="red" mt={{ base: 0, md: 6 }} onClick={() => removeOther(idx)}>Remove</Button>
+          </Stack>
         ))}
         <Button size="sm" variant="outline" onClick={() => appendOther({ description: '', amount: 0 })}>
           + Add Charge
@@ -407,7 +407,7 @@ export function InvoiceForm({
           </>
         )}
 
-        <HStack justify="flex-end" pt={2}>
+        <HStack justify="flex-end" pt={2} flexWrap="wrap" gap={2}>
           {onCancel && <Button variant="ghost" onClick={onCancel}>Cancel</Button>}
           <Button type="submit" colorScheme="blue" isLoading={isLoading}>
             {defaultValues?.id ? 'Update Invoice' : 'Create Invoice'}

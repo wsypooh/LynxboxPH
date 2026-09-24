@@ -108,9 +108,9 @@ export default function TenantsPage() {
 
   return (
     <Box p={6}>
-      <HStack justify="space-between" mb={6}>
+      <HStack justify="space-between" mb={6} flexWrap="wrap" gap={3}>
         <Heading size="lg">Tenants</Heading>
-        <HStack>
+        <HStack flexWrap="wrap" gap={2}>
           <Input
             size="sm" placeholder="Search lessee / lessee no." value={filterLessee}
             onChange={e => setFilterLessee(e.target.value)} w="220px"

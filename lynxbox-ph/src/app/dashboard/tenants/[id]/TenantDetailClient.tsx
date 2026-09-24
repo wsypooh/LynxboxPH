@@ -158,8 +158,8 @@ export default function TenantDetailClient({ id }: { id: string }) {
 
   return (
     <Box p={6}>
-      <HStack mb={4} justify="space-between">
-        <HStack>
+      <HStack mb={4} justify="space-between" flexWrap="wrap" gap={2}>
+        <HStack flexWrap="wrap">
           <Button variant="ghost" onClick={() => router.back()}>← Back</Button>
           <Heading size="lg">{tenant.lesseeName}</Heading>
           <Badge colorScheme={tenant.status === 'active' ? 'green' : 'gray'} ml={2}>{tenant.status}</Badge>
@@ -260,31 +260,33 @@ export default function TenantDetailClient({ id }: { id: string }) {
           <Card>
             <CardHeader pb={1}><Heading size="sm">Contract History</Heading></CardHeader>
             <CardBody>
-              <Table size="sm">
-                <Thead>
-                  <Tr><Th>Start</Th><Th>End</Th><Th isNumeric>Rent</Th><Th isNumeric>Deposit</Th><Th>Notes</Th></Tr>
-                </Thead>
-                <Tbody>
-                  {tenant.contracts.map((c, i) => (
-                    <Tr key={i} bg={i === tenant.contracts.length - 1 ? 'blue.50' : undefined}>
-                      <Td>{c.startDate}</Td>
-                      <Td>{c.endDate}</Td>
-                      <Td isNumeric>₱{c.rentAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</Td>
-                      <Td isNumeric>₱{c.deposit.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</Td>
-                      <Td>{c.notes || '—'}</Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
+              <Box overflowX="auto">
+                <Table size="sm">
+                  <Thead>
+                    <Tr><Th>Start</Th><Th>End</Th><Th isNumeric>Rent</Th><Th isNumeric>Deposit</Th><Th>Notes</Th></Tr>
+                  </Thead>
+                  <Tbody>
+                    {tenant.contracts.map((c, i) => (
+                      <Tr key={i} bg={i === tenant.contracts.length - 1 ? 'blue.50' : undefined}>
+                        <Td>{c.startDate}</Td>
+                        <Td>{c.endDate}</Td>
+                        <Td isNumeric>₱{c.rentAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</Td>
+                        <Td isNumeric>₱{c.deposit.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</Td>
+                        <Td>{c.notes || '—'}</Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
             </CardBody>
           </Card>
         )}
 
         <Card>
           <CardHeader pb={1}>
-            <HStack justify="space-between">
+            <HStack justify="space-between" flexWrap="wrap" gap={2}>
               <Heading size="sm">Ledger &amp; Outstanding Balances</Heading>
-              <HStack>
+              <HStack flexWrap="wrap" gap={2}>
                 {canWrite && (
                   <>
                     <Button size="sm" variant="outline" onClick={openLedgerCsv}>Import Historical Balances</Button>
@@ -308,9 +310,9 @@ export default function TenantDetailClient({ id }: { id: string }) {
 
         <Card>
           <CardHeader pb={1}>
-            <HStack justify="space-between">
+            <HStack justify="space-between" flexWrap="wrap" gap={2}>
               <Heading size="sm">Invoices</Heading>
-              <HStack>
+              <HStack flexWrap="wrap" gap={2}>
                 {canWrite && (
                   <>
                     <Button size="sm" variant="outline" onClick={openInvoiceCsv}>Import CSV</Button>
@@ -336,7 +338,7 @@ export default function TenantDetailClient({ id }: { id: string }) {
 
         <Card>
           <CardHeader pb={1}>
-            <HStack justify="space-between">
+            <HStack justify="space-between" flexWrap="wrap" gap={2}>
               <Heading size="sm">Documents</Heading>
               {canWrite && (
                 <Button size="sm" colorScheme="blue" onClick={openUpload}>+ Upload Document</Button>

@@ -34,7 +34,7 @@ export default function PlatformAdminPaymentsPage() {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
-        <HStack justify="space-between">
+        <HStack justify="space-between" flexWrap="wrap" gap={3}>
           <Box>
             <Heading size="lg" mb={1}>Payment Verification</Heading>
             <Text color="gray.600">Review and verify manually-submitted payments</Text>

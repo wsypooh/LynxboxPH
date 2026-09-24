@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   VStack, FormControl, FormLabel, FormErrorMessage, Input,
-  NumberInput, NumberInputField, Button, HStack,
+  NumberInput, NumberInputField, Button, HStack, Stack,
 } from '@chakra-ui/react';
 import { Building } from '@/features/invoicing/types';
 
@@ -66,7 +66,7 @@ export function BuildingForm({ defaultValues, onSubmit, onCancel, isLoading }: P
           <FormErrorMessage>{errors.address?.message}</FormErrorMessage>
         </FormControl>
 
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl isInvalid={!!errors.phone}>
             <FormLabel>Phone</FormLabel>
             <Input {...register('phone')} placeholder="e.g. 02-8123-4567" />
@@ -77,9 +77,9 @@ export function BuildingForm({ defaultValues, onSubmit, onCancel, isLoading }: P
             <Input {...register('email')} type="email" placeholder="e.g. info@santosbuilding.com" />
             <FormErrorMessage>{errors.email?.message}</FormErrorMessage>
           </FormControl>
-        </HStack>
+        </Stack>
 
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl isInvalid={!!errors.vatRate}>
             <FormLabel>VAT Rate (%)</FormLabel>
             <NumberInput
@@ -104,7 +104,7 @@ export function BuildingForm({ defaultValues, onSubmit, onCancel, isLoading }: P
             </NumberInput>
             <FormErrorMessage>{errors.withholdingTaxRate?.message}</FormErrorMessage>
           </FormControl>
-        </HStack>
+        </Stack>
 
         <FormControl isInvalid={!!errors.currentElectricityRate}>
           <FormLabel>Electricity Rate (₱/kWh)</FormLabel>
@@ -118,7 +118,7 @@ export function BuildingForm({ defaultValues, onSubmit, onCancel, isLoading }: P
           <FormErrorMessage>{errors.currentElectricityRate?.message}</FormErrorMessage>
         </FormControl>
 
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl isInvalid={!!errors.waterRate}>
             <FormLabel>Water Rate (₱/m³)</FormLabel>
             <NumberInput
@@ -142,9 +142,9 @@ export function BuildingForm({ defaultValues, onSubmit, onCancel, isLoading }: P
             </NumberInput>
             <FormErrorMessage>{errors.defaultFixedWaterAmount?.message}</FormErrorMessage>
           </FormControl>
-        </HStack>
+        </Stack>
 
-        <HStack>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl isInvalid={!!errors.penaltyRate}>
             <FormLabel>Penalty Rate (%)</FormLabel>
             <NumberInput
@@ -182,9 +182,9 @@ export function BuildingForm({ defaultValues, onSubmit, onCancel, isLoading }: P
             </NumberInput>
             <FormErrorMessage>{errors.earlyPaymentDays?.message}</FormErrorMessage>
           </FormControl>
-        </HStack>
+        </Stack>
 
-        <HStack justify="flex-end" pt={2}>
+        <HStack justify="flex-end" pt={2} flexWrap="wrap" gap={2}>
           {onCancel && <Button variant="ghost" onClick={onCancel}>Cancel</Button>}
           <Button type="submit" colorScheme="blue" isLoading={isLoading}>
             {defaultValues?.id ? 'Update Building' : 'Create Building'}

@@ -391,7 +391,7 @@ export function PropertyForm({
                     </Text>
                   </FormControl>
 
-                  <HStack spacing={4}>
+                  <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
                     <FormControl isInvalid={!!errors.type}>
                       <FormLabel>Property Type</FormLabel>
                       <Select {...register('type')}>
@@ -440,7 +440,7 @@ export function PropertyForm({
                         {errors.price?.message}
                       </Text>
                     </FormControl>
-                  </HStack>
+                  </Stack>
                 </VStack>
               </CardBody>
             </Card>
@@ -459,7 +459,7 @@ export function PropertyForm({
                     </Text>
                   </FormControl>
 
-                  <HStack spacing={4}>
+                  <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
                     <FormControl isInvalid={!!errors.location?.city}>
                       <FormLabel>City</FormLabel>
                       <Input {...register('location.city')} placeholder="City" />
@@ -475,7 +475,7 @@ export function PropertyForm({
                         {errors.location?.province?.message}
                       </Text>
                     </FormControl>
-                  </HStack>
+                  </Stack>
                 </VStack>
               </CardBody>
             </Card>
@@ -485,8 +485,8 @@ export function PropertyForm({
               <CardBody>
                 <VStack spacing={4} align="stretch">
                   <Heading size="md">Features</Heading>
-                  
-                  <Grid templateColumns="repeat(3, 1fr)" gap={4}>
+
+                  <Grid templateColumns={{ base: '1fr', md: 'repeat(3, 1fr)' }} gap={4}>
                     <FormControl isInvalid={!!errors.features?.area}>
                       <FormLabel>Area (m²)</FormLabel>
                       <Controller
@@ -576,7 +576,7 @@ export function PropertyForm({
                 <VStack spacing={4} align="stretch">
                   <Heading size="md">Contact Information</Heading>
                   
-                  <HStack spacing={4}>
+                  <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
                     <FormControl isInvalid={!!errors.contactInfo?.name}>
                       <FormLabel>Contact Name</FormLabel>
                       <Input {...register('contactInfo.name')} placeholder="Contact person name" />
@@ -600,7 +600,7 @@ export function PropertyForm({
                         {errors.contactInfo?.phone?.message}
                       </Text>
                     </FormControl>
-                  </HStack>
+                  </Stack>
                 </VStack>
               </CardBody>
             </Card>

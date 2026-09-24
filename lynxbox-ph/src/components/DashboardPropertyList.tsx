@@ -777,9 +777,9 @@ export function DashboardPropertyList({
   return (
     <VStack spacing={6} align="stretch">
       {/* Header with Add Button and View Toggle */}
-      <HStack justify="space-between" align="center">
+      <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
         <Heading size="lg">My Properties ({totalCount})</Heading>
-        <HStack spacing={4}>
+        <HStack spacing={4} flexWrap="wrap">
           {/* View Mode Toggle */}
           <HStack spacing={2} bg="gray.100" p={1} borderRadius="md">
             <IconButton
@@ -834,8 +834,8 @@ export function DashboardPropertyList({
             </Button>
           </HStack>
 
-          <HStack w="full" spacing={4} justify="space-between">
-            <HStack spacing={4}>
+          <HStack w="full" spacing={4} justify="space-between" flexWrap="wrap">
+            <HStack spacing={4} flexWrap="wrap">
               <Text fontSize="sm" color="gray.600">Sort by:</Text>
               <Select
                 size="sm"
@@ -1315,10 +1315,10 @@ export function DashboardPropertyList({
                 </Stack>
               </FormControl>
 
-              <HStack spacing={4}>
+              <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
                 <FormControl>
                   <FormLabel>Min Price (PHP)</FormLabel>
-                  <NumberInput 
+                  <NumberInput
                     min={0}
                     value={filters.priceMin || ''}
                     onChange={(_, value) => handleFilterChange('priceMin', value || undefined)}
@@ -1328,7 +1328,7 @@ export function DashboardPropertyList({
                 </FormControl>
                 <FormControl>
                   <FormLabel>Max Price (PHP)</FormLabel>
-                  <NumberInput 
+                  <NumberInput
                     min={0}
                     value={filters.priceMax || ''}
                     onChange={(_, value) => handleFilterChange('priceMax', value || undefined)}
@@ -1336,12 +1336,12 @@ export function DashboardPropertyList({
                     <NumberInputField placeholder="No limit" />
                   </NumberInput>
                 </FormControl>
-              </HStack>
+              </Stack>
 
-              <HStack spacing={4}>
+              <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
                 <FormControl>
                   <FormLabel>Min Area (sqm)</FormLabel>
-                  <NumberInput 
+                  <NumberInput
                     min={0}
                     value={filters.minArea || ''}
                     onChange={(_, value) => handleFilterChange('minArea', value || undefined)}
@@ -1351,7 +1351,7 @@ export function DashboardPropertyList({
                 </FormControl>
                 <FormControl>
                   <FormLabel>Max Area (sqm)</FormLabel>
-                  <NumberInput 
+                  <NumberInput
                     min={0}
                     value={filters.maxArea || ''}
                     onChange={(_, value) => handleFilterChange('maxArea', value || undefined)}
@@ -1359,7 +1359,7 @@ export function DashboardPropertyList({
                     <NumberInputField placeholder="No limit" />
                   </NumberInput>
                 </FormControl>
-              </HStack>
+              </Stack>
 
               <FormControl>
                 <FormLabel>Location</FormLabel>

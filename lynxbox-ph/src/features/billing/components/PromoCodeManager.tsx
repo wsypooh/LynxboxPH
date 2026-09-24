@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  Table, Thead, Tbody, Tr, Th, Td, HStack, IconButton, Tooltip, Badge, Button, useToast,
+  Box, Table, Thead, Tbody, Tr, Th, Td, HStack, IconButton, Tooltip, Badge, Button, useToast,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
   FormControl, FormLabel, Input, Select, Checkbox, useDisclosure, VStack, Text,
 } from '@chakra-ui/react'
@@ -145,6 +145,7 @@ export default function PromoCodeManager({ codes, onChanged }: { codes: PromoCod
       {codes.length === 0 ? (
         <Text color="gray.500">No promo codes yet.</Text>
       ) : (
+        <Box overflowX="auto">
         <Table variant="simple">
           <Thead>
             <Tr>
@@ -200,6 +201,7 @@ export default function PromoCodeManager({ codes, onChanged }: { codes: PromoCod
             ))}
           </Tbody>
         </Table>
+        </Box>
       )}
 
       <Modal isOpen={isOpen} onClose={onClose}>

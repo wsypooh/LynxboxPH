@@ -100,7 +100,7 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
     <Box p={8}>
       <Heading size="lg" mb={4}>Account: {detail.ownerEmail || detail.accountId}</Heading>
 
-      <HStack mb={4} spacing={3}>
+      <HStack mb={4} spacing={3} flexWrap="wrap">
         <Text fontWeight="medium">Plan:</Text>
         <Select value={selectedPlan} onChange={e => setSelectedPlan(e.target.value as Plan)} w="200px" size="sm">
           {PLAN_OPTIONS.map(p => (
@@ -122,7 +122,7 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
       </HStack>
 
       {isTrialing ? (
-        <HStack mb={8} spacing={3}>
+        <HStack mb={8} spacing={3} flexWrap="wrap">
           <Text fontWeight="medium">Trial ends:</Text>
           <Input type="date" value={newTrialEndsAt} onChange={e => setNewTrialEndsAt(e.target.value)} w="200px" size="sm" />
           <Button
@@ -137,7 +137,7 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
           </Button>
         </HStack>
       ) : (
-        <HStack mb={8} spacing={3}>
+        <HStack mb={8} spacing={3} flexWrap="wrap">
           <Text fontWeight="medium">Grant a new trial:</Text>
           <Select value={grantPlan} onChange={e => setGrantPlan(e.target.value as Plan)} w="140px" size="sm">
             {PAID_PLAN_OPTIONS.map(p => (
@@ -178,37 +178,41 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
       </SimpleGrid>
 
       <Heading size="md" mb={3}>Tenants</Heading>
-      <Table variant="simple" mb={8}>
-        <Thead>
-          <Tr><Th>Code</Th><Th>Name</Th><Th>Status</Th></Tr>
-        </Thead>
-        <Tbody>
-          {detail.tenants.map(t => (
-            <Tr key={t.id}>
-              <Td>{t.tenantCode}</Td>
-              <Td>{t.lesseeName}</Td>
-              <Td><Badge>{t.status}</Badge></Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
+      <Box overflowX="auto" mb={8}>
+        <Table variant="simple">
+          <Thead>
+            <Tr><Th>Code</Th><Th>Name</Th><Th>Status</Th></Tr>
+          </Thead>
+          <Tbody>
+            {detail.tenants.map(t => (
+              <Tr key={t.id}>
+                <Td>{t.tenantCode}</Td>
+                <Td>{t.lesseeName}</Td>
+                <Td><Badge>{t.status}</Badge></Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </Box>
 
       <Heading size="md" mb={3}>Invoices</Heading>
-      <Table variant="simple">
-        <Thead>
-          <Tr><Th>Invoice #</Th><Th>Billing Month</Th><Th isNumeric>Total Due</Th><Th>Status</Th></Tr>
-        </Thead>
-        <Tbody>
-          {detail.invoices.map(inv => (
-            <Tr key={inv.id}>
-              <Td>{inv.invoiceNumber}</Td>
-              <Td>{inv.billingLabel || inv.billingMonth}</Td>
-              <Td isNumeric>{formatCurrency(inv.totalDue)}</Td>
-              <Td><Badge>{inv.status}</Badge></Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
+      <Box overflowX="auto">
+        <Table variant="simple">
+          <Thead>
+            <Tr><Th>Invoice #</Th><Th>Billing Month</Th><Th isNumeric>Total Due</Th><Th>Status</Th></Tr>
+          </Thead>
+          <Tbody>
+            {detail.invoices.map(inv => (
+              <Tr key={inv.id}>
+                <Td>{inv.invoiceNumber}</Td>
+                <Td>{inv.billingLabel || inv.billingMonth}</Td>
+                <Td isNumeric>{formatCurrency(inv.totalDue)}</Td>
+                <Td><Badge>{inv.status}</Badge></Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </Box>
     </Box>
   );
 }
