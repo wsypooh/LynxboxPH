@@ -19,15 +19,15 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxInvoicesPerMonth: 10, maxSeats: 1, maxDocuments: 20,
   },
   starter: {
-    maxProperties: 5, maxPhotosPerListing: Infinity, listingDurationDays: 30, searchPlacement: 'standard',
+    maxProperties: 5, maxPhotosPerListing: 10, listingDurationDays: 30, searchPlacement: 'standard',
     maxInvoicesPerMonth: 50, maxSeats: 2, maxDocuments: 200,
   },
   growth: {
-    maxProperties: 15, maxPhotosPerListing: Infinity, listingDurationDays: 60, searchPlacement: 'priority',
+    maxProperties: 15, maxPhotosPerListing: 10, listingDurationDays: 60, searchPlacement: 'priority',
     maxInvoicesPerMonth: 200, maxSeats: 5, maxDocuments: 1000,
   },
   business: {
-    maxProperties: Infinity, maxPhotosPerListing: Infinity, listingDurationDays: null, searchPlacement: 'featured',
+    maxProperties: Infinity, maxPhotosPerListing: 10, listingDurationDays: null, searchPlacement: 'featured',
     maxInvoicesPerMonth: Infinity, maxSeats: Infinity, maxDocuments: Infinity,
   },
 };

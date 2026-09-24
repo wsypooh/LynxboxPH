@@ -1,4 +1,5 @@
 import { getAuthHeaders } from '@/lib/auth';
+import { parseApiError } from '@/lib/apiError';
 import { PlatformSummary, AccountDetail, Plan } from '@/features/platform-admin/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.execute-api.ap-southeast-1.amazonaws.com/dev';
@@ -18,8 +19,7 @@ class PlatformAdminService {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+      throw await parseApiError(response);
     }
 
     const json = await response.json();

@@ -91,6 +91,7 @@ export interface PropertyListResponse {
 }
 
 import { getAuthHeaders } from '../lib/auth';
+import { parseApiError } from '../lib/apiError';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.execute-api.ap-southeast-1.amazonaws.com/dev';
 
@@ -118,8 +119,7 @@ class PropertyService {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        throw await parseApiError(response);
       }
 
       // Handle 204 No Content responses (e.g., DELETE)

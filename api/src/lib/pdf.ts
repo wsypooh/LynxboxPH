@@ -11,7 +11,10 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 export class PdfService {
-  static generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
+  // docs/Pricing-Strategy-Plan.md — "PDF branding" row: Free shows the LynxboxPH footer,
+  // every paid tier gets an unbranded PDF. `branded` is just `plan === 'free'`, resolved
+  // by the caller (this file has no plan/account knowledge of its own).
+  static generateInvoicePdf(invoice: Invoice, branded: boolean = false): Promise<Buffer> {
     return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
@@ -200,6 +203,14 @@ export class PdfService {
       .text('Thank you for your payment. Please contact us if you have any questions.', col1, y, {
         align: 'center', width: doc.page.width - 100
       });
+
+    if (branded) {
+      y += 16;
+      doc.fill('#999999').fontSize(7).font('Helvetica-Oblique')
+        .text('Powered by LynxboxPH — lynxbox.ph', col1, y, {
+          align: 'center', width: doc.page.width - 100
+        });
+    }
 
     doc.end();
     }); // end Promise

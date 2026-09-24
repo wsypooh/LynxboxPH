@@ -36,7 +36,7 @@ export const PRICING_TIERS = [
     popular: false,
     rows: [
       ['Active property listings', '5'],
-      ['Photos per listing', 'Unlimited'],
+      ['Photos per listing', '10'],
       ['Listing visibility duration', '30 days'],
       ['Public search placement', 'Standard'],
       ['Invoices/month', '50'],
@@ -53,7 +53,7 @@ export const PRICING_TIERS = [
     popular: true,
     rows: [
       ['Active property listings', '15'],
-      ['Photos per listing', 'Unlimited'],
+      ['Photos per listing', '10'],
       ['Listing visibility duration', '60 days'],
       ['Public search placement', 'Priority'],
       ['Invoices/month', '200'],
@@ -70,7 +70,7 @@ export const PRICING_TIERS = [
     popular: false,
     rows: [
       ['Active property listings', 'Unlimited'],
-      ['Photos per listing', 'Unlimited'],
+      ['Photos per listing', '10'],
       ['Listing visibility duration', 'No expiry'],
       ['Public search placement', 'Top/Featured'],
       ['Invoices/month', 'Unlimited'],

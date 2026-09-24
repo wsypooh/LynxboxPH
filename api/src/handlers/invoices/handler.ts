@@ -53,15 +53,15 @@ export class InvoiceHandler {
 
     try {
       if (method === 'POST' && path.match(/\/api\/invoices\/batch-pdf$/)) {
-        return await InvoiceHandler.downloadBatchPdfByIds(event, userId);
+        return await InvoiceHandler.downloadBatchPdfByIds(event, userId, actor.plan);
       } else if (method === 'GET' && path.match(/\/api\/invoices\/batch-pdf$/)) {
-        return await InvoiceHandler.downloadBatchPdf(event, userId);
+        return await InvoiceHandler.downloadBatchPdf(event, userId, actor.plan);
       } else if (method === 'POST' && path.match(/\/api\/invoices\/[^/]+\/payments$/)) {
         if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to record payments');
         return await InvoiceHandler.recordPayment(event, userId);
       } else if (method === 'POST' && path.match(/\/api\/invoices\/[^/]+\/send$/)) {
         if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to send invoices');
-        return await InvoiceHandler.sendInvoice(event, userId);
+        return await InvoiceHandler.sendInvoice(event, userId, actor.plan);
       } else if (method === 'POST' && path.match(/\/api\/invoices\/[^/]+\/rollover$/)) {
         if (!canWrite(actor)) return ApiResponse.forbidden('You do not have permission to roll over invoices');
         return await InvoiceHandler.rolloverInvoice(event, userId);
@@ -69,7 +69,7 @@ export class InvoiceHandler {
         if (!canDestroy(actor)) return ApiResponse.forbidden('You do not have permission to void invoices');
         return await InvoiceHandler.voidInvoice(event, userId);
       } else if (method === 'GET' && path.match(/\/api\/invoices\/[^/]+\/pdf$/)) {
-        return await InvoiceHandler.downloadPdf(event, userId);
+        return await InvoiceHandler.downloadPdf(event, userId, actor.plan);
       } else if (method === 'GET' && path.match(/\/api\/invoices\/[^/]+$/) && !path.endsWith('/api/invoices')) {
         return await InvoiceHandler.getInvoice(event, userId);
       } else if (method === 'PUT' && path.match(/\/api\/invoices\/[^/]+$/)) {
@@ -334,14 +334,14 @@ export class InvoiceHandler {
     return ApiResponse.success({ invoice: await InvoiceHandler.enrichInvoice(updated) });
   }
 
-  static async sendInvoice(event: APIGatewayProxyEvent, userId: string) {
+  static async sendInvoice(event: APIGatewayProxyEvent, userId: string, plan: Plan) {
     const id = getInvoiceId(event);
     if (!id) return ApiResponse.notFound('Invoice not found');
     const invoice = await InvoiceRepository.findById(id);
     if (!invoice || invoice.ownerId !== userId) return ApiResponse.notFound('Invoice not found');
 
     const enriched = await InvoiceHandler.enrichInvoice(invoice);
-    const pdfBuffer = await PdfService.generateInvoicePdf(enriched);
+    const pdfBuffer = await PdfService.generateInvoicePdf(enriched, plan === 'free');
     await mailer.sendInvoiceEmail(enriched, pdfBuffer);
     const statusHistory = invoice.statusHistory ?? [];
     if (invoice.status !== 'sent') {
@@ -351,14 +351,14 @@ export class InvoiceHandler {
     return ApiResponse.success({ invoice: await InvoiceHandler.enrichInvoice(updated) });
   }
 
-  static async downloadPdf(event: APIGatewayProxyEvent, userId: string): Promise<APIGatewayProxyResult> {
+  static async downloadPdf(event: APIGatewayProxyEvent, userId: string, plan: Plan): Promise<APIGatewayProxyResult> {
     const id = getInvoiceId(event);
     if (!id) return ApiResponse.notFound('Invoice not found');
     const invoice = await InvoiceRepository.findById(id);
     if (!invoice || invoice.ownerId !== userId) return ApiResponse.notFound('Invoice not found');
 
     const enriched = await InvoiceHandler.enrichInvoice(invoice);
-    const pdfBuffer = await PdfService.generateInvoicePdf(enriched);
+    const pdfBuffer = await PdfService.generateInvoicePdf(enriched, plan === 'free');
     return {
       statusCode: 200,
       headers: {
@@ -425,7 +425,7 @@ export class InvoiceHandler {
     return ApiResponse.success({ draft: draftData });
   }
 
-  static async downloadBatchPdfByIds(event: APIGatewayProxyEvent, userId: string): Promise<APIGatewayProxyResult> {
+  static async downloadBatchPdfByIds(event: APIGatewayProxyEvent, userId: string, plan: Plan): Promise<APIGatewayProxyResult> {
     const body = JSON.parse(event.body || '{}');
     const ids: string[] = body.ids || [];
     if (ids.length === 0) return ApiResponse.error('No invoice IDs provided');
@@ -435,7 +435,7 @@ export class InvoiceHandler {
     if (owned.length === 0) return ApiResponse.notFound('No matching invoices found');
 
     const enriched = await Promise.all(owned.map(inv => InvoiceHandler.enrichInvoice(inv)));
-    const pdfBuffers = await Promise.all(enriched.map(inv => PdfService.generateInvoicePdf(inv)));
+    const pdfBuffers = await Promise.all(enriched.map(inv => PdfService.generateInvoicePdf(inv, plan === 'free')));
 
     // Merge all PDFs into one
     const merged = await PDFDocument.create();
@@ -458,7 +458,7 @@ export class InvoiceHandler {
     };
   }
 
-  static async downloadBatchPdf(event: APIGatewayProxyEvent, userId: string): Promise<APIGatewayProxyResult> {
+  static async downloadBatchPdf(event: APIGatewayProxyEvent, userId: string, plan: Plan): Promise<APIGatewayProxyResult> {
     const billingMonth = event.queryStringParameters?.billingMonth;
     if (!billingMonth) return ApiResponse.error('billingMonth is required');
 
@@ -472,7 +472,7 @@ export class InvoiceHandler {
     const pdfs = await Promise.all(
       monthInvoices.map(async inv => ({
         name: `${inv.invoiceNumber}.pdf`,
-        buffer: await PdfService.generateInvoicePdf(inv),
+        buffer: await PdfService.generateInvoicePdf(inv, plan === 'free'),
       }))
     );
 

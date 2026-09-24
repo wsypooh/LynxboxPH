@@ -1,4 +1,5 @@
 import { getAuthHeaders } from '@/lib/auth';
+import { parseApiError } from '@/lib/apiError';
 import { Building, BuildingInput, Tenant } from '@/features/invoicing/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.execute-api.ap-southeast-1.amazonaws.com/dev';
@@ -25,8 +26,7 @@ class BuildingService {
     const response = await fetch(url, config);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+      throw await parseApiError(response);
     }
 
     if (response.status === 204) {

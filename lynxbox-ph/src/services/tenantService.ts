@@ -1,4 +1,5 @@
 import { getAuthHeaders } from '@/lib/auth';
+import { parseApiError } from '@/lib/apiError';
 import {
   Tenant, TenantInput, TenantContract, Invoice,
   LedgerSummary, PaymentLedgerEntry, ChargeEntry, LedgerChargeInput,
@@ -28,8 +29,7 @@ class TenantService {
     const response = await fetch(url, config);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+      throw await parseApiError(response);
     }
 
     if (response.status === 204) {

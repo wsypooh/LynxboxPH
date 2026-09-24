@@ -32,7 +32,7 @@ Lynxbox's edge: VAT+EWT compliance and FIFO/penalty-interest ledger automation a
 | **Price/month** | ₱0 | ₱699 | ₱1,499 | ₱2,990 |
 | **Price/year** (2 mo. free) | — | ₱6,990 | ₱14,990 | ₱29,990 |
 | **Active property listings** | 2 | 5 | 15 | Unlimited |
-| **Photos per listing** | 3 | Unlimited | Unlimited | Unlimited |
+| **Photos per listing** | 3 | 10 | 10 | 10 |
 | **Listing visibility duration** | 7 days (manual renew) | 30 days | 60 days | No expiry |
 | **Public search placement** | Standard | Standard | Priority | Top/Featured |
 | **Invoices/month** (soft fair-use) | 10 | 50 | 200 | Unlimited |
@@ -57,6 +57,12 @@ These are already-planned-but-unbuilt features (`docs/Rental-Invoicing-Plan.md`,
 - Electric bill computation tool — landlord enters the total peso amount and total kWh usage from their Meralco/electric co. bill for the building, and it auto-computes the per-kWh `currentElectricityRate` to update on the Building, instead of them doing that division by hand every month
 - Custom logo watermarking on listing photos (Growth+)
 - API access, portfolio-wide reporting (Business)
+- **Invoice PDF custom logo / full white-label (Growth: custom logo, Business: full white-label)** — the comparison table's "PDF branding" row has promised this since the pricing tiers were first written, but only the binary branded/unbranded half is implemented (see "Implementation notes" #11 below: `PdfService.generateInvoicePdf`'s `branded` flag just prints/omits a "Powered by LynxboxPH" footer line). Actually building the logo/white-label tiers needs, at minimum:
+  - A `logoUrl` (and, for Business's "full white-label," a `brandColor`) field on `Building` or `Account` — doesn't exist today.
+  - An upload flow to get that logo into S3, e.g. mirroring the Documents feature's direct-to-S3 presigned-URL pattern (`docs/Documents-Feature-Plan.md`) rather than base64-embedding it in a request body.
+  - `PdfService.generateInvoicePdf` fetching the image from S3 and drawing it in the header (pdfkit supports `doc.image()` from a Buffer), replacing/supplementing the current text-only header built in `pdf.ts`.
+  - For Business's "full white-label": also swap the hardcoded `primary = '#0e2949'` color used throughout `pdf.ts` for the account's `brandColor`, so no LynxboxPH visual identity remains at all — this is the actual difference from Growth's "custom logo" tier, not a separate feature.
+  - Gate which of these apply via `PLAN_LIMITS`-style plan checks, same pattern as `branded` today (`plan === 'growth' || plan === 'business'` for the logo, `plan === 'business'` for the brand color).
 
 **À la carte add-on (independent of subscription tier):** the tiers above already differentiate photos/duration/search placement per plan, but the original business plan's one-time "featured/boosted listing" idea (₱300–500 for extended visibility) can still work *on top of* any tier as a temporary bump above your plan's normal placement/duration — e.g. a Starter account paying once to get `featured` placement or a longer `expiresAt` on one specific listing. Same `expiresAt`/`searchPlacement` fields from the implementation plan handle this already; a boost is just a temporary override of those two fields with its own end date, not new infrastructure.
 
@@ -89,10 +95,10 @@ export const PLAN_LIMITS: Record<Plan, {
   maxProperties: number; maxPhotosPerListing: number; listingDurationDays: number | null; searchPlacement: 'standard' | 'priority' | 'featured';
   maxInvoicesPerMonth: number; maxSeats: number; maxDocuments: number;
 }> = {
-  free:     { maxProperties: 2,  maxPhotosPerListing: 3,        listingDurationDays: 7,    searchPlacement: 'standard', maxInvoicesPerMonth: 10,  maxSeats: 1, maxDocuments: 20 },
-  starter:  { maxProperties: 5,  maxPhotosPerListing: Infinity, listingDurationDays: 30,   searchPlacement: 'standard', maxInvoicesPerMonth: 50,  maxSeats: 2, maxDocuments: 200 },
-  growth:   { maxProperties: 15, maxPhotosPerListing: Infinity, listingDurationDays: 60,   searchPlacement: 'priority', maxInvoicesPerMonth: 200, maxSeats: 5, maxDocuments: 1000 },
-  business: { maxProperties: Infinity, maxPhotosPerListing: Infinity, listingDurationDays: null, searchPlacement: 'featured', maxInvoicesPerMonth: Infinity, maxSeats: Infinity, maxDocuments: Infinity },
+  free:     { maxProperties: 2,  maxPhotosPerListing: 3,  listingDurationDays: 7,    searchPlacement: 'standard', maxInvoicesPerMonth: 10,  maxSeats: 1, maxDocuments: 20 },
+  starter:  { maxProperties: 5,  maxPhotosPerListing: 10, listingDurationDays: 30,   searchPlacement: 'standard', maxInvoicesPerMonth: 50,  maxSeats: 2, maxDocuments: 200 },
+  growth:   { maxProperties: 15, maxPhotosPerListing: 10, listingDurationDays: 60,   searchPlacement: 'priority', maxInvoicesPerMonth: 200, maxSeats: 5, maxDocuments: 1000 },
+  business: { maxProperties: Infinity, maxPhotosPerListing: 10, listingDurationDays: null, searchPlacement: 'featured', maxInvoicesPerMonth: Infinity, maxSeats: Infinity, maxDocuments: Infinity },
 };
 ```
 (`listingDurationDays: null` = never expires.) No per-account override, no editable settings table — confirmed as unnecessary for now; revisit once there are actual customers asking for one-off deals.
@@ -165,3 +171,5 @@ Real deviations found while building sections 1–5 (and the surviving parts of 
 7. **Not built**: the 80%/100% invoice-quota warning banner UI. The backend enforcement (soft-cap, two-months-over hard block) is in place and the API response carries enough information to build it, but no frontend banner component was added in this pass.
 8. **Not deployed.** `tsc --noEmit` passes locally; this needs `deploy-lambda.ps1` (new handler code) and `deploy-infra.ps1` (new `PUT /api/platform-admin/accounts/{accountId}/plan` route) before it's live anywhere real.
 9. **Homepage pricing ended up as a comparison table, not the originally-sketched card grid** — see the "As built" note in section 5 above. Requested after the initial card-grid implementation because a 4-card layout with ~10 line items per card didn't scan well side-by-side; a table with feature rows in the first column and one column per tier does. The `PRICING_TIERS` data array drives both — same row labels/order as the "Recommended Tiers" table above, by design, so this doc and the live page stay easy to compare.
+10. **`maxPhotosPerListing` changed from `Infinity` to `10` on all three paid tiers** (2026-09-24) — Starter/Growth/Business all originally shipped "Unlimited" photos per listing; capped uniformly at 10 across all paid tiers (Free stays at 3). No enforcement code changed — `PropertyHandler`'s existing `images.length > limits.maxPhotosPerListing` check and its "Upgrade for more" message already handle a finite paid-tier limit correctly, this was purely a `PLAN_LIMITS` config + marketing-copy change.
+11. **"PDF branding" was comparison-table copy only until now — never implemented.** `PdfService.generateInvoicePdf` (`api/src/lib/pdf.ts`) took no plan/account input at all; every tier got an identical PDF. Fixed (2026-09-24) by adding a `branded: boolean = false` param that prints a small "Powered by LynxboxPH" footer line, and threading `actor.plan === 'free'` into it from all 4 call sites in `InvoiceHandler` (`sendInvoice`, `downloadPdf`, `downloadBatchPdfByIds`, `downloadBatchPdf`). Scoped narrowly to the binary branded/unbranded case the row actually needed — Growth's "+ custom logo" and Business's "full white-label" cells are still just copy, since there's no logo-upload feature (no `Building`/`Account` logo field) to hang that on yet.

@@ -1,4 +1,5 @@
 import { getAuthHeaders } from '@/lib/auth';
+import { parseApiError } from '@/lib/apiError';
 import {
   AccountSubscription, UsageSummary, PaymentSubmission, CreatePaymentSubmissionPayload,
   PromoCode, AmountDue, PaidPlan, BillingCycle,
@@ -21,8 +22,7 @@ class BillingService {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+      throw await parseApiError(response);
     }
 
     const json = await response.json();
