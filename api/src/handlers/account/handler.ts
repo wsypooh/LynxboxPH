@@ -3,7 +3,7 @@ import { ApiResponse } from '../../lib/apiResponse';
 import { Actor, canManageMembers, resolveActor } from '../../lib/auth';
 import { MembershipRepository } from '../../repositories/membershipRepository';
 import { Role } from '../../models/member';
-import { findCognitoUserByEmail, createCognitoUser, generateTemporaryPassword } from '../../lib/cognitoAdmin';
+import { findCognitoUserByEmail, createCognitoUser, generateTemporaryPassword, getCognitoUserEmail } from '../../lib/cognitoAdmin';
 import { ZeptoMailService } from '../../lib/zeptomail';
 import { PLAN_LIMITS } from '../../lib/planLimits';
 
@@ -57,11 +57,25 @@ export class AccountHandler {
   }
 
   static async listMemberships(actor: Actor): Promise<APIGatewayProxyResult> {
-    const memberships = await MembershipRepository.listByUser(actor.sub);
-    // A solo user who's never invited/been invited anywhere has no MEMBER# rows at all.
-    const result = memberships.length > 0
-      ? memberships.map(m => ({ accountId: m.accountId, role: m.role }))
-      : [{ accountId: actor.sub, role: 'owner' as const }];
+    // A solo account never gets its own MEMBER# row, so it's added back in here rather
+    // than only as a fallback when the explicit list is empty — otherwise a user with any
+    // explicit membership elsewhere would lose the ability to switch back to their own
+    // account (see api/src/lib/auth.ts's resolveActor(), which mirrors this same fix). But
+    // an account that has ever invited someone else DOES get an explicit row for itself
+    // (AccountHandler.inviteMember's "first invite lazily creates the owner's own row
+    // too") — only synthesize one when that explicit row doesn't already exist, or the
+    // switcher shows "My Account" twice.
+    const explicitMemberships = await MembershipRepository.listByUser(actor.sub);
+    const enriched = await Promise.all(explicitMemberships.map(async m => ({
+      accountId: m.accountId,
+      role: m.role,
+      // Shown in the account-switcher dropdown instead of a raw accountId GUID — safe to
+      // expose since the member already knows this account (they were invited into it).
+      ownerEmail: await getCognitoUserEmail(m.accountId).catch(() => null),
+    })));
+    const result = explicitMemberships.some(m => m.accountId === actor.sub)
+      ? enriched
+      : [{ accountId: actor.sub, role: 'owner' as const, ownerEmail: actor.email || null }, ...enriched];
     return ApiResponse.success({ memberships: result });
   }
 

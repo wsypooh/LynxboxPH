@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { MembershipRepository } from '../repositories/membershipRepository';
 import { AccountRepository } from '../repositories/accountRepository';
-import { Plan } from '../models/account';
+import { Plan, SubscriptionStatus } from '../models/account';
 
 export type Role = 'owner' | 'manager' | 'staff' | 'viewer';
 
@@ -13,6 +13,8 @@ export interface Actor {
   displayName: string;
   email: string;
   plan: Plan;
+  // docs/Payments-and-Subscription-Plan.md — same Get as `plan` above, zero extra cost.
+  subscriptionStatus: SubscriptionStatus;
 }
 
 // Confirmed via CloudWatch on the real deployed API (not guessed): API Gateway's HTTP API
@@ -85,14 +87,27 @@ export async function resolveActor(event: APIGatewayProxyEvent): Promise<Actor |
     || (process.env.IS_OFFLINE ? 'Local User' : 'Unknown');
   const email = claims?.email || (process.env.IS_OFFLINE ? 'local-test@example.com' : '');
 
-  const memberships = await MembershipRepository.listByUser(sub);
+  // A solo account never gets its own MEMBER# row (listByUser only returns *explicit*
+  // memberships in other accounts), so it must be added back in here — otherwise a user
+  // who's been invited elsewhere has no way to be matched back to their own account, and
+  // both the X-Account-Id lookup below and the owner-role fallback silently fail closed
+  // onto whatever explicit membership happens to exist instead. But an account that has
+  // ever invited someone else DOES get an explicit row for itself (see
+  // AccountHandler.inviteMember's "first invite lazily creates the owner's own row too")
+  // — only synthesize one here when that explicit row doesn't already exist, or a user
+  // who's both an owner-with-a-team and a member elsewhere ends up with a duplicate.
+  const explicitMemberships = await MembershipRepository.listByUser(sub);
+  const memberships: { accountId: string; role: Role; sub: string; status: 'active' | 'invited' }[] =
+    explicitMemberships.some(m => m.accountId === sub)
+      ? explicitMemberships
+      : [{ accountId: sub, role: 'owner', sub, status: 'active' }, ...explicitMemberships];
   const requestedAccountId = getHeader(event, 'X-Account-Id');
 
   let membership = requestedAccountId
     ? memberships.find(m => m.accountId === requestedAccountId)
     : undefined;
   if (!membership) {
-    membership = memberships.find(m => m.role === 'owner') || memberships[0];
+    membership = memberships.find(m => m.accountId === sub) || memberships[0];
   }
 
   // "status: invited" is purely informational (access is already granted via the MEMBER#
@@ -106,7 +121,7 @@ export async function resolveActor(event: APIGatewayProxyEvent): Promise<Actor |
 
   const accountId = membership?.accountId ?? sub;
   // See docs/Pricing-Strategy-Plan.md — one extra Get, same per-request cost pattern as everything else here.
-  const { plan } = await AccountRepository.getPlan(accountId);
+  const { plan, subscriptionStatus } = await AccountRepository.getPlan(accountId);
 
   return {
     sub,
@@ -116,17 +131,31 @@ export async function resolveActor(event: APIGatewayProxyEvent): Promise<Actor |
     displayName,
     email,
     plan,
+    subscriptionStatus,
   };
 }
 
+// docs/Payments-and-Subscription-Plan.md — a past_due account gets "limited use": every
+// existing handler already gates writes through these three functions, so failing closed
+// here enforces the restriction across the entire app with zero per-handler edits. Reads
+// stay open (not blocked here) so a customer can still see their data to decide to pay.
+// canManageBilling below is the deliberate exception — paying is how past_due gets cured,
+// so billing-decision endpoints must never route through these three gates.
 export function canWrite(actor: Actor): boolean {
+  if (actor.subscriptionStatus === 'past_due') return false;
   return actor.role === 'owner' || actor.role === 'manager' || actor.role === 'staff';
 }
 
 export function canDestroy(actor: Actor): boolean {
+  if (actor.subscriptionStatus === 'past_due') return false;
   return actor.role === 'owner';
 }
 
 export function canManageMembers(actor: Actor): boolean {
+  if (actor.subscriptionStatus === 'past_due') return false;
+  return actor.role === 'owner';
+}
+
+export function canManageBilling(actor: Actor): boolean {
   return actor.role === 'owner';
 }

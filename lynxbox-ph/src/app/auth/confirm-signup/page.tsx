@@ -61,7 +61,7 @@ export default function ConfirmSignupPage() {
       });
       
       setIsConfirmed(true);
-      
+
       toast({
         title: 'Email verified!',
         description: 'Your email has been successfully verified.',
@@ -69,10 +69,16 @@ export default function ConfirmSignupPage() {
         duration: 5000,
         isClosable: true,
       });
-      
+
+      // docs/Payments-and-Subscription-Plan.md — carry plan/cycle through so signin can
+      // route straight to the billing page's plan-picker after login.
+      const plan = searchParams.get('plan');
+      const cycle = searchParams.get('cycle');
+      const signInHref = plan ? `/auth/signin?plan=${plan}&cycle=${cycle || 'monthly'}` : '/auth/signin';
+
       // Redirect to signin after a short delay
       setTimeout(() => {
-        router.push('/auth/signin');
+        router.push(signInHref);
       }, 2000);
       
     } catch (error: any) {

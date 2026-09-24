@@ -46,7 +46,7 @@ app.use(express.json());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token, X-Account-Id');
   res.header('Access-Control-Max-Age', '300');
   
   if (req.method === 'OPTIONS') {
@@ -269,6 +269,32 @@ app.all('/api/platform-admin/accounts/:accountId/plan', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
+// docs/Payments-and-Subscription-Plan.md — Platform-admin payment verification
+app.all('/api/platform-admin/payment-submissions', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/platform-admin/payment-submissions/:id/view-url', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/platform-admin/payment-submissions/:id/approve', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/platform-admin/payment-submissions/:id/reject', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/platform-admin/accounts/:accountId/extend-trial', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/platform-admin/promo-codes', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/platform-admin/promo-codes/:code', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/platform-admin/promo-codes/:code/deactivate', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
 // Account / Member routes
 app.all('/api/account/me', async (req, res) => {
   await handlePropertyRequest(req, res);
@@ -280,6 +306,34 @@ app.all('/api/account/members', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 app.all('/api/account/members/:sub', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+// docs/Payments-and-Subscription-Plan.md — Billing
+app.all('/api/billing/status', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/billing/usage', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/billing/start-trial', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/billing/downgrade-to-free', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/billing/payment-submissions/upload-url', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/billing/payment-submissions', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/billing/promo-codes/validate', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+// docs/Payments-and-Subscription-Plan.md — Public promo codes
+app.all('/api/public/promo-codes/active-auto-apply', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 

@@ -429,6 +429,135 @@ functions:
             name: ApiGatewayAuthorizer
             type: request
 
+      # docs/Payments-and-Subscription-Plan.md — Billing
+      - http:
+          path: /api/billing/status
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/billing/usage
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/billing/promo-codes/validate
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/billing/start-trial
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/billing/downgrade-to-free
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/billing/payment-submissions/upload-url
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/billing/payment-submissions
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/billing/payment-submissions
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+
+      # docs/Payments-and-Subscription-Plan.md — Public promo codes (no authorizer, like other /api/public/*)
+      - http:
+          path: /api/public/promo-codes/active-auto-apply
+          method: get
+          cors: true
+
+      # docs/Payments-and-Subscription-Plan.md — Platform-admin payment verification
+      - http:
+          path: /api/platform-admin/payment-submissions
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/platform-admin/payment-submissions/{id}/view-url
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/platform-admin/payment-submissions/{id}/approve
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/platform-admin/payment-submissions/{id}/reject
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/platform-admin/accounts/{accountId}/extend-trial
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/platform-admin/promo-codes
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/platform-admin/promo-codes
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/platform-admin/promo-codes/{code}
+          method: put
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/platform-admin/promo-codes/{code}/deactivate
+          method: put
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+
 plugins:
   - serverless-offline
 

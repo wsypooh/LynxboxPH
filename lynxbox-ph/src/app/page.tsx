@@ -1,89 +1,27 @@
 'use client'
 
-import { Box, Container, Heading, Text, Button, VStack, HStack, SimpleGrid, Card, CardBody, Icon, Table, Thead, Tbody, Tr, Th, Td, Badge } from '@chakra-ui/react'
+import { Box, Container, Heading, Text, Button, VStack, HStack, SimpleGrid, Card, CardBody, Icon } from '@chakra-ui/react'
 import { Building2, Search, FileText, Users } from 'lucide-react'
 import Link from 'next/link'
 import { route } from '@/utils/routing'
-
-// docs/Pricing-Strategy-Plan.md — same row labels/order as that doc's tier table, so the
-// two stay easy to compare at a glance. Universal rows (Ledger, VAT/EWT, CSV import) are
-// called out once above the grid instead of repeated identically on every card.
-const PRICING_TIERS = [
-  {
-    name: 'Free Forever',
-    price: '₱0',
-    period: 'Perfect for getting started',
-    popular: false,
-    rows: [
-      ['Active property listings', '2'],
-      ['Photos per listing', '3'],
-      ['Listing visibility duration', '7 days (manual renew)'],
-      ['Public search placement', 'Standard'],
-      ['Invoices/month', '10'],
-      ['Team seats', '1'],
-      ['Document storage', '20 files / 100MB'],
-      ['Batch ZIP invoice download', '–'],
-      ['PDF branding', 'Lynxbox branded'],
-      ['Support', 'Best-effort email'],
-    ],
-  },
-  {
-    name: 'Starter',
-    price: '₱699',
-    period: 'per month',
-    popular: false,
-    rows: [
-      ['Active property listings', '5'],
-      ['Photos per listing', 'Unlimited'],
-      ['Listing visibility duration', '30 days'],
-      ['Public search placement', 'Standard'],
-      ['Invoices/month', '50'],
-      ['Team seats', '2'],
-      ['Document storage', '200 files / 1GB'],
-      ['Batch ZIP invoice download', '✓'],
-      ['PDF branding', 'Unbranded'],
-      ['Support', 'Email'],
-    ],
-  },
-  {
-    name: 'Growth',
-    price: '₱1,499',
-    period: 'per month',
-    popular: true,
-    rows: [
-      ['Active property listings', '15'],
-      ['Photos per listing', 'Unlimited'],
-      ['Listing visibility duration', '60 days'],
-      ['Public search placement', 'Priority'],
-      ['Invoices/month', '200'],
-      ['Team seats', '5'],
-      ['Document storage', '1,000 files / 5GB'],
-      ['Batch ZIP invoice download', '✓'],
-      ['PDF branding', 'Unbranded + custom logo'],
-      ['Support', 'Priority email/chat'],
-    ],
-  },
-  {
-    name: 'Business',
-    price: '₱2,990',
-    period: 'per month',
-    popular: false,
-    rows: [
-      ['Active property listings', 'Unlimited'],
-      ['Photos per listing', 'Unlimited'],
-      ['Listing visibility duration', 'No expiry'],
-      ['Public search placement', 'Top/Featured'],
-      ['Invoices/month', 'Unlimited'],
-      ['Team seats', 'Unlimited'],
-      ['Document storage', 'Unlimited (fair use)'],
-      ['Batch ZIP invoice download', '✓'],
-      ['PDF branding', 'Full white-label'],
-      ['Support', 'Priority + dedicated onboarding'],
-    ],
-  },
-] as const
+import PricingComparisonTable from '@/features/billing/components/PricingComparisonTable'
+import PricingCtaButton from '@/features/billing/components/PricingCtaButton'
+import { useAuth } from '@/features/auth/AuthContext'
+import { useAccount } from '@/features/account/AccountContext'
+import { billingService } from '@/services/billingService'
+import { Plan } from '@/features/billing/types'
+import { useState, useEffect } from 'react'
 
 export default function Home() {
+  const { user } = useAuth()
+  const { canManageBilling } = useAccount()
+  const [currentPlan, setCurrentPlan] = useState<Plan | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    billingService.getStatus().then(s => setCurrentPlan(s.plan)).catch(() => {})
+  }, [user])
+
   return (
     <Box as="main" m="0 !important" p="0 !important">
       {/* Hero Section */}
@@ -272,52 +210,19 @@ export default function Home() {
               <Text fontSize="lg" color="gray.600">
                 Start free and upgrade as you grow
               </Text>
+              <Text fontSize="md" color="green.600" fontWeight="medium">
+                No credit card required to sign up or start your 30-day free trial
+              </Text>
               <Text fontSize="sm" color="gray.500" maxW="2xl">
                 Every plan includes the full ledger (FIFO payments &amp; penalty automation), automatic VAT/EWT computation with PDF Statements of Account, and CSV import for tenants &amp; ledger history.
               </Text>
             </VStack>
 
-            <Box w="full" maxW="6xl" overflowX="auto" bg="white" borderRadius="lg" boxShadow="sm">
-              <Table variant="simple">
-                <Thead>
-                  <Tr>
-                    <Th></Th>
-                    {PRICING_TIERS.map(tier => (
-                      <Th key={tier.name} textAlign="center" bg={tier.popular ? 'primary.50' : undefined} borderTopWidth={tier.popular ? 2 : 0} borderColor="primary.500">
-                        <VStack spacing={1} py={2} textTransform="none">
-                          {tier.popular && <Badge colorScheme="primary" mb={1}>Most Popular</Badge>}
-                          <Text fontSize="md" fontWeight="bold" color="gray.800">{tier.name}</Text>
-                          <Text fontSize="xl" fontWeight="bold" color="gray.800">{tier.price}</Text>
-                          <Text fontSize="xs" color="gray.500" fontWeight="normal">{tier.period}</Text>
-                        </VStack>
-                      </Th>
-                    ))}
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {PRICING_TIERS[0].rows.map(([label], rowIndex) => (
-                    <Tr key={label}>
-                      <Td fontWeight="medium" color="gray.700">{label}</Td>
-                      {PRICING_TIERS.map(tier => (
-                        <Td key={tier.name} textAlign="center" bg={tier.popular ? 'primary.50' : undefined}>
-                          {tier.rows[rowIndex][1]}
-                        </Td>
-                      ))}
-                    </Tr>
-                  ))}
-                  <Tr>
-                    <Td></Td>
-                    {PRICING_TIERS.map(tier => (
-                      <Td key={tier.name} textAlign="center" bg={tier.popular ? 'primary.50' : undefined} borderBottomWidth={tier.popular ? 2 : 0} borderColor="primary.500">
-                        <Button as={Link} href={route('/auth/signup')} colorScheme="primary" size="sm" w="full">
-                          Get Started
-                        </Button>
-                      </Td>
-                    ))}
-                  </Tr>
-                </Tbody>
-              </Table>
-            </Box>
+            <PricingComparisonTable
+              renderCta={(tier, cycle) => (
+                <PricingCtaButton tier={tier} cycle={cycle} isLoggedIn={!!user} currentPlan={currentPlan} canManageBilling={canManageBilling} />
+              )}
+            />
           </VStack>
         </Container>
       </Box>

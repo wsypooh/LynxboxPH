@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Box, VStack, Text, Icon, Flex, Select } from '@chakra-ui/react';
-import { FiUsers, FiLayout, FiShield, FiUserCheck } from 'react-icons/fi';
+import { FiUsers, FiLayout, FiShield, FiUserCheck, FiCreditCard, FiCheckSquare, FiTag } from 'react-icons/fi';
 import { BsBuilding, BsBuildings } from 'react-icons/bs';
 import { MdReceipt } from 'react-icons/md';
 import { getIsPlatformAdmin } from '@/lib/auth';
@@ -15,9 +15,13 @@ const navItems = [
   { label: 'Buildings',          href: '/dashboard/buildings',          icon: BsBuilding },
   { label: 'Tenants',            href: '/dashboard/tenants',            icon: FiUsers },
   { label: 'Invoices',           href: '/dashboard/invoices',           icon: MdReceipt },
+  { label: 'Billing',            href: '/dashboard/billing',            icon: FiCreditCard },
 ];
 
 const platformAdminNavItem = { label: 'Platform Admin', href: '/dashboard/platform-admin', icon: FiShield };
+// docs/Payments-and-Subscription-Plan.md — platform-admin's payment verification surface.
+const paymentVerificationNavItem = { label: 'Payment Verification', href: '/dashboard/platform-admin/payments', icon: FiCheckSquare };
+const promoCodesNavItem = { label: 'Promo Codes', href: '/dashboard/platform-admin/promo-codes', icon: FiTag };
 const teamNavItem = { label: 'Team', href: '/dashboard/team', icon: FiUserCheck };
 
 export function DashboardSidebar() {
@@ -29,14 +33,21 @@ export function DashboardSidebar() {
     getIsPlatformAdmin().then(setIsPlatformAdmin);
   }, []);
 
-  const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard';
-    return pathname.startsWith(href);
-  };
-
   let items = navItems;
   if (canManageMembers) items = [...items, teamNavItem];
-  if (isPlatformAdmin) items = [...items, platformAdminNavItem];
+  if (isPlatformAdmin) items = [...items, platformAdminNavItem, paymentVerificationNavItem, promoCodesNavItem];
+
+  // A plain `pathname.startsWith(href)` made a parent nav item (e.g. "Platform Admin")
+  // highlight alongside its own child pages ("Payment Verification", "Promo Codes"),
+  // since a child's path is always also a prefix-match of the parent's. Only the most
+  // specific (longest) matching href among all nav items should actually highlight.
+  const isActive = (href: string) => {
+    if (href === '/dashboard') return pathname === '/dashboard';
+    const matches = (h: string) => h !== '/dashboard' && (pathname === h || pathname.startsWith(`${h}/`));
+    if (!matches(href)) return false;
+    const mostSpecific = items.map(i => i.href).filter(matches).reduce((a, b) => (b.length > a.length ? b : a));
+    return mostSpecific === href;
+  };
 
   return (
     <Box
@@ -64,7 +75,7 @@ export function DashboardSidebar() {
           >
             {memberships.map(m => (
               <option key={m.accountId} value={m.accountId}>
-                {m.role === 'owner' ? 'My Account' : `${m.accountId.slice(0, 8)}… (${m.role})`}
+                {m.role === 'owner' ? 'My Account' : `${m.ownerEmail || m.accountId.slice(0, 8) + '…'} (${m.role})`}
               </option>
             ))}
           </Select>

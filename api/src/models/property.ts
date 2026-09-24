@@ -46,6 +46,11 @@ export interface Property extends BaseEntity {
   deletedAt?: string;
   // Set at creation from the owner's plan (docs/Pricing-Strategy-Plan.md) — null means it never expires.
   expiresAt?: string | null;
+  // docs/Payments-and-Subscription-Plan.md — temporary, reversible: true for every active
+  // listing the instant an account goes past_due, cleared the instant payment is verified
+  // (or superseded by a real plan-downgrade unlisting if the 14-day window lapses).
+  // Distinct from status: 'unlisted', which is the permanent plan-downgrade mechanism.
+  listingSuspended?: boolean;
 }
 
 // Type for creating a new property (excludes auto-generated fields, but allows optional id)

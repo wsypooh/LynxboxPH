@@ -7,7 +7,7 @@ import { BuildingRepository } from '../../repositories/buildingRepository';
 import { TenantRepository } from '../../repositories/tenantRepository';
 import { InvoiceRepository } from '../../repositories/invoiceRepository';
 import { DocumentRepository } from '../../repositories/documentRepository';
-import { getCognitoUserEmail, getUserPoolUserCount } from '../../lib/cognitoAdmin';
+import { getCognitoUserEmail, getUserPoolUserCount, listAllCognitoUsers } from '../../lib/cognitoAdmin';
 import { MembershipRepository } from '../../repositories/membershipRepository';
 import { AccountRepository } from '../../repositories/accountRepository';
 import { Plan } from '../../models/account';
@@ -47,25 +47,60 @@ export class PlatformAdminDashboardHandler {
   }
 
   static async getSummary(): Promise<APIGatewayProxyResult> {
-    const [summary, totalUsers] = await Promise.all([
+    const [summary, totalUsers, cognitoUsers] = await Promise.all([
       PlatformAdminRepository.getPlatformSummary(),
       getUserPoolUserCount().catch(() => null),
+      listAllCognitoUsers().catch(() => []),
     ]);
 
-    // Enrich each account with its real owner email and member count for display.
-    // Best-effort throughout: a lookup failure (e.g. a deleted user) falls back to
-    // null/1, never blocks the page.
-    const accounts = await Promise.all(summary.accounts.map(async account => {
-      const [ownerEmail, members] = await Promise.all([
-        getCognitoUserEmail(account.accountId).catch(() => null),
+    // The scan-derived summary only knows about accounts that already own a property/
+    // tenant/building/document/invoice — a brand-new signup with none of those yet is
+    // otherwise invisible on this dashboard. Merge in every real Cognito user (the actual
+    // source of truth for "an account exists") as a zero-activity row, so a fresh account
+    // shows up immediately instead of only once it does something.
+    const knownAccountIds = new Set(summary.accounts.map(a => a.accountId));
+    const mergedAccounts = [...summary.accounts];
+    for (const user of cognitoUsers) {
+      if (!knownAccountIds.has(user.sub)) {
+        mergedAccounts.push({
+          accountId: user.sub,
+          propertyCount: 0,
+          activeListingCount: 0,
+          tenantCount: 0,
+          buildingCount: 0,
+          documentCount: 0,
+          invoicesByMonth: {},
+        });
+      }
+    }
+
+    // listAllCognitoUsers() already fetched every user in one paginated scan — reuse it
+    // for email/signup date instead of an extra per-account AdminGetUser call.
+    const cognitoBySub = new Map(cognitoUsers.map(u => [u.sub, u]));
+
+    // Enrich each account with its real owner email, signup date, member count, and
+    // subscription state for display. Best-effort throughout: a lookup failure (e.g. a
+    // deleted user) falls back to null/1/free, never blocks the page.
+    const accounts = await Promise.all(mergedAccounts.map(async account => {
+      const [members, accountPlan] = await Promise.all([
         MembershipRepository.listByAccount(account.accountId).catch(() => []),
+        AccountRepository.getPlan(account.accountId).catch(() => null),
       ]);
       // Solo accounts that never invited anyone have zero MEMBER# rows — they're still one user (the owner).
       const memberCount = members.length > 0 ? members.length : 1;
-      return { ...account, ownerEmail, memberCount };
+      const cognitoUser = cognitoBySub.get(account.accountId);
+      return {
+        ...account,
+        ownerEmail: cognitoUser?.email ?? null,
+        signupDate: cognitoUser?.signupDate ?? null,
+        memberCount,
+        plan: accountPlan?.plan ?? 'free',
+        subscriptionStatus: accountPlan?.subscriptionStatus ?? 'free',
+        trialEndsAt: accountPlan?.trialEndsAt,
+      };
     }));
 
-    return ApiResponse.success({ ...summary, totalUsers, accounts });
+    return ApiResponse.success({ ...summary, totalAccounts: accounts.length, totalUsers, accounts });
   }
 
   static async getAccountDetail(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -87,6 +122,10 @@ export class PlatformAdminDashboardHandler {
       accountId,
       ownerEmail,
       plan: accountPlan.plan,
+      // docs/Payments-and-Subscription-Plan.md — so the platform-admin account page can
+      // show trial status and offer "Extend Trial" only while it's actually relevant.
+      subscriptionStatus: accountPlan.subscriptionStatus,
+      trialEndsAt: accountPlan.trialEndsAt,
       properties: properties.items,
       buildings,
       tenants,

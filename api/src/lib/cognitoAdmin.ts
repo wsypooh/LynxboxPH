@@ -3,6 +3,7 @@ import {
   AdminCreateUserCommand,
   AdminGetUserCommand,
   DescribeUserPoolCommand,
+  ListUsersCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 
 const client = new CognitoIdentityProviderClient({
@@ -61,6 +62,31 @@ export async function getCognitoUserEmail(sub: string): Promise<string | null> {
 export async function getUserPoolUserCount(): Promise<number> {
   const result = await client.send(new DescribeUserPoolCommand({ UserPoolId: USER_POOL_ID }));
   return result.UserPool?.EstimatedNumberOfUsers ?? 0;
+}
+
+// docs/Payments-and-Subscription-Plan.md / RBAC-Admin-Plan.md — the real source of truth
+// for "which accounts exist" is Cognito, since signup is 100% client-side and writes no
+// DynamoDB row at all until the account first touches something (a property, billing,
+// etc.). PlatformAdminRepository.getPlatformSummary() only discovers accounts by scanning
+// for entities that carry an ownerId, so a brand-new, still-unused account is invisible to
+// it — this is what the platform-admin dashboard merges in on top of that scan so every
+// signed-up user shows up immediately, not just ones with existing activity.
+export async function listAllCognitoUsers(): Promise<{ sub: string; email: string | null; signupDate: string | null }[]> {
+  const users: { sub: string; email: string | null; signupDate: string | null }[] = [];
+  let PaginationToken: string | undefined;
+  do {
+    const result = await client.send(new ListUsersCommand({
+      UserPoolId: USER_POOL_ID,
+      PaginationToken,
+    }));
+    for (const u of result.Users || []) {
+      const sub = u.Attributes?.find(a => a.Name === 'sub')?.Value;
+      const email = u.Attributes?.find(a => a.Name === 'email')?.Value ?? null;
+      if (sub) users.push({ sub, email, signupDate: u.UserCreateDate?.toISOString() ?? null });
+    }
+    PaginationToken = result.PaginationToken;
+  } while (PaginationToken);
+  return users;
 }
 
 export async function createCognitoUser(email: string, temporaryPassword: string): Promise<{ sub: string }> {

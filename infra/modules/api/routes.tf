@@ -511,3 +511,148 @@ resource "aws_apigatewayv2_route" "remove_account_member" {
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
+
+# docs/Payments-and-Subscription-Plan.md — Billing
+resource "aws_apigatewayv2_route" "billing_status" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/billing/status"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "billing_usage" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/billing/usage"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "billing_validate_promo_code" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/billing/promo-codes/validate"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "billing_start_trial" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/billing/start-trial"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "billing_downgrade_to_free" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/billing/downgrade-to-free"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "billing_payment_submissions_upload_url" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/billing/payment-submissions/upload-url"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "billing_create_payment_submission" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/billing/payment-submissions"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "billing_list_payment_submissions" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/billing/payment-submissions"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+# docs/Payments-and-Subscription-Plan.md — Public promo codes (no authorizer)
+resource "aws_apigatewayv2_route" "public_promo_active_auto_apply" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /api/public/promo-codes/active-auto-apply"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# docs/Payments-and-Subscription-Plan.md — Platform-admin payment verification
+resource "aws_apigatewayv2_route" "platform_admin_list_payment_submissions" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/platform-admin/payment-submissions"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "platform_admin_view_payment_submission_proof" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/platform-admin/payment-submissions/{id}/view-url"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "platform_admin_approve_payment_submission" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/platform-admin/payment-submissions/{id}/approve"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "platform_admin_reject_payment_submission" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/platform-admin/payment-submissions/{id}/reject"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "platform_admin_extend_trial" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/platform-admin/accounts/{accountId}/extend-trial"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "platform_admin_list_promo_codes" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /api/platform-admin/promo-codes"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "platform_admin_create_promo_code" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/platform-admin/promo-codes"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "platform_admin_update_promo_code" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /api/platform-admin/promo-codes/{code}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "platform_admin_deactivate_promo_code" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /api/platform-admin/promo-codes/{code}/deactivate"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}

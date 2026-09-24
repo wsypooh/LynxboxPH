@@ -1,5 +1,5 @@
-import type { UserProfile, UpdateProfileData, ChangePasswordData, SubscriptionPlan } from '../types'
-export type { UserProfile, UpdateProfileData, ChangePasswordData, SubscriptionPlan } from '../types'
+import type { UserProfile, UpdateProfileData, ChangePasswordData } from '../types'
+export type { UserProfile, UpdateProfileData, ChangePasswordData } from '../types'
 import { getCurrentUser, updateUserAttributes, updatePassword } from 'aws-amplify/auth'
 
 // Mock data for development - will be replaced with actual API calls
@@ -28,17 +28,6 @@ const mockUserProfile: UserProfile = {
       push: true
     }
   },
-  subscription: {
-    plan: 'professional',
-    status: 'active',
-    startDate: '2024-01-01T00:00:00Z',
-    endDate: '2025-01-01T00:00:00Z',
-    paymentMethod: {
-      type: 'credit_card',
-      last4: '4242',
-      expiry: '12/25'
-    }
-  },
   stats: {
     propertiesListed: 15,
     propertiesRented: 12,
@@ -49,66 +38,6 @@ const mockUserProfile: UserProfile = {
   createdAt: '2023-01-01T00:00:00Z',
   updatedAt: new Date().toISOString()
 }
-
-export const subscriptionPlans: SubscriptionPlan[] = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: 0,
-    currency: 'PHP',
-    period: 'monthly',
-    features: [
-      '1 active listing',
-      '3 photos per property',
-      '7-day listing duration',
-      'Basic search visibility',
-      'Email support'
-    ],
-    buttonText: 'Current Plan',
-    buttonVariant: 'outline',
-    description: 'Perfect for getting started with one property listing.'
-  },
-  {
-    id: 'professional',
-    name: 'Professional',
-    price: 1490,
-    currency: 'PHP',
-    period: 'monthly',
-    features: [
-      '10 active listings',
-      'Unlimited photos',
-      '30-day listing duration',
-      'Priority search ranking',
-      'Analytics dashboard',
-      'Invoice generation',
-      'Email & phone support'
-    ],
-    isPopular: true,
-    buttonText: 'Upgrade Now',
-    buttonVariant: 'solid',
-    description: 'Ideal for growing property portfolios with multiple listings.'
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 4990,
-    currency: 'PHP',
-    period: 'monthly',
-    features: [
-      'Unlimited listings',
-      'Unlimited photos & videos',
-      'Featured property badges',
-      'Advanced analytics',
-      'API access',
-      'Dedicated account manager',
-      '24/7 priority support',
-      'Custom branding'
-    ],
-    buttonText: 'Contact Sales',
-    buttonVariant: 'outline',
-    description: 'For large portfolios and commercial real estate businesses.'
-  }
-]
 
 export class ProfileService {
   static async getCurrentUserProfile(): Promise<UserProfile> {
@@ -216,30 +145,4 @@ export class ProfileService {
     }
   }
 
-  static async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
-    // In a real app, this would come from your API
-    await new Promise(resolve => setTimeout(resolve, 300))
-    return subscriptionPlans
-  }
-
-  static async updateSubscription(planId: string, period: 'monthly' | 'annual' = 'monthly'): Promise<{ success: boolean; message: string }> {
-    try {
-      // In a real app, this would integrate with your payment processor
-      // const response = await fetch('/api/subscription', {
-      //   method: 'POST',
-      //   body: JSON.stringify({ planId, period })
-      // })
-      // return await response.json()
-      
-      // Mock implementation
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      return {
-        success: true,
-        message: `Successfully subscribed to the ${planId} plan!`
-      }
-    } catch (error) {
-      console.error('Error updating subscription:', error)
-      throw error
-    }
-  }
 }

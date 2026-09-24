@@ -2,12 +2,20 @@
 import { useState, useEffect } from 'react';
 import {
   Box, Heading, Text, Spinner, useToast, SimpleGrid, Card, CardHeader, CardBody,
-  Table, Thead, Tbody, Tr, Th, Td, Badge, HStack, Select, Button,
+  Table, Thead, Tbody, Tr, Th, Td, Badge, HStack, Select, Button, Input,
 } from '@chakra-ui/react';
 import { platformAdminService } from '@/services/platformAdminService';
+import { paymentVerificationService } from '@/services/paymentVerificationService';
 import { AccountDetail, Plan } from '@/features/platform-admin/types';
+import { PaidPlan } from '@/features/billing/types';
+
+// yyyy-MM-dd for a native <input type="date">.
+function toDateInputValue(iso?: string): string {
+  return iso ? iso.slice(0, 10) : '';
+}
 
 const PLAN_OPTIONS: Plan[] = ['free', 'starter', 'growth', 'business'];
+const PAID_PLAN_OPTIONS: Plan[] = ['starter', 'growth', 'business'];
 
 function formatCurrency(amount: number): string {
   return (amount ?? 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
@@ -18,12 +26,15 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<Plan>('free');
   const [savingPlan, setSavingPlan] = useState(false);
+  const [newTrialEndsAt, setNewTrialEndsAt] = useState('');
+  const [extendingTrial, setExtendingTrial] = useState(false);
+  const [grantPlan, setGrantPlan] = useState<Plan>('starter');
   const toast = useToast();
 
   useEffect(() => {
     if (!accountId) return;
     platformAdminService.getAccountDetail(accountId)
-      .then(d => { setDetail(d); setSelectedPlan(d.plan); })
+      .then(d => { setDetail(d); setSelectedPlan(d.plan); setNewTrialEndsAt(toDateInputValue(d.trialEndsAt)); })
       .catch(() => toast({ title: 'Failed to load account', status: 'error' }))
       .finally(() => setLoading(false));
   }, [accountId, toast]);
@@ -38,6 +49,34 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
       toast({ title: 'Failed to update plan', status: 'error' });
     } finally {
       setSavingPlan(false);
+    }
+  };
+
+  const isTrialing = detail?.subscriptionStatus === 'trialing';
+
+  // docs/Payments-and-Subscription-Plan.md — case-by-case trial extension. While already
+  // trialing, this just pushes the date out. For a lapsed trial (any other status), a
+  // plan must be picked too, since reverting to Free erases which plan it was trialing —
+  // this re-grants one from scratch, bypassing hasUsedTrial as a deliberate admin override.
+  const handleExtendTrial = async () => {
+    if (!newTrialEndsAt) {
+      toast({ title: 'Pick a new trial end date', status: 'error' });
+      return;
+    }
+    setExtendingTrial(true);
+    try {
+      const updated = await paymentVerificationService.extendTrial(
+        accountId,
+        new Date(newTrialEndsAt).toISOString(),
+        undefined,
+        isTrialing ? undefined : (grantPlan as PaidPlan)
+      );
+      setDetail(prev => prev ? { ...prev, trialEndsAt: updated.trialEndsAt, plan: updated.plan, subscriptionStatus: updated.subscriptionStatus } : prev);
+      toast({ title: isTrialing ? 'Trial extended' : `New ${updated.plan} trial started`, status: 'success' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Failed to extend trial', status: 'error' });
+    } finally {
+      setExtendingTrial(false);
     }
   };
 
@@ -59,12 +98,9 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
 
   return (
     <Box p={8}>
-      <Heading size="lg" mb={1}>Account: {detail.ownerEmail || detail.accountId}</Heading>
-      <Text color="gray.500" mb={6}>
-        Read-only for this account&apos;s data &mdash; the only edit action here is its plan (docs/Pricing-Strategy-Plan.md), pending real billing.
-      </Text>
+      <Heading size="lg" mb={4}>Account: {detail.ownerEmail || detail.accountId}</Heading>
 
-      <HStack mb={8} spacing={3}>
+      <HStack mb={4} spacing={3}>
         <Text fontWeight="medium">Plan:</Text>
         <Select value={selectedPlan} onChange={e => setSelectedPlan(e.target.value as Plan)} w="200px" size="sm">
           {PLAN_OPTIONS.map(p => (
@@ -80,7 +116,47 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
         >
           Save
         </Button>
+        <Badge colorScheme={detail.subscriptionStatus === 'trialing' ? 'blue' : detail.subscriptionStatus === 'active' ? 'green' : detail.subscriptionStatus === 'past_due' ? 'red' : 'gray'}>
+          {detail.subscriptionStatus}
+        </Badge>
       </HStack>
+
+      {isTrialing ? (
+        <HStack mb={8} spacing={3}>
+          <Text fontWeight="medium">Trial ends:</Text>
+          <Input type="date" value={newTrialEndsAt} onChange={e => setNewTrialEndsAt(e.target.value)} w="200px" size="sm" />
+          <Button
+            size="sm"
+            colorScheme="primary"
+            variant="outline"
+            isDisabled={newTrialEndsAt === toDateInputValue(detail.trialEndsAt)}
+            isLoading={extendingTrial}
+            onClick={handleExtendTrial}
+          >
+            Extend Trial
+          </Button>
+        </HStack>
+      ) : (
+        <HStack mb={8} spacing={3}>
+          <Text fontWeight="medium">Grant a new trial:</Text>
+          <Select value={grantPlan} onChange={e => setGrantPlan(e.target.value as Plan)} w="140px" size="sm">
+            {PAID_PLAN_OPTIONS.map(p => (
+              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+            ))}
+          </Select>
+          <Text fontSize="sm" color="gray.500">until</Text>
+          <Input type="date" value={newTrialEndsAt} onChange={e => setNewTrialEndsAt(e.target.value)} w="200px" size="sm" />
+          <Button
+            size="sm"
+            colorScheme="primary"
+            variant="outline"
+            isLoading={extendingTrial}
+            onClick={handleExtendTrial}
+          >
+            Start New Trial
+          </Button>
+        </HStack>
+      )}
 
       <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} mb={8}>
         <Card>

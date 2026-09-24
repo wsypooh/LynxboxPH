@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Box,
   Container,
@@ -37,6 +38,8 @@ import {
 } from '@chakra-ui/react';
 import { FiUser, FiMail, FiPhone, FiMapPin, FiLock, FiCreditCard, FiCalendar, FiCheckCircle, FiKey, FiShield } from 'react-icons/fi';
 import { useAuth } from '@/features/auth/AuthContext';
+import { billingService } from '@/services/billingService';
+import { UsageSummary } from '@/features/billing/types';
 import dynamic from 'next/dynamic';
 
 // Dynamically import the components with no SSR
@@ -68,6 +71,12 @@ export default function ProfilePage() {
   const [emailConfirmCode, setEmailConfirmCode] = useState('');
   const [isConfirmingEmail, setIsConfirmingEmail] = useState(false);
   const [isResendingEmailCode, setIsResendingEmailCode] = useState(false);
+  // docs/Payments-and-Subscription-Plan.md — real plan data for the Subscription tab below.
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+
+  useEffect(() => {
+    billingService.getUsage().then(setUsage).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -594,21 +603,10 @@ export default function ProfilePage() {
                       <Box>
                         <Heading size="sm" mb={2}>Current Plan</Heading>
                         <Text color="gray.600" mb={4}>
-                          You&apos;re currently on the <strong>Free</strong> plan.
+                          You&apos;re currently on the{' '}
+                          <strong>{usage ? usage.plan.charAt(0).toUpperCase() + usage.plan.slice(1) : '...'}</strong> plan.
                         </Text>
-                        <Button colorScheme="blue" w="fit-content">
-                          Upgrade Plan
-                        </Button>
-                      </Box>
-                      
-                      <Divider my={2} />
-                      
-                      <Box>
-                        <Heading size="sm" mb={2}>Billing Information</Heading>
-                        <Text color="gray.600" mb={4}>
-                          Update your payment method and view billing history.
-                        </Text>
-                        <Button variant="outline" w="fit-content">
+                        <Button as={Link} href="/dashboard/billing" colorScheme="blue" w="fit-content">
                           Manage Billing
                         </Button>
                       </Box>

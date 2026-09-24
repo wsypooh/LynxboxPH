@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signUp, getCurrentUser } from 'aws-amplify/auth';
+import { signUp } from 'aws-amplify/auth';
 import Link from 'next/link';
 import {
   Box,
@@ -18,7 +18,6 @@ import {
   VStack,
   Text,
   useToast,
-  Code,
   Link as ChakraLink,
   useColorModeValue,
   InputGroup,
@@ -39,56 +38,15 @@ const signUpSchema = z.object({
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
 
-// Debug component to display environment variables
-const DebugInfo = ({ debugInfo }: { debugInfo: Record<string, any> }) => {
-  if (process.env.NODE_ENV === 'production') return null;
-  
-  return (
-    <Box mt={8} p={4} bg="gray.50" borderRadius="md">
-      <Text fontWeight="bold" mb={2}>Debug Information:</Text>
-      <Code whiteSpace="pre" p={2} display="block">
-        {JSON.stringify(debugInfo, null, 2)}
-      </Code>
-    </Box>
-  );
-};
-
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [debugInfo, setDebugInfo] = useState<Record<string, any>>({});
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
-
-  // Debug: Log environment variables and config
-  useEffect(() => {
-    const debugData = {
-      env: {
-        region: process.env.NEXT_PUBLIC_AWS_REGION,
-        userPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID,
-        userPoolClientId: process.env.NEXT_PUBLIC_AWS_USER_POOL_WEB_CLIENT_ID,
-        identityPoolId: process.env.NEXT_PUBLIC_AWS_IDENTITY_POOL_ID,
-      },
-      window: typeof window !== 'undefined' ? 'available' : 'not available',
-    };
-    
-    console.log('Debug Info:', debugData);
-    setDebugInfo(debugData);
-    
-    // Check if user is already authenticated
-    const checkAuthStatus = async () => {
-      try {
-        const user = await getCurrentUser();
-      } catch (error) {
-        // No authenticated user
-      }
-    };
-    
-    checkAuthStatus();
-  }, []);
 
   const {
     register,
@@ -122,7 +80,13 @@ export default function SignUpPage() {
         isClosable: true,
       });
       
-      router.push(`/auth/confirm-signup?email=${encodeURIComponent(data.email)}`);
+      // docs/Payments-and-Subscription-Plan.md — carry a plan/cycle chosen on the
+      // homepage pricing CTAs through confirm-signup -> signin, so first login can route
+      // straight to starting that trial instead of losing the context.
+      const plan = searchParams.get('plan');
+      const cycle = searchParams.get('cycle');
+      const planParams = plan ? `&plan=${plan}&cycle=${cycle || 'monthly'}` : '';
+      router.push(`/auth/confirm-signup?email=${encodeURIComponent(data.email)}${planParams}`);
     } catch (err: any) {
       console.error('Error signing up:', err);
       setError(err.message || 'An error occurred during sign up');
@@ -152,6 +116,11 @@ export default function SignUpPage() {
                   <ChakraLink as={Link} href="/auth/signin" color="blue.500">
                     Sign in
                   </ChakraLink>
+                </Text>
+                <Text color="green.600" fontSize="sm" fontWeight="medium">
+                  {searchParams.get('plan')
+                    ? `Start your 30-day free trial of ${searchParams.get('plan')!.charAt(0).toUpperCase() + searchParams.get('plan')!.slice(1)} — no credit card required`
+                    : 'No credit card required'}
                 </Text>
               </VStack>
 
@@ -234,9 +203,6 @@ export default function SignUpPage() {
                   </Button>
                 </VStack>
               </form>
-              
-              {/* Debug information */}
-              <DebugInfo debugInfo={debugInfo} />
             </VStack>
           </Box>
         </Box>

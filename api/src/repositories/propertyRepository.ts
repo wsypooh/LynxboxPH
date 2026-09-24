@@ -18,8 +18,13 @@ function createPropertyKeys(id: string) {
 // record itself is untouched. Only applied on the public-facing listing paths below —
 // an owner's own private "my properties" view (listByOwner/listByTypeAndOwner) always
 // shows everything, expired or not, so they can renew it.
+//
+// docs/Payments-and-Subscription-Plan.md adds the listingSuspended check: an account
+// past_due on payment has ALL of its active listings hidden immediately (reversible the
+// instant payment is verified), same "checked at read time, no cron needed" approach.
 function isListingCurrentlyVisible(property: Property): boolean {
-  return !property.expiresAt || new Date(property.expiresAt).getTime() > Date.now();
+  const notExpired = !property.expiresAt || new Date(property.expiresAt).getTime() > Date.now();
+  return notExpired && !property.listingSuspended;
 }
 
 export class PropertyRepository {

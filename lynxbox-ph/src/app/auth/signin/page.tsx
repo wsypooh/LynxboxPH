@@ -61,11 +61,19 @@ export default function SignInPage() {
     }
   }, [searchParams])
 
+  // docs/Payments-and-Subscription-Plan.md — a plan/cycle carried through from the
+  // homepage pricing CTAs -> signup -> confirm-signup lands here; route straight to the
+  // billing page's plan-picker instead of the plain dashboard so the intended trial can
+  // be started on first login, instead of losing that context.
+  const plan = searchParams.get('plan')
+  const cycle = searchParams.get('cycle')
+  const postSignInHref = plan ? `/dashboard/billing?plan=${plan}&cycle=${cycle || 'monthly'}` : '/dashboard'
+
   useEffect(() => {
     if (user) {
-      router.push('/dashboard')
+      router.push(postSignInHref)
     }
-  }, [user, router])
+  }, [user, router, postSignInHref])
 
   const handleSignIn = async (data: SignInFormData) => {
     setIsLoading(true)
@@ -93,7 +101,7 @@ export default function SignInPage() {
 
       // If already signed in, redirect to dashboard
       if (isSignedIn) {
-        router.push('/dashboard')
+        router.push(postSignInHref)
       }
     } catch (err: any) {
       console.error('Sign in error:', err)
@@ -104,11 +112,11 @@ export default function SignInPage() {
   }
   
   const handleMFASuccess = () => {
-    router.push('/dashboard')
+    router.push(postSignInHref)
   }
 
   const handleNewPasswordSuccess = () => {
-    router.push('/dashboard')
+    router.push(postSignInHref)
   }
 
   const handleBackToSignIn = () => {

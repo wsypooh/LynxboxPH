@@ -15,6 +15,10 @@ interface AccountContextValue {
   canWrite: boolean;
   canDestroy: boolean;
   canManageMembers: boolean;
+  // Mirrors api/src/lib/auth.ts's canManageBilling(actor) — kept as its own field (not
+  // reused from canDestroy/canManageMembers) since it's a separate concept that could
+  // diverge from those later, even though the role check is identical today.
+  canManageBilling: boolean;
   switchAccount: (accountId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -55,10 +59,18 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     }
   }, [user, load]);
 
+  // Every account-scoped page (dashboard stats, properties, invoices, billing, etc.)
+  // fetches its own data in a useEffect keyed on the Cognito user, not on the active
+  // account — switching accounts doesn't change that user, so nothing would otherwise
+  // know to refetch. A full reload is the simplest way to make every already-mounted
+  // page pick up the new X-Account-Id header, rather than reworking every page's fetch
+  // effect to also depend on accountId.
   const switchAccount = useCallback(async (accountId: string) => {
     setActiveAccountId(accountId);
-    await load();
-  }, [load]);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/dashboard';
+    }
+  }, []);
 
   const role = context?.role ?? 'owner';
 
@@ -71,6 +83,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     canWrite: role === 'owner' || role === 'manager' || role === 'staff',
     canDestroy: role === 'owner',
     canManageMembers: role === 'owner',
+    canManageBilling: role === 'owner',
     switchAccount,
     refresh: load,
   };

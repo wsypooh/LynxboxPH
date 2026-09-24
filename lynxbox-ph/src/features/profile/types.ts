@@ -23,17 +23,6 @@ export interface UserProfile {
       push: boolean
     }
   }
-  subscription?: {
-    plan: 'free' | 'professional' | 'enterprise'
-    status: 'active' | 'trial' | 'expired' | 'cancelled'
-    startDate: string
-    endDate?: string
-    paymentMethod?: {
-      type: string
-      last4?: string
-      expiry?: string
-    }
-  }
   stats?: {
     propertiesListed: number
     propertiesRented: number
@@ -72,18 +61,4 @@ export interface ChangePasswordData {
   currentPassword: string
   newPassword: string
   confirmPassword: string
-}
-
-export interface SubscriptionPlan {
-  id: string
-  name: string
-  price: number
-  currency: string
-  period: 'monthly' | 'annual'
-  features: string[]
-  isPopular?: boolean
-  recommended?: boolean
-  buttonText: string
-  buttonVariant: 'outline' | 'solid'
-  description: string
 }

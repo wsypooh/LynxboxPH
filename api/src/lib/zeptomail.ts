@@ -375,4 +375,186 @@ Helping Small Commercial Landlords Go Digital`;
     });
     console.log(`Account invite email sent to ${toEmail}`);
   }
+
+  // docs/Payments-and-Subscription-Plan.md — subscription lifecycle emails. Same
+  // inline-HTML-via-SMTP style as the methods above, no template needed for these.
+  private wrapSimpleEmail(heading: string, bodyHtml: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #0e2949; color: white; padding: 25px 30px; border-radius: 8px 8px 0 0; }
+          .content { background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+          .button { display: inline-block; background-color: #0e2949; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; margin-top: 15px; }
+          .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #999; }
+        </style>
+      </head>
+      <body>
+        <div class="header"><strong>${heading}</strong></div>
+        <div class="content">${bodyHtml}</div>
+        <div class="footer"><p>Lynxbox PH &mdash; Property Management</p></div>
+      </body>
+      </html>
+    `;
+  }
+
+  async sendTrialEndingSoonEmail(toEmail: string, plan: string, daysLeft: number): Promise<void> {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY;
+    if (!smtpKey) return;
+
+    const html = this.wrapSimpleEmail(
+      'Your Lynxbox PH trial is ending soon',
+      `<p>Your ${daysLeft}-day trial of the <strong>${plan}</strong> plan ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.</p>
+       <p>Submit your payment before then to keep your current plan — otherwise your account will automatically move to the Free plan.</p>
+       <a class="button" href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/billing">Manage Billing</a>`
+    );
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: toEmail,
+      subject: `Your Lynxbox PH trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+      html,
+    });
+  }
+
+  // docs/Payments-and-Subscription-Plan.md — gives active (non-trial) subscribers a
+  // heads-up before their period ends, so they have a reason to use early/stacked
+  // renewal instead of only ever finding out via the after-the-fact past-due email.
+  async sendRenewalDueSoonEmail(toEmail: string, plan: string, daysLeft: number, periodEnd: string): Promise<void> {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY;
+    if (!smtpKey) return;
+
+    const formattedDate = new Date(periodEnd).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+    const html = this.wrapSimpleEmail(
+      'Your Lynxbox PH plan renews soon',
+      `<p>Your <strong>${plan}</strong> plan renews in ${daysLeft} day${daysLeft === 1 ? '' : 's'}, on <strong>${formattedDate}</strong>.</p>
+       <p>You can submit your renewal payment anytime before then — paying early extends your current period rather than replacing it, so you won't lose any paid days.</p>
+       <a class="button" href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/billing">Submit Payment</a>`
+    );
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: toEmail,
+      subject: `Your Lynxbox PH plan renews in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+      html,
+    });
+  }
+
+  // `reason` distinguishes an automatic lapse (cron: trial expired, or 14 days past due
+  // with no payment) from a customer's own voluntary downgrade — the two need different
+  // opening lines ("since we didn't receive a payment" is wrong/alarming for someone who
+  // just chose to switch plans themselves).
+  async sendDowngradedToFreeEmail(toEmail: string, reason: 'lapsed' | 'voluntary' = 'lapsed'): Promise<void> {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY;
+    if (!smtpKey) return;
+
+    const openingLine = reason === 'voluntary'
+      ? `<p>As requested, your account has been moved to the <strong>Free</strong> plan.</p>`
+      : `<p>Since we didn't receive a payment, your account has been moved to the <strong>Free</strong> plan.</p>`;
+
+    const html = this.wrapSimpleEmail(
+      'Your Lynxbox PH account moved to the Free plan',
+      `${openingLine}
+       <p>Your data is safe — nothing was deleted. Some property listings beyond the Free plan's limit have been temporarily unlisted, and you can pick which ones to re-list if you upgrade again.</p>
+       <a class="button" href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/billing">View Plans</a>`
+    );
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: toEmail,
+      subject: 'Your Lynxbox PH account moved to the Free plan',
+      html,
+    });
+  }
+
+  async sendPaymentPastDueEmail(toEmail: string, plan: string): Promise<void> {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY;
+    if (!smtpKey) return;
+
+    const html = this.wrapSimpleEmail(
+      'Payment due on your Lynxbox PH account',
+      `<p>Your payment for the <strong>${plan}</strong> plan is now due. Your account has limited access until payment is verified — new invoices and property listings can't be created, and your active listings are temporarily hidden from public search.</p>
+       <p>Submit your payment within 14 days to avoid being moved to the Free plan.</p>
+       <a class="button" href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/billing">Submit Payment</a>`
+    );
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: toEmail,
+      subject: 'Payment due on your Lynxbox PH account',
+      html,
+    });
+  }
+
+  async sendPaymentVerifiedEmail(toEmail: string, plan: string, periodEnd: string): Promise<void> {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY;
+    if (!smtpKey) return;
+
+    const formattedDate = new Date(periodEnd).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+    const html = this.wrapSimpleEmail(
+      'Your Lynxbox PH payment was verified',
+      `<p>Your payment has been verified and your <strong>${plan}</strong> plan is now active until <strong>${formattedDate}</strong>.</p>
+       <a class="button" href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/billing">View Billing</a>`
+    );
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: toEmail,
+      subject: 'Your Lynxbox PH payment was verified',
+      html,
+    });
+  }
+
+  async sendPaymentRejectedEmail(toEmail: string, reason: string): Promise<void> {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY;
+    if (!smtpKey) return;
+
+    const html = this.wrapSimpleEmail(
+      'Your Lynxbox PH payment submission needs attention',
+      `<p>We couldn't verify your recent payment submission:</p>
+       <p style="font-style: italic;">"${reason}"</p>
+       <p>Please review and resubmit with corrected details.</p>
+       <a class="button" href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/billing">Resubmit Payment</a>`
+    );
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: toEmail,
+      subject: 'Your Lynxbox PH payment submission needs attention',
+      html,
+    });
+  }
+
+  async sendNewPaymentSubmissionAdminNotification(data: {
+    accountId: string;
+    accountEmail: string | null;
+    plan: string;
+    billingCycle: string;
+    amountClaimed: number;
+    method: string;
+  }): Promise<void> {
+    const apiKey = process.env.ZEPTOMAIL_API_KEY;
+    if (!apiKey) return;
+
+    const html = this.wrapSimpleEmail(
+      'New payment submission awaiting verification',
+      `<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+         <tr><td style="padding: 8px; font-weight: 600;">Account</td><td style="padding: 8px;">${data.accountEmail || data.accountId}</td></tr>
+         <tr><td style="padding: 8px; font-weight: 600;">Requested plan</td><td style="padding: 8px;">${data.plan} (${data.billingCycle})</td></tr>
+         <tr><td style="padding: 8px; font-weight: 600;">Method</td><td style="padding: 8px;">${data.method}</td></tr>
+         <tr><td style="padding: 8px; font-weight: 600;">Amount claimed</td><td style="padding: 8px;">&#8369;${data.amountClaimed.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td></tr>
+       </table>
+       <a class="button" href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/platform-admin/payments">Review Submission</a>`
+    );
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: process.env.ZEPTOMAIL_INTERNAL_EMAIL || 'wsypooh@gmail.com',
+      subject: `New payment submission — ${data.accountEmail || data.accountId}`,
+      html,
+    });
+  }
 }

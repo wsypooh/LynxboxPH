@@ -33,6 +33,8 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { getManagePropertyUrl } from '@/utils/routing';
 import { propertyService } from '@/services/propertyService';
 import { invoiceService } from '@/services/invoiceService';
+import { billingService } from '@/services/billingService';
+import { UsageSummary } from '@/features/billing/types';
 import { Invoice, InvoiceStatus } from '@/features/invoicing/types';
 
 interface ActivityItem {
@@ -116,13 +118,14 @@ export default function DashboardPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
+  // docs/Payments-and-Subscription-Plan.md — plan usage vs. limits, for the stat cards
+  // and the "Upgrade Now" banner below.
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
 
   // Dynamic stats data based on user's properties
   const [stats, setStats] = useState({
     totalProperties: 0,
     activeListings: 0,
-    totalRevenue: 0,
-    occupancyRate: 0,
     totalInquiries: 0,
     totalViews: 0
   });
@@ -175,6 +178,11 @@ export default function DashboardPage() {
       .finally(() => setActivityLoading(false));
   }, [user?.userId]);
 
+  useEffect(() => {
+    if (!user?.userId) return;
+    billingService.getUsage().then(setUsage).catch(() => {});
+  }, [user?.userId]);
+
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -216,7 +224,7 @@ export default function DashboardPage() {
         </Flex>
 
         {/* Stats */}
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} mb={8}>
           <Card bg={cardBg} border="1px" borderColor={borderColor}>
             <CardBody>
               <Stat>
@@ -228,7 +236,7 @@ export default function DashboardPage() {
               </Stat>
             </CardBody>
           </Card>
-          
+
           <Card bg={cardBg} border="1px" borderColor={borderColor}>
             <CardBody>
               <Stat>
@@ -236,31 +244,74 @@ export default function DashboardPage() {
                 <StatNumber color="green.500">
                   {statsLoading ? <Spinner size="sm" /> : stats.activeListings}
                 </StatNumber>
-                <StatHelpText>Available for rent</StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
-          
-          <Card bg={cardBg} border="1px" borderColor={borderColor}>
-            <CardBody>
-              <Stat>
-                <StatLabel>Total Revenue</StatLabel>
-                <StatNumber>${stats.totalRevenue.toLocaleString()}</StatNumber>
-                <StatHelpText>This month</StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
-          
-          <Card bg={cardBg} border="1px" borderColor={borderColor}>
-            <CardBody>
-              <Stat>
-                <StatLabel>Occupancy Rate</StatLabel>
-                <StatNumber>{stats.occupancyRate}%</StatNumber>
-                <StatHelpText>Current occupancy</StatHelpText>
+                <StatHelpText>
+                  {usage && usage.limits.maxProperties !== Infinity
+                    ? `${usage.usage.properties} of ${usage.limits.maxProperties} used`
+                    : 'Available for rent'}
+                </StatHelpText>
               </Stat>
             </CardBody>
           </Card>
         </SimpleGrid>
+
+        {/* docs/Payments-and-Subscription-Plan.md — plan usage vs. limits */}
+        {usage && (
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
+            <Card bg={cardBg} border="1px" borderColor={borderColor}>
+              <CardBody>
+                <Stat>
+                  <StatLabel>Invoices this month</StatLabel>
+                  <StatNumber>{usage.usage.invoicesThisMonth}</StatNumber>
+                  <StatHelpText>
+                    {usage.limits.maxInvoicesPerMonth === Infinity ? 'Unlimited' : `of ${usage.limits.maxInvoicesPerMonth} allowed`}
+                  </StatHelpText>
+                </Stat>
+              </CardBody>
+            </Card>
+            <Card bg={cardBg} border="1px" borderColor={borderColor}>
+              <CardBody>
+                <Stat>
+                  <StatLabel>Documents</StatLabel>
+                  <StatNumber>{usage.usage.documents}</StatNumber>
+                  <StatHelpText>
+                    {usage.limits.maxDocuments === Infinity ? 'Unlimited' : `of ${usage.limits.maxDocuments} allowed`}
+                  </StatHelpText>
+                </Stat>
+              </CardBody>
+            </Card>
+            <Card bg={cardBg} border="1px" borderColor={borderColor}>
+              <CardBody>
+                <Stat>
+                  <StatLabel>Team seats</StatLabel>
+                  <StatNumber>{usage.usage.seats}</StatNumber>
+                  <StatHelpText>
+                    {usage.limits.maxSeats === Infinity ? 'Unlimited' : `of ${usage.limits.maxSeats} allowed`}
+                  </StatHelpText>
+                </Stat>
+              </CardBody>
+            </Card>
+          </SimpleGrid>
+        )}
+
+        {/* Upgrade Notice — docs/Payments-and-Subscription-Plan.md */}
+        {usage && usage.plan !== 'business' && (
+          <Alert status={usage.plan === 'free' ? 'info' : 'warning'} borderRadius="md" variant="left-accent" mb={8}>
+            <AlertIcon />
+            <Box flex="1">
+              <Text fontWeight="bold">
+                You&apos;re on the {usage.plan.charAt(0).toUpperCase() + usage.plan.slice(1)} plan
+              </Text>
+              <Text fontSize="sm">
+                {usage.plan === 'free'
+                  ? 'Upgrade for more listings, higher invoice limits, and more features.'
+                  : 'Upgrade to a higher plan for more listings, higher invoice limits, and more features.'}
+              </Text>
+            </Box>
+            <Button as={Link} href="/dashboard/billing" colorScheme="blue" size="sm" ml={4}>
+              Upgrade Now
+            </Button>
+          </Alert>
+        )}
 
         {/* Quick Actions */}
         <Heading size="md" mb={4}>Quick Actions</Heading>
@@ -401,20 +452,6 @@ export default function DashboardPage() {
             )}
           </CardBody>
         </Card>
-
-        {/* Upgrade Notice */}
-        <Alert status="info" borderRadius="md" variant="left-accent">
-          <AlertIcon />
-          <Box flex="1">
-            <Text fontWeight="bold">You&apos;re on the Free plan</Text>
-            <Text fontSize="sm">
-              Upgrade to Professional for unlimited listings, analytics, and more features.
-            </Text>
-          </Box>
-          <Button as={Link} href="/pricing" colorScheme="blue" size="sm" ml={4}>
-            Upgrade Now
-          </Button>
-        </Alert>
       </Container>
     </Box>
   );

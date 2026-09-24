@@ -7,7 +7,7 @@ resource "aws_apigatewayv2_api" "main" {
   cors_configuration {
     allow_origins  = var.environment == "dev" ? ["*"] : ["https://${var.domain_name}"]
     allow_methods  = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    allow_headers  = ["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key", "X-Amz-Security-Token"]
+    allow_headers  = ["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key", "X-Amz-Security-Token", "X-Account-Id"]
     expose_headers = ["Content-Length"]
     max_age        = 300
   }
@@ -104,7 +104,8 @@ resource "aws_iam_role_policy" "lambda_cognito_admin" {
         Action = [
           "cognito-idp:AdminCreateUser",
           "cognito-idp:AdminGetUser",
-          "cognito-idp:DescribeUserPool"
+          "cognito-idp:DescribeUserPool",
+          "cognito-idp:ListUsers"
         ]
         Resource = "arn:aws:cognito-idp:${var.aws_region}:${data.aws_caller_identity.current.account_id}:userpool/${var.user_pool_id}"
       }

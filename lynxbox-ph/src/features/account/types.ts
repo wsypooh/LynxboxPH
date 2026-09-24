@@ -12,6 +12,7 @@ export interface AccountContext {
 export interface Membership {
   accountId: string;
   role: Role;
+  ownerEmail?: string | null;
 }
 
 export interface AccountMember {

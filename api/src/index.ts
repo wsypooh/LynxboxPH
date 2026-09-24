@@ -8,10 +8,23 @@ import { InvoiceHandler } from './handlers/invoices/handler';
 import { LedgerHandler } from './handlers/ledger/handler';
 import { DocumentHandler } from './handlers/documents/handler';
 import { PlatformAdminDashboardHandler } from './handlers/platformAdmin/dashboardHandler';
+import { PaymentVerificationHandler } from './handlers/platformAdmin/paymentVerificationHandler';
 import { AccountHandler } from './handlers/account/handler';
+import { BillingHandler } from './handlers/billing/handler';
+import { PublicBillingHandler } from './handlers/publicBilling/handler';
+import { SubscriptionCronHandler } from './handlers/subscriptionCron/handler';
 
-export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+export async function handler(event: any): Promise<APIGatewayProxyResult> {
   try {
+    // docs/Payments-and-Subscription-Plan.md — EventBridge invokes this same Lambda on a
+    // daily schedule with a synthetic event (no path/httpMethod at all, per
+    // infra/modules/api/cron.tf's `input`), so this must be checked before anything below
+    // touches event.path/event.httpMethod.
+    if (event.source === 'lynxboxph.scheduler' && event['detail-type'] === 'daily-subscription-check') {
+      await SubscriptionCronHandler.processDaily();
+      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: '' };
+    }
+
     console.log('=== MAIN HANDLER DEBUG ===');
     console.log('Path:', event.path);
     console.log('HTTP Method:', event.httpMethod);
@@ -59,12 +72,30 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return await DocumentHandler.handle(event);
     }
 
+    // Most-specific first: payment verification/promo-codes/trial-extension before the
+    // generic platform-admin dashboard branch below.
+    if (
+      event.path?.includes('/api/platform-admin/payment-submissions') ||
+      event.path?.includes('/api/platform-admin/promo-codes') ||
+      (event.path?.includes('/api/platform-admin/accounts') && event.path?.includes('/extend-trial'))
+    ) {
+      return await PaymentVerificationHandler.handle(event);
+    }
+
     if (event.path?.includes('/api/platform-admin')) {
       return await PlatformAdminDashboardHandler.handle(event);
     }
 
     if (event.path?.includes('/api/account')) {
       return await AccountHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/billing')) {
+      return await BillingHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/public/promo-codes')) {
+      return await PublicBillingHandler.handle(event);
     }
 
     return await propertyHandler(event);
