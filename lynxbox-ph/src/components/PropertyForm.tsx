@@ -38,7 +38,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PropertyInput, PropertyType, PropertyStatus, Property, propertyService } from '@/services/propertyService';
-import { validateImageFile, convertFileToBase64, extractBase64Data } from '@/lib/utils';
+import { validateImageFile } from '@/lib/utils';
+import { PH_PROVINCES, getCitiesForProvince } from '@/data/philippineLocations';
 import { CloseIcon, AddIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/features/auth/AuthContext';
 import { getCurrentUserId } from '@/lib/auth';
@@ -81,6 +82,13 @@ const propertySchema = z.object({
 
 type PropertyFormData = z.infer<typeof propertySchema>;
 
+// A new image (not yet uploaded, previewed via a local blob URL) or an existing one already
+// saved as an S3 key. Keeping both in one array means the on-screen order is always the
+// source of truth — no separate index bookkeeping to keep in sync.
+type ImageItem =
+  | { kind: 'existing'; key: string }
+  | { kind: 'new'; file: File; previewUrl: string };
+
 interface PropertyFormProps {
   onSuccess?: (property: Property) => void;
   onCancel?: () => void;
@@ -99,12 +107,15 @@ export function PropertyForm({
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageItem[]>([]);
   const [defaultImageIndex, setDefaultImageIndex] = useState<number | undefined>(0);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+
+  // Images upload direct-to-S3 keyed by property id, which a brand-new listing doesn't have
+  // yet — so the id is generated client-side upfront and reused for the form's lifetime,
+  // whether creating or editing (mirrors TenantContract.id's crypto.randomUUID() pattern).
+  const [activePropertyId] = useState<string>(() => propertyId || initialData?.id || crypto.randomUUID());
 
   const {
     register,
@@ -145,9 +156,38 @@ export function PropertyForm({
     },
   });
 
+  const descriptionLength = watch('description')?.length ?? 0;
+
+  // Cascading province -> city select. An existing property's stored city/province might
+  // not exactly match the canonical PSGC list (typos, old data) — if so, keep it selectable
+  // as an extra option rather than silently blanking or overwriting it.
+  const selectedProvince = watch('location.province');
+  const selectedCity = watch('location.city');
+  const provinceOptions = selectedProvince && !PH_PROVINCES.includes(selectedProvince)
+    ? [selectedProvince, ...PH_PROVINCES]
+    : PH_PROVINCES;
+  const citiesForProvince = selectedProvince ? getCitiesForProvince(selectedProvince) : [];
+  const cityOptions = selectedCity && !citiesForProvince.includes(selectedCity)
+    ? [selectedCity, ...citiesForProvince]
+    : citiesForProvince;
+
+  // Kept separate from the numeric RHF field value: NumberInput's precision formatting
+  // (e.g. re-rendering "12" as "12.00") would otherwise stomp a decimal point mid-typing,
+  // since feeding the parsed number straight back in as the controlled value collapses
+  // "12." back down to "12" before a digit after the decimal can be typed.
+  const [areaInputValue, setAreaInputValue] = useState<string>(
+    initialData?.features?.area !== undefined ? String(initialData.features.area) : ''
+  );
+
+  useEffect(() => {
+    if (initialData?.features?.area !== undefined) {
+      setAreaInputValue(String(initialData.features.area));
+    }
+  }, [initialData]);
+
   const handleImageSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    
+
     const validFiles = files.filter(file => {
       const validation = validateImageFile(file);
       if (!validation.isValid) {
@@ -165,77 +205,38 @@ export function PropertyForm({
 
     if (validFiles.length === 0) return;
 
-    setSelectedImages(prev => [...prev, ...validFiles]);
-
-    // Create previews for all valid files
-    validFiles.forEach(file => {
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result && result.startsWith('data:image/')) {
-          setImagePreviews(prev => {
-            const newPreviews = [...prev, result];
-            // If this is the first image and no default is set, set it as default
-            if (newPreviews.length === 1 && defaultImageIndex === undefined) {
-              setDefaultImageIndex(0);
-            }
-            return newPreviews;
-          });
-        } else {
-          console.error('Invalid image data URL generated:', result);
-          toast({
-            title: 'Image Processing Error',
-            description: 'Failed to process image file',
-            status: 'error',
-            duration: 3000,
-            isClosable: true,
-          });
-        }
-      };
-
-      reader.onerror = () => {
-        console.error('FileReader error for file:', file.name);
-        toast({
-          title: 'Image Reading Error',
-          description: `Failed to read image file: ${file.name}`,
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-      };
-
-      reader.readAsDataURL(file);
+    setImages(prev => {
+      const newItems: ImageItem[] = validFiles.map(file => ({
+        kind: 'new',
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }));
+      if (prev.length === 0 && defaultImageIndex === undefined) {
+        setDefaultImageIndex(0);
+      }
+      return [...prev, ...newItems];
     });
+
+    // Allow re-selecting the same file (otherwise onChange won't fire again for it)
+    event.target.value = '';
   }, [toast, defaultImageIndex]);
 
   const removeImage = useCallback((index: number) => {
-    const removedImage = imagePreviews[index];
-    
-    // For new images, remove from both selectedImages and imagePreviews
-    if (index < selectedImages.length) {
-      setSelectedImages(prev => prev.filter((_, i) => i !== index));
-      setImagePreviews(prev => prev.filter((_, i) => i !== index));
-    } else {
-      // For existing images, add to removedImages list and remove from previews
-      if (removedImage) {
-        setRemovedImages(prev => {
-          const updated = [...prev, removedImage];
-          return updated;
-        });
-      }
-      setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    const removed = images[index];
+    if (removed?.kind === 'new') {
+      URL.revokeObjectURL(removed.previewUrl);
     }
+    setImages(prev => prev.filter((_, i) => i !== index));
 
     // Adjust defaultImageIndex if necessary
     if (defaultImageIndex === index) {
       // If deleting the default image, set to 0 if images remain, undefined if none
-      setDefaultImageIndex(imagePreviews.length > 1 ? 0 : undefined);
+      setDefaultImageIndex(images.length > 1 ? 0 : undefined);
     } else if (defaultImageIndex !== undefined && defaultImageIndex > index) {
       // If deleting an image before the default, shift the default index down
       setDefaultImageIndex(prev => prev !== undefined ? prev - 1 : undefined);
     }
-  }, [selectedImages, imagePreviews, defaultImageIndex]);
+  }, [images, defaultImageIndex]);
 
   const handleDefaultImageSelect = useCallback((index: number) => {
     setDefaultImageIndex(index);
@@ -244,7 +245,7 @@ export function PropertyForm({
   // Load existing images when editing
   useEffect(() => {
     if (isEditing && initialData?.images) {
-      setImagePreviews(initialData.images);
+      setImages(initialData.images.map(key => ({ kind: 'existing', key })));
       setDefaultImageIndex(initialData.defaultImageIndex ?? 0);
     }
   }, [isEditing, initialData]);
@@ -256,18 +257,27 @@ export function PropertyForm({
       setError(null);
       setUploadProgress(0);
 
-      // Convert images to base64
-      const base64Images = await Promise.all(
-        selectedImages.map(async (file) => {
-          const dataUrl = await convertFileToBase64(file);
-          const base64Data = {
-            data: extractBase64Data(dataUrl),
-            fileName: file.name,
-            contentType: file.type,
-          };
-          return base64Data;
-        })
-      );
+      // Upload any newly-selected images straight to S3 (presigned URL), one at a time so
+      // the progress bar reflects real per-file upload progress.
+      const newItems = images.filter((item): item is Extract<ImageItem, { kind: 'new' }> => item.kind === 'new');
+      const uploadedKeys: string[] = [];
+      for (let i = 0; i < newItems.length; i++) {
+        const { key } = await propertyService.uploadPropertyImage(activePropertyId, newItems[i].file, (progress) => {
+          setUploadProgress(((i + progress / 100) / newItems.length) * 100);
+        });
+        uploadedKeys.push(key);
+      }
+
+      // Rebuild the list in the user's chosen order, swapping each new item for its
+      // now-uploaded S3 key.
+      let uploadedIndex = 0;
+      const finalImages = images.map(item => (item.kind === 'existing' ? item.key : uploadedKeys[uploadedIndex++]));
+
+      // Existing keys present before this edit but no longer in the list need their S3
+      // objects actually deleted — the property record's `images` above already excludes them.
+      const removedExistingKeys = isEditing
+        ? (initialData?.images || []).filter(key => !finalImages.includes(key))
+        : [];
 
       // Handle coordinates - only include if both lat and lng are present
       const coordinates = data.location.coordinates;
@@ -299,9 +309,9 @@ export function PropertyForm({
       const propertyData: PropertyInput = {
         ...data,
         location: locationWithCoordinates,
-        base64Images, // Include images for both local and production APIs
-        defaultImageIndex: imagePreviews.length > 0 ? defaultImageIndex : undefined,
-        ...(removedImages.length > 0 && { removeImages: removedImages }), // Include removed images if any
+        images: finalImages,
+        defaultImageIndex: finalImages.length > 0 ? defaultImageIndex : undefined,
+        ...(removedExistingKeys.length > 0 && { removeImages: removedExistingKeys }), // Include removed images if any
         // Add owner ID when creating a new property
         ...(!isEditing && userId && { ownerId: userId }),
       };
@@ -310,11 +320,11 @@ export function PropertyForm({
       let result;
       if (isEditing && propertyId) {
         result = await propertyService.updateProperty(propertyId, propertyData);
-        
+
         if (!result) {
           throw new Error('Update failed: No data returned from server');
         }
-        
+
         toast({
           title: 'Property updated',
           description: 'Property has been updated successfully',
@@ -323,8 +333,8 @@ export function PropertyForm({
           isClosable: true,
         });
       } else {
-        result = await propertyService.createProperty(propertyData);
-        
+        result = await propertyService.createProperty({ ...propertyData, id: activePropertyId });
+
         if (!result) {
           throw new Error('Create failed: No data returned from server');
         }
@@ -333,9 +343,10 @@ export function PropertyForm({
       onSuccess?.(result);
 
       // Reset form state after successful submission
-      setSelectedImages([]);
-      setRemovedImages([]);
-      setImagePreviews([]);
+      images.forEach(item => {
+        if (item.kind === 'new') URL.revokeObjectURL(item.previewUrl);
+      });
+      setImages([]);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save property';
@@ -352,6 +363,11 @@ export function PropertyForm({
       setUploadProgress(0);
     }
   };
+
+  const hasNewImages = images.some(item => item.kind === 'new');
+  const hasRemovedImages = isEditing && (initialData?.images || []).some(
+    key => !images.some(item => item.kind === 'existing' && item.key === key)
+  );
 
   return (
     <Box maxW="4xl" mx="auto" p={6}>
@@ -385,10 +401,16 @@ export function PropertyForm({
                       {...register('description')}
                       placeholder="Describe your property"
                       rows={4}
+                      maxLength={1000}
                     />
-                    <Text color="red.500" fontSize="sm">
-                      {errors.description?.message}
-                    </Text>
+                    <Flex justify="space-between" mt={1}>
+                      <Text color="red.500" fontSize="sm">
+                        {errors.description?.message}
+                      </Text>
+                      <Text fontSize="xs" color={descriptionLength > 1000 ? 'red.500' : 'gray.500'}>
+                        {descriptionLength}/1000
+                      </Text>
+                    </Flex>
                   </FormControl>
 
                   <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
@@ -460,19 +482,36 @@ export function PropertyForm({
                   </FormControl>
 
                   <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
-                    <FormControl isInvalid={!!errors.location?.city}>
-                      <FormLabel>City</FormLabel>
-                      <Input {...register('location.city')} placeholder="City" />
+                    <FormControl isInvalid={!!errors.location?.province}>
+                      <FormLabel>Province</FormLabel>
+                      <Select
+                        {...register('location.province', {
+                          onChange: () => setValue('location.city', ''),
+                        })}
+                        placeholder="Select province"
+                      >
+                        {provinceOptions.map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </Select>
                       <Text color="red.500" fontSize="sm">
-                        {errors.location?.city?.message}
+                        {errors.location?.province?.message}
                       </Text>
                     </FormControl>
 
-                    <FormControl isInvalid={!!errors.location?.province}>
-                      <FormLabel>Province</FormLabel>
-                      <Input {...register('location.province')} placeholder="Province" />
+                    <FormControl isInvalid={!!errors.location?.city}>
+                      <FormLabel>City</FormLabel>
+                      <Select
+                        {...register('location.city')}
+                        placeholder={selectedProvince ? 'Select city/municipality' : 'Select a province first'}
+                        isDisabled={!selectedProvince}
+                      >
+                        {cityOptions.map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </Select>
                       <Text color="red.500" fontSize="sm">
-                        {errors.location?.province?.message}
+                        {errors.location?.city?.message}
                       </Text>
                     </FormControl>
                   </Stack>
@@ -495,8 +534,15 @@ export function PropertyForm({
                         render={({ field }) => (
                           <NumberInput
                             {...field}
-                            onChange={(value) => field.onChange(parseFloat(value) || 0)}
+                            value={areaInputValue}
+                            onChange={(valueString) => {
+                              setAreaInputValue(valueString);
+                              const parsed = parseFloat(valueString);
+                              field.onChange(Number.isNaN(parsed) ? 0 : parsed);
+                            }}
                             min={0}
+                            precision={2}
+                            step={0.01}
                           >
                             <NumberInputField />
                             <NumberInputStepper>
@@ -536,7 +582,7 @@ export function PropertyForm({
                     </FormControl>
 
                     <FormControl isInvalid={!!errors.features?.floors}>
-                      <FormLabel>Floors</FormLabel>
+                      <FormLabel>Floor</FormLabel>
                       <Controller
                         control={control}
                         name="features.floors"
@@ -554,6 +600,9 @@ export function PropertyForm({
                           </NumberInput>
                         )}
                       />
+                      <Text fontSize="xs" color="gray.500">
+                        Which floor the property is on (0 = ground floor)
+                      </Text>
                       <Text color="red.500" fontSize="sm">
                         {errors.features?.floors?.message}
                       </Text>
@@ -635,7 +684,7 @@ export function PropertyForm({
                     </Text>
                   </FormControl>
 
-                  {imagePreviews.length > 0 && (
+                  {images.length > 0 && (
                     <Box>
                       <FormControl mb={4}>
                         <FormLabel fontSize="sm" fontWeight="medium">
@@ -646,11 +695,7 @@ export function PropertyForm({
                         </Text>
                       </FormControl>
                       <Grid templateColumns="repeat(auto-fill, minmax(150px, 1fr))" gap={4}>
-                        {imagePreviews.map((preview, index) => {
-                          // Check if this is a new image (data URL) or existing image (S3 key)
-                          const isNewImage = preview.startsWith('data:image/');
-                          const isExistingImage = !isNewImage && preview.includes('/');
-                          
+                        {images.map((item, index) => {
                           return (
                             <Box key={index} position="relative">
                               <Box
@@ -662,10 +707,10 @@ export function PropertyForm({
                                 cursor="pointer"
                                 onClick={() => handleDefaultImageSelect(index)}
                               >
-                                {isExistingImage && propertyId ? (
+                                {item.kind === 'existing' ? (
                                   <SecureImage
-                                    propertyId={propertyId}
-                                    imageKey={preview}
+                                    propertyId={activePropertyId}
+                                    imageKey={item.key}
                                     alt={`Preview ${index + 1}`}
                                     className="w-[150px] h-[150px] object-cover"
                                     fallbackClassName="w-[150px] h-[150px] bg-gray-100"
@@ -676,13 +721,13 @@ export function PropertyForm({
                                 ) : (
                                   <Box
                                     as="img"
-                                    src={preview}
+                                    src={item.previewUrl}
                                     alt={`Preview ${index + 1}`}
                                     w="150px"
                                     h="150px"
                                     objectFit="cover"
                                     onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                                      console.error(`Image preview error for index ${index}:`, preview);
+                                      console.error(`Image preview error for index ${index}:`, item.previewUrl);
                                       console.error('Error event:', e);
                                     }}
                                     onLoad={() => {
@@ -758,7 +803,7 @@ export function PropertyForm({
                 type="submit"
                 colorScheme="blue"
                 isLoading={isSubmitting}
-                disabled={!isDirty && selectedImages.length === 0 && removedImages.length === 0 && defaultImageIndex === (initialData?.defaultImageIndex ?? 0)}
+                disabled={!isDirty && !hasNewImages && !hasRemovedImages && defaultImageIndex === (initialData?.defaultImageIndex ?? 0)}
               >
                 {isEditing ? 'Update Property' : 'Create Property'}
               </Button>

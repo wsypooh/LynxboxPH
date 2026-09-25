@@ -183,11 +183,11 @@ app.all('/api/properties/search', async (req, res) => {
 });
 
 // Image endpoints
-app.all('/api/properties/:id/images', async (req, res) => {
+app.all('/api/properties/:id/images/upload-url', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
-app.all('/api/properties/:id/images/upload-url', async (req, res) => {
+app.all('/api/properties/:id/images/confirm', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
@@ -196,6 +196,10 @@ app.all('/api/properties/:id/images/view-url', async (req, res) => {
 });
 
 app.all('/api/public/properties/:id/images/view-url', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
+app.all('/api/public/properties/:id/contact', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 

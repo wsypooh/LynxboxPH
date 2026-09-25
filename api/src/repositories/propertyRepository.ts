@@ -28,9 +28,31 @@ function isListingCurrentlyVisible(property: Property): boolean {
 }
 
 export class PropertyRepository {
+  // Platform-wide, atomically-incremented sequence backing Property.propertyNumber
+  // (e.g. "LB-00000123"). Uses a single-item ADD, same atomic-counter pattern as
+  // AccountRepository's monthly invoice-usage counter — no transaction needed since it's
+  // one item.
+  static async getNextPropertyNumber(): Promise<string> {
+    const now = new Date().toISOString();
+    const { Attributes } = await ddbDocClient.send(new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: 'COUNTER#PROPERTY_NUMBER', SK: 'COUNTER#PROPERTY_NUMBER' },
+      UpdateExpression: 'ADD sequence :one SET entityType = :entityType, updatedAt = :now, createdAt = if_not_exists(createdAt, :now)',
+      ExpressionAttributeValues: {
+        ':one': 1,
+        ':entityType': EntityType.COUNTER,
+        ':now': now,
+      },
+      ReturnValues: 'ALL_NEW',
+    }));
+    const sequence = (Attributes?.sequence as number) ?? 1;
+    return `LB-${String(sequence).padStart(8, '0')}`;
+  }
+
   static async create(propertyData: PropertyInput): Promise<Property> {
-    const property = createProperty(propertyData);
-    
+    const propertyNumber = await this.getNextPropertyNumber();
+    const property = createProperty(propertyData, propertyNumber);
+
     // Convert to a plain object with string index signature
     const dynamoItem: Record<string, any> = {
       ...property,

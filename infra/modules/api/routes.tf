@@ -62,10 +62,10 @@ resource "aws_apigatewayv2_route" "options_search" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
-# Image upload route
-resource "aws_apigatewayv2_route" "upload_image" {
+# Image upload confirm route (post-upload watermark/resize processing step)
+resource "aws_apigatewayv2_route" "confirm_image_upload" {
   api_id            = aws_apigatewayv2_api.main.id
-  route_key         = "POST /api/properties/{id}/images"
+  route_key         = "POST /api/properties/{id}/images/confirm"
   target            = "integrations/${aws_apigatewayv2_integration.lambda.id}"
   authorization_type = "JWT"
   authorizer_id     = aws_apigatewayv2_authorizer.cognito.id
@@ -90,9 +90,9 @@ resource "aws_apigatewayv2_route" "get_view_url" {
 }
 
 # OPTIONS routes for image endpoints
-resource "aws_apigatewayv2_route" "options_images" {
+resource "aws_apigatewayv2_route" "options_confirm_image_upload" {
   api_id    = aws_apigatewayv2_api.main.id
-  route_key = "OPTIONS /api/properties/{id}/images"
+  route_key = "OPTIONS /api/properties/{id}/images/confirm"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
@@ -106,6 +106,14 @@ resource "aws_apigatewayv2_route" "list_public_properties" {
 resource "aws_apigatewayv2_route" "get_public_property" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /api/public/properties/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Public contact-reveal route (masked phone/email everywhere else; this hands out the real
+# values one listing at a time so bulk list/search responses can't be scraped for them)
+resource "aws_apigatewayv2_route" "get_public_contact_info" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /api/public/properties/{id}/contact"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 

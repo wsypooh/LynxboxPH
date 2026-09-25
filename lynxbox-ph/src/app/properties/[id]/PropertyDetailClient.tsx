@@ -41,6 +41,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { Property } from '@/services/propertyService'
 import { propertyService } from '@/services/propertyService'
+import { formatFloor } from '@/lib/utils'
 import { route } from '@/utils/routing';
 
 export default function PropertyDetailClient({ id }: { id: string }) {
@@ -49,6 +50,12 @@ export default function PropertyDetailClient({ id }: { id: string }) {
   const [error, setError] = useState('')
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const isLoadingRef = useRef(false)
+
+  // The public API only ever sends a masked phone/email (scraping protection) — the real
+  // values are fetched once, on demand, when the visitor clicks Call/Email, then cached
+  // for the rest of this visit.
+  const [revealedContact, setRevealedContact] = useState<{ phone: string; email: string } | null>(null)
+  const [revealingContact, setRevealingContact] = useState(false)
 
   useEffect(() => {
     if (id && !isLoadingRef.current) {
@@ -116,15 +123,33 @@ export default function PropertyDetailClient({ id }: { id: string }) {
   }
 
 
-  const handleEmail = () => {
-    if (property?.contactInfo?.email && property?.title) {
-      window.open(`mailto:${property.contactInfo.email}?subject=Inquiry about ${property.title}`, '_self')
+  const ensureContactRevealed = async (): Promise<{ phone: string; email: string } | null> => {
+    if (revealedContact) return revealedContact
+    if (!property?.id) return null
+    try {
+      setRevealingContact(true)
+      const contact = await propertyService.getPublicPropertyContact(property.id)
+      setRevealedContact(contact)
+      return contact
+    } catch (err) {
+      console.error('Failed to reveal contact info:', err)
+      return null
+    } finally {
+      setRevealingContact(false)
     }
   }
 
-  const handleContact = () => {
-    if (property?.contactInfo?.phone) {
-      window.open(`tel:${property.contactInfo.phone}`, '_self')
+  const handleEmail = async () => {
+    const contact = await ensureContactRevealed()
+    if (contact?.email && property?.title) {
+      window.open(`mailto:${contact.email}?subject=Inquiry about ${property.title}`, '_self')
+    }
+  }
+
+  const handleContact = async () => {
+    const contact = await ensureContactRevealed()
+    if (contact?.phone) {
+      window.open(`tel:${contact.phone}`, '_self')
     }
   }
 
@@ -261,8 +286,8 @@ export default function PropertyDetailClient({ id }: { id: string }) {
                   </VStack>
                   <VStack spacing={1}>
                     <Icon as={Building} boxSize={6} color="primary.500" />
-                    <Text fontWeight="medium">{property.features?.floors || 0}</Text>
-                    <Text fontSize="sm" color="gray.500">Floors</Text>
+                    <Text fontWeight="medium">{formatFloor(property.features?.floors || 0)}</Text>
+                    <Text fontSize="sm" color="gray.500">Floor</Text>
                   </VStack>
                   <VStack spacing={1}>
                     <Icon as={MapPin} boxSize={6} color="primary.500" />
@@ -334,6 +359,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
                       size="lg"
                       w="full"
                       onClick={handleContact}
+                      isLoading={revealingContact}
                     >
                       Call Now
                     </Button>
@@ -344,6 +370,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
                       size="lg"
                       w="full"
                       onClick={handleEmail}
+                      isLoading={revealingContact}
                     >
                       Send Email
                     </Button>
@@ -354,18 +381,18 @@ export default function PropertyDetailClient({ id }: { id: string }) {
                   <VStack spacing={3} w="full" fontSize="sm">
                     <HStack justify="space-between" w="full">
                       <Text color="gray.500">Phone:</Text>
-                      <Text fontWeight="medium">{property.contactInfo?.phone || 'N/A'}</Text>
+                      <Text fontWeight="medium">{revealedContact?.phone || property.contactInfo?.phone || 'N/A'}</Text>
                     </HStack>
                     <HStack justify="space-between" w="full">
                       <Text color="gray.500">Email:</Text>
-                      <Text fontWeight="medium" fontSize="xs">{property.contactInfo?.email || 'N/A'}</Text>
+                      <Text fontWeight="medium" fontSize="xs">{revealedContact?.email || property.contactInfo?.email || 'N/A'}</Text>
                     </HStack>
                   </VStack>
 
                   <Divider />
 
                   <VStack spacing={2} w="full" fontSize="sm" color="gray.500">
-                    <Text>Property ID: {property.id || 'N/A'}</Text>
+                    <Text>Property Number: {property.propertyNumber || property.id || 'N/A'}</Text>
                     <Text>Listed: {property.createdAt ? new Date(property.createdAt).toLocaleDateString() : 'N/A'}</Text>
                     <Text>Updated: {property.updatedAt ? new Date(property.updatedAt).toLocaleDateString() : 'N/A'}</Text>
                   </VStack>

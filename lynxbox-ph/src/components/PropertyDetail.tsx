@@ -31,7 +31,7 @@ import {
   useDisclosure,
 } from '@chakra-ui/react';
 import { Property, propertyService } from '@/services/propertyService';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatFloor } from '@/lib/utils';
 import { EditIcon, DeleteIcon, ArrowBackIcon, PhoneIcon, EmailIcon } from '@chakra-ui/icons';
 import { ImageGallery } from '@/components/ImageGallery';
 
@@ -202,7 +202,7 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
                   </HStack>
                   <HStack>
                     <Text>🏢</Text>
-                    <Text>{property.features.floors} floors</Text>
+                    <Text>{formatFloor(property.features.floors)} Floor</Text>
                   </HStack>
                   <HStack>
                     <Text>🪑</Text>
@@ -312,8 +312,8 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
                 
                 <VStack spacing={2} align="stretch" fontSize="sm" color="gray.600">
                   <HStack justify="space-between">
-                    <Text>Property ID</Text>
-                    <Text>{property.id}</Text>
+                    <Text>Property Number</Text>
+                    <Text>{property.propertyNumber || property.id}</Text>
                   </HStack>
                   
                   <HStack justify="space-between">

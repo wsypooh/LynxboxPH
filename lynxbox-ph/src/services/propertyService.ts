@@ -29,6 +29,7 @@ export type PropertyType = 'office' | 'commercial' | 'land';
 
 export interface Property {
   id: string;
+  propertyNumber: string;
   title: string;
   description: string;
   type: PropertyType;
@@ -47,6 +48,7 @@ export interface Property {
 }
 
 export interface PropertyInput {
+  id?: string;
   title: string;
   description: string;
   type: PropertyType;
@@ -58,11 +60,6 @@ export interface PropertyInput {
   defaultImageIndex?: number;
   status?: PropertyStatus;
   contactInfo: PropertyContactInfo;
-  base64Images?: Array<{
-    data: string;
-    fileName: string;
-    contentType: string;
-  }>;
 }
 
 export interface PropertyUpdate {
@@ -78,11 +75,6 @@ export interface PropertyUpdate {
   status?: PropertyStatus;
   contactInfo?: PropertyContactInfo;
   removeImages?: string[];
-  base64Images?: Array<{
-    data: string;
-    fileName: string;
-    contentType: string;
-  }>;
 }
 
 export interface PropertyListResponse {
@@ -209,6 +201,16 @@ class PropertyService {
       type: propertyData.type as PropertyType,
       status: propertyData.status as PropertyStatus,
     };
+  }
+
+  // The public property/list/search endpoints only ever return a masked phone/email (to
+  // stop bulk scraping) — this fetches the real values for one listing, on demand, e.g.
+  // when a visitor clicks "Call Now" / "Send Email".
+  async getPublicPropertyContact(id: string): Promise<{ phone: string; email: string }> {
+    const response = await this.request<{ success: boolean; data: { phone: string; email: string } }>(
+      `/api/public/properties/${id}/contact`, {}, false // No auth required
+    );
+    return response.data;
   }
 
   async getProperty(id: string): Promise<Property> {
@@ -419,20 +421,20 @@ class PropertyService {
     return urls;
   }
 
+  // 3-step direct-to-S3 upload: presigned upload-url -> raw PUT to S3 -> confirm (server-side
+  // watermark/resize, since the raw bytes never pass through Lambda on the PUT itself).
   async uploadPropertyImage(
     propertyId: string,
     file: File,
     onProgress?: (progress: number) => void
-  ): Promise<{ url: string; key: string }> {
-    // First get presigned URL
+  ): Promise<{ key: string }> {
     const { uploadUrl, key } = await this.getPresignedUploadUrl(
       propertyId,
       file.name,
       file.type
     );
 
-    // Upload file directly to S3
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
       if (onProgress) {
@@ -446,8 +448,7 @@ class PropertyService {
 
       xhr.addEventListener('load', () => {
         if (xhr.status === 200) {
-          const url = uploadUrl.split('?')[0]; // Remove query parameters
-          resolve({ url, key });
+          resolve();
         } else {
           reject(new Error('Upload failed'));
         }
@@ -461,6 +462,9 @@ class PropertyService {
       xhr.setRequestHeader('Content-Type', file.type);
       xhr.send(file);
     });
+
+    const { key: finalKey } = await this.confirmImageUpload(propertyId, key, file.name, file.type);
+    return { key: finalKey };
   }
 
   private async getPresignedUploadUrl(
@@ -472,9 +476,27 @@ class PropertyService {
     searchParams.append('fileName', fileName);
     searchParams.append('contentType', contentType);
 
-    return this.request<{ uploadUrl: string; key: string }>(
+    const response = await this.request<{ success: boolean; data: { uploadUrl: string; key: string; expiresIn: number } }>(
       `/api/properties/${propertyId}/images/upload-url?${searchParams.toString()}`, {}, true // Auth required
     );
+    return response.data;
+  }
+
+  private async confirmImageUpload(
+    propertyId: string,
+    key: string,
+    fileName: string,
+    contentType: string
+  ): Promise<{ key: string }> {
+    const response = await this.request<{ success: boolean; data: { key: string; contentType: string; size: number } }>(
+      `/api/properties/${propertyId}/images/confirm`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ key, fileName, contentType }),
+      },
+      true // Auth required
+    );
+    return { key: response.data.key };
   }
 
   async getAllPropertyIds(): Promise<string[]> {

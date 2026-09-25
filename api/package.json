@@ -10,7 +10,8 @@
     "package-lambda": "cd dist && powershell \"Compress-Archive -Path '*' -DestinationPath '../api.zip' -Force\" && cd .. && powershell \"Compress-Archive -Update -Path 'node_modules/sharp/**', 'node_modules/@img/**', 'package.json' -DestinationPath 'api.zip'\"",
     "dev": "ts-node-dev --respawn --transpile-only local-server.ts",
     "cron:daily": "ts-node --transpile-only src/scripts/runDailySubscriptionCheck.ts",
-    "usage:backfill": "ts-node --transpile-only src/scripts/backfillInvoiceUsageCounters.ts"
+    "usage:backfill": "ts-node --transpile-only src/scripts/backfillInvoiceUsageCounters.ts",
+    "properties:backfill-numbers": "ts-node --transpile-only src/scripts/backfillPropertyNumbers.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.1137.0",

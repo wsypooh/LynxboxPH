@@ -30,6 +30,7 @@ export interface PropertyContactInfo {
 
 export interface Property extends BaseEntity {
   [key: string]: any;  // Add index signature
+  propertyNumber: string; // human-friendly identifier, e.g. "LB-00000123" — assigned once at creation, never changes. Same naming convention as Invoice.invoiceNumber, shown to users as "Property Number"
   title: string;
   description: string;
   type: string;
@@ -54,9 +55,9 @@ export interface Property extends BaseEntity {
 }
 
 // Type for creating a new property (excludes auto-generated fields, but allows optional id)
-export type PropertyInput = Omit<Property, keyof BaseEntity | 'viewCount' | 'PK' | 'SK' | 'GSI1PK' | 'GSI1SK' | 'entityType' | 'createdAt' | 'updatedAt'> & { id?: string };
+export type PropertyInput = Omit<Property, keyof BaseEntity | 'viewCount' | 'propertyNumber' | 'PK' | 'SK' | 'GSI1PK' | 'GSI1SK' | 'entityType' | 'createdAt' | 'updatedAt'> & { id?: string };
 
-export function createProperty(data: PropertyInput): Property {
+export function createProperty(data: PropertyInput, propertyNumber: string): Property {
   console.log('=== CREATE PROPERTY MODEL === data.id:', data.id);
   const now = new Date().toISOString();
   const id = data.id || uuidv4(); // Use provided ID or generate new one
@@ -71,6 +72,7 @@ export function createProperty(data: PropertyInput): Property {
     GSI1SK: `PROPERTY#${id}`,        // Primary: User queries
     entityType: EntityType.PROPERTY,
     id,
+    propertyNumber,
     viewCount: 0,  // Default value
     createdAt: now,
     updatedAt: now,

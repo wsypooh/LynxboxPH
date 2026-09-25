@@ -241,6 +241,51 @@ export class S3Service {
     }
   }
 
+  /**
+   * Downloads an object a presigned PUT has already placed in S3, runs it through the same
+   * resize/watermark pipeline uploadImage() applies, and overwrites it in place. This is the
+   * "process after upload" leg for direct-to-S3 property image uploads, where the raw bytes
+   * never pass through Lambda so processing can't happen inline with the PUT itself.
+   */
+  async processUploadedImage(
+    key: string,
+    fileName: string,
+    contentType: string,
+    watermarkOptions?: WatermarkOptions
+  ): Promise<UploadResult> {
+    const getCommand = new GetObjectCommand({ Bucket: this.bucketName, Key: key });
+    const response = await this.s3Client.send(getCommand);
+    const buffer = await this.streamToBuffer(response.Body);
+
+    this.validateImageFile(fileName, contentType, buffer.length);
+
+    const validation = await this.imageProcessor.validateImage(buffer);
+    if (!validation.valid) {
+      throw new Error(`Invalid image: ${validation.error}`);
+    }
+
+    const processedResult = await this.imageProcessor.processForPropertyUpload(buffer, watermarkOptions);
+    const finalContentType = `image/${processedResult.format}`;
+
+    await this.s3Client.send(new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      Body: processedResult.buffer,
+      ContentType: finalContentType,
+      ContentLength: processedResult.buffer.length,
+    }));
+
+    return { url: '', key, contentType: finalContentType, size: processedResult.buffer.length };
+  }
+
+  private async streamToBuffer(body: unknown): Promise<Buffer> {
+    const chunks: Buffer[] = [];
+    for await (const chunk of body as AsyncIterable<Buffer | Uint8Array>) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
   async getPresignedUploadUrl(fileName: string, contentType: string, propertyId?: string, folderPrefix?: string): Promise<{ url: string; key: string }> {
     const fileExtension = fileName.split('.').pop();
     const folder = folderPrefix ?? (propertyId ? `properties/${propertyId}/images` : 'properties/images');

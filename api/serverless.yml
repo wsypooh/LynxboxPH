@@ -64,6 +64,10 @@ functions:
           method: get
           cors: true
       - http:
+          path: /api/public/properties/{id}/contact
+          method: get
+          cors: true
+      - http:
           path: /api/properties
           method: get
           cors: true
@@ -99,8 +103,22 @@ functions:
             name: ApiGatewayAuthorizer
             type: request
       - http:
-          path: /api/properties/{id}/images
+          path: /api/properties/{id}/images/upload-url
+          method: get
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/properties/{id}/images/confirm
           method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/properties/{id}/images/view-url
+          method: get
           cors: true
           authorizer:
             name: ApiGatewayAuthorizer

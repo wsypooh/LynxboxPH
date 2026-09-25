@@ -27,7 +27,8 @@ export enum EntityType {
   MEMBER = 'MEMBER',
   ACCOUNT = 'ACCOUNT',
   PAYMENT_SUBMISSION = 'PAYMENT_SUBMISSION',
-  PROMO_CODE = 'PROMO_CODE'
+  PROMO_CODE = 'PROMO_CODE',
+  COUNTER = 'COUNTER'
 }
 
 export interface BaseEntity {

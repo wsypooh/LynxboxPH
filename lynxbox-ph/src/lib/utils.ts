@@ -7,6 +7,20 @@ export function formatCurrency(amount: number, currency: string = 'PHP'): string
   }).format(amount);
 }
 
+export function formatFloor(floor: number): string {
+  if (floor === 0) return 'Ground';
+
+  const remainder100 = Math.abs(floor) % 100;
+  if (remainder100 >= 11 && remainder100 <= 13) return `${floor}th`;
+
+  switch (Math.abs(floor) % 10) {
+    case 1: return `${floor}st`;
+    case 2: return `${floor}nd`;
+    case 3: return `${floor}rd`;
+    default: return `${floor}th`;
+  }
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
 
@@ -63,17 +77,4 @@ export function validateDocumentFile(file: File): { isValid: boolean; error?: st
   }
 
   return { isValid: true };
-}
-
-export function convertFileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
-  });
-}
-
-export function extractBase64Data(dataUrl: string): string {
-  return dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
 }
