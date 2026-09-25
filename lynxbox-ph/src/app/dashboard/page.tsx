@@ -36,6 +36,7 @@ import { invoiceService } from '@/services/invoiceService';
 import { billingService } from '@/services/billingService';
 import { UsageSummary } from '@/features/billing/types';
 import { Invoice, InvoiceStatus } from '@/features/invoicing/types';
+import { formatFileSize } from '@/lib/utils';
 
 interface ActivityItem {
   key: string;
@@ -272,9 +273,9 @@ export default function DashboardPage() {
               <CardBody>
                 <Stat>
                   <StatLabel>Documents</StatLabel>
-                  <StatNumber>{usage.usage.documents}</StatNumber>
+                  <StatNumber>{formatFileSize(usage.usage.documentBytes)}</StatNumber>
                   <StatHelpText>
-                    {usage.limits.maxDocuments === Infinity ? 'Unlimited' : `of ${usage.limits.maxDocuments} allowed`}
+                    {usage.limits.maxDocumentBytes === Infinity ? 'Unlimited' : `of ${formatFileSize(usage.limits.maxDocumentBytes)} allowed`}
                   </StatHelpText>
                 </Stat>
               </CardBody>

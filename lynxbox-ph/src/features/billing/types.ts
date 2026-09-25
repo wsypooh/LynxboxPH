@@ -34,7 +34,7 @@ export interface PlanLimits {
   searchPlacement: 'standard' | 'priority' | 'featured';
   maxInvoicesPerMonth: number;
   maxSeats: number;
-  maxDocuments: number;
+  maxDocumentBytes: number;
 }
 
 export interface UsageSummary {
@@ -43,7 +43,7 @@ export interface UsageSummary {
   usage: {
     properties: number;
     invoicesThisMonth: number;
-    documents: number;
+    documentBytes: number;
     seats: number;
   };
 }

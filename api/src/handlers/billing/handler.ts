@@ -82,6 +82,7 @@ export class BillingHandler {
     const activeListings = propertiesResult.items.filter(p => !p.deletedAt && p.status !== 'unlisted').length;
     // Solo accounts that never invited anyone have zero MEMBER# rows — still one seat (the owner).
     const seats = members.length > 0 ? members.length : 1;
+    const documentBytes = documents.reduce((sum, d) => sum + d.fileSize, 0);
 
     return ApiResponse.success({
       plan: actor.plan,
@@ -89,7 +90,7 @@ export class BillingHandler {
       usage: {
         properties: activeListings,
         invoicesThisMonth,
-        documents: documents.length,
+        documentBytes,
         seats,
       },
     });
@@ -143,7 +144,7 @@ export class BillingHandler {
     }
 
     // Own S3 prefix, entirely separate from the Documents feature — this is never a
-    // Document entity and never counts against a plan's maxDocuments limit.
+    // Document entity and never counts against a plan's maxDocumentBytes limit.
     const folderPrefix = `accounts/${accountId}/payment-proofs`;
     const { url, key } = await s3Service.getPresignedUploadUrl(fileName, contentType, undefined, folderPrefix);
 

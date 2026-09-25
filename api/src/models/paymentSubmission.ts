@@ -18,7 +18,7 @@ export interface PaymentSubmission extends BaseEntity {
   promoCode?: string;
   amountExpected: number;
   // Proof file lives directly on this record — NOT a Document entity, and not counted
-  // against the Documents feature's maxDocuments limit. Own S3 prefix
+  // against the Documents feature's maxDocumentBytes limit. Own S3 prefix
   // (accounts/<accountId>/payment-proofs), separate from DocumentRepository entirely.
   proofS3Key: string;
   proofFileName: string;

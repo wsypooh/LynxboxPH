@@ -7,7 +7,7 @@ import { ApiResponse } from '../../lib/apiResponse';
 import { DocumentParentType } from '../../models/document';
 import { v4 as uuidv4 } from 'uuid';
 import { canDestroy, canWrite, resolveActor } from '../../lib/auth';
-import { PLAN_LIMITS } from '../../lib/planLimits';
+import { PLAN_LIMITS, DOCUMENT_COUNT_ABUSE_GUARD } from '../../lib/planLimits';
 import { Plan } from '../../models/account';
 
 function getDocumentId(event: APIGatewayProxyEvent): string | null {
@@ -96,11 +96,21 @@ export class DocumentHandler {
     const owns = await verifyParentOwnership(parentType, parentId, userId);
     if (!owns) return ApiResponse.notFound('Parent not found');
 
-    // docs/Pricing-Strategy-Plan.md — capped by document count, not byte size (deliberate simplification).
-    const maxDocuments = PLAN_LIMITS[plan].maxDocuments;
-    if (maxDocuments !== Infinity) {
-      const existing = await DocumentRepository.listByOwner(userId);
-      if (existing.length >= maxDocuments) {
+    const existing = await DocumentRepository.listByOwner(userId);
+
+    // Flat anti-abuse guardrail, independent of plan — blocks someone uploading thousands
+    // of tiny files to stay under the byte cap while still consuming disproportionate resources.
+    if (existing.length >= DOCUMENT_COUNT_ABUSE_GUARD) {
+      return ApiResponse.forbidden('Too many documents on this account. Please delete unused documents or contact support.');
+    }
+
+    // docs/Pricing-Strategy-Plan.md — capped by cumulative document size, not count.
+    // Document.fileSize is already tracked on every record, so this sums real usage
+    // against the plan's byte budget instead of an arbitrary file count.
+    const maxDocumentBytes = PLAN_LIMITS[plan].maxDocumentBytes;
+    if (maxDocumentBytes !== Infinity) {
+      const usedBytes = existing.reduce((sum, d) => sum + d.fileSize, 0);
+      if (usedBytes + fileSize > maxDocumentBytes) {
         return ApiResponse.forbidden("You've reached your plan's document storage limit. Upgrade to add more.");
       }
     }
@@ -160,6 +170,20 @@ export class DocumentHandler {
     if (!document || document.ownerId !== userId || document.deletedAt) return ApiResponse.notFound('Document not found');
 
     await DocumentRepository.delete(id);
+
+    // The DynamoDB record is soft-deleted (kept for audit trail, same as everywhere else in
+    // this repo), but the S3 object itself must actually be removed — otherwise the real
+    // storage cost never goes away even though it's excluded from the account's byte quota
+    // the moment deletedAt is set. Mirrors PropertyHandler.deleteProperty's S3 cleanup.
+    try {
+      await new S3Service().deleteObject(document.s3Key);
+    } catch (err) {
+      console.error(`Failed to delete S3 object for document ${id}:`, err);
+      // Don't fail the request over this — the document is already gone from the user's
+      // perspective and out of their quota; a leaked S3 object is a cleanup concern, not
+      // something that should block them.
+    }
+
     return ApiResponse.success({ message: 'Deleted' });
   }
 }
