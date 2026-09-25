@@ -179,11 +179,18 @@ resource "aws_lambda_function" "api" {
 
   tags = var.common_tags
 
-  # Ignore changes managed outside Terraform (code via deploy-lambda.ps1, env vars via console/CLI)
+  # Ignore changes managed outside Terraform (code via deploy-lambda.ps1, env vars via console/CLI).
+  # s3_bucket/s3_key/s3_object_version are legacy attributes from the original S3-zip deployment
+  # approach (see git history on this resource) - some environments' state still carries real
+  # values for them even though config no longer sets them, which otherwise forces a spurious
+  # UpdateFunctionCode call with empty s3Bucket/s3Key and no code payload.
   lifecycle {
     ignore_changes = [
       filename,
       source_code_hash,
+      s3_bucket,
+      s3_key,
+      s3_object_version,
       environment
     ]
   }

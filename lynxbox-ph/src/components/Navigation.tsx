@@ -45,7 +45,7 @@ export function Navigation() {
   }
 
   return (
-    <Box as="nav" position="fixed" w="100%" zIndex={1000} bg="rgba(0, 0, 0, 0.8)" backdropFilter="blur(10px)">
+    <Box as="nav" position="fixed" w="100%" zIndex={1000} bg="primary.600">
       <Container maxW="container.xl" px={[4, 6, 8]} py={4}>
         <Flex h={16} alignItems={'center'} justifyContent={'space-between'}>
           {/* Logo */}
@@ -77,14 +77,16 @@ export function Navigation() {
             {user ? (
               <>
                 <Link href={route('/dashboard/profile')}>
-                  <Button variant="solid" bg="blue.600" color="white" size="sm" _hover={{ bg: 'blue.700' }}>
+                  <Button variant="solid" bg="white" color="primary.600" size="sm" _hover={{ bg: 'gray.100' }}>
                     My Account
                   </Button>
                 </Link>
-                <Button 
-                  variant="solid" 
-                  colorScheme="blue" 
+                <Button
+                  variant="outline"
+                  color="white"
+                  borderColor="white"
                   size="sm"
+                  _hover={{ bg: 'rgba(255, 255, 255, 0.1)' }}
                   onClick={() => signOut()}
                 >
                   Sign Out
@@ -93,22 +95,24 @@ export function Navigation() {
             ) : (
               <>
                 <Link href={route('/auth/signin')}>
-                  <Button 
-                    variant="solid" 
-                    bg="white" 
-                    color="gray.800" 
+                  <Button
+                    variant="outline"
+                    color="white"
+                    borderColor="white"
                     size="sm"
-                    _hover={{
-                      bg: 'gray.100',
-                      transform: 'translateY(-1px)',
-                      boxShadow: 'md'
-                    }}
+                    _hover={{ bg: 'rgba(255, 255, 255, 0.1)' }}
                   >
                     Sign In
                   </Button>
                 </Link>
                 <Link href={route('/auth/signup')}>
-                  <Button variant="solid" colorScheme="blue" size="sm">
+                  <Button
+                    variant="solid"
+                    bg="white"
+                    color="primary.600"
+                    size="sm"
+                    _hover={{ bg: 'gray.100' }}
+                  >
                     Get Started
                   </Button>
                 </Link>
@@ -131,7 +135,7 @@ export function Navigation() {
 
       {/* Mobile Navigation */}
       {isOpen ? (
-        <Box pb={4} display={{ md: 'none' }} bg="rgba(0, 0, 0, 0.95)">
+        <Box pb={4} display={{ md: 'none' }} bg="primary.700">
           <Stack as={'nav'} spacing={1} px={4}>
             {NAV_ITEMS.map((item) => {
               if (item.isPrivate && !user) return null
