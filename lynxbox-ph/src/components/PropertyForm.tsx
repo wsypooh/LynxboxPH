@@ -72,7 +72,11 @@ const propertySchema = z.object({
     wifi: z.boolean(),
     security: z.boolean(),
   }),
-  status: z.enum(['available', 'rented', 'sold', 'maintenance'] as const).default('available'),
+  // 'unlisted' is deliberately not a normal choice here — it's system-set by
+  // reconcilePropertyListingsForPlan() when a downgrade puts the account over its plan's
+  // active-listing cap. Included in the enum only so a currently-unlisted property's status
+  // round-trips correctly; the option itself is only ever rendered when already selected.
+  status: z.enum(['available', 'rented', 'sold', 'maintenance', 'unlisted'] as const).default('available'),
   contactInfo: z.object({
     name: z.string().min(1, 'Contact name is required'),
     email: z.string().email('Valid email is required'),
@@ -433,7 +437,15 @@ export function PropertyForm({
                         <option value="rented">Rented</option>
                         <option value="sold">Sold</option>
                         <option value="maintenance">Under Maintenance</option>
+                        {initialData?.status === 'unlisted' && (
+                          <option value="unlisted">Unlisted (plan limit)</option>
+                        )}
                       </Select>
+                      {initialData?.status === 'unlisted' && (
+                        <Text fontSize="xs" color="orange.600" mt={1}>
+                          This listing was automatically unlisted because it is over your plan&apos;s active listing limit. Choose a different status here to re-list it, or upgrade your plan.
+                        </Text>
+                      )}
                       <Text color="red.500" fontSize="sm">
                         {errors.status?.message}
                       </Text>

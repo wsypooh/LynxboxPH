@@ -24,7 +24,9 @@ export interface PropertyContactInfo {
   phone: string;
 }
 
-export type PropertyStatus = 'available' | 'rented' | 'sold' | 'maintenance';
+// 'unlisted' is system-set only (docs/Pricing-Strategy-Plan.md's downgrade reconciliation) —
+// not a status an owner picks from the create/edit form's normal options.
+export type PropertyStatus = 'available' | 'rented' | 'sold' | 'maintenance' | 'unlisted';
 export type PropertyType = 'office' | 'commercial' | 'land';
 
 export interface Property {
@@ -45,6 +47,10 @@ export interface Property {
   contactInfo: PropertyContactInfo;
   createdAt: string;
   updatedAt: string;
+  // docs/Pricing-Strategy-Plan.md — plan-determined visibility window; null/absent = never expires.
+  expiresAt?: string | null;
+  // docs/Payments-and-Subscription-Plan.md — hides the listing while the account is past_due.
+  listingSuspended?: boolean;
 }
 
 export interface PropertyInput {
@@ -75,6 +81,9 @@ export interface PropertyUpdate {
   status?: PropertyStatus;
   contactInfo?: PropertyContactInfo;
   removeImages?: string[];
+  // docs/Pricing-Strategy-Plan.md — owner manually renews an expired listing; recomputes
+  // expiresAt from now based on the current plan, not a route of its own.
+  renew?: boolean;
 }
 
 export interface PropertyListResponse {

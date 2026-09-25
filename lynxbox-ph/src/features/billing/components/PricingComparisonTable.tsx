@@ -20,7 +20,7 @@ export const PRICING_TIERS = [
     rows: [
       ['Active property listings', '2'],
       ['Photos per listing', '3'],
-      ['Listing visibility duration', '7 days (manual renew)'],
+      ['Listing visibility duration', '7 days'],
       ['Public search placement', 'Standard'],
       ['Invoices/month', '10'],
       ['Team seats', '1'],

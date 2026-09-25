@@ -403,7 +403,7 @@ export default function Realtor() {
                 Searchable & Easy to Share
               </h3>
               <p style={{ color: '#4c5a6b', lineHeight: '1.6', margin: 0 }}>
-                Help tenants find listings faster with smart filters and map-based search tools
+                Help tenants find listings faster with smart filters
               </p>
             </div>
 

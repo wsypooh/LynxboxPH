@@ -7,6 +7,12 @@ export function formatCurrency(amount: number, currency: string = 'PHP'): string
   }).format(amount);
 }
 
+// docs/Pricing-Strategy-Plan.md — a listing's plan-determined visibility window has run out.
+// `expiresAt` of null/undefined means the plan never expires listings (e.g. Business tier).
+export function isPropertyExpired(expiresAt: string | null | undefined): boolean {
+  return !!expiresAt && new Date(expiresAt).getTime() <= Date.now();
+}
+
 export function formatFloor(floor: number): string {
   if (floor === 0) return 'Ground';
 

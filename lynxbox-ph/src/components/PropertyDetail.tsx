@@ -31,8 +31,8 @@ import {
   useDisclosure,
 } from '@chakra-ui/react';
 import { Property, propertyService } from '@/services/propertyService';
-import { formatCurrency, formatFloor } from '@/lib/utils';
-import { EditIcon, DeleteIcon, ArrowBackIcon, PhoneIcon, EmailIcon } from '@chakra-ui/icons';
+import { formatCurrency, formatFloor, isPropertyExpired } from '@/lib/utils';
+import { EditIcon, DeleteIcon, ArrowBackIcon, PhoneIcon, EmailIcon, RepeatIcon } from '@chakra-ui/icons';
 import { ImageGallery } from '@/components/ImageGallery';
 
 interface PropertyDetailProps {
@@ -108,6 +108,29 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
     onEdit && onEdit(updatedProperty);
   };
 
+  const handleRenew = async () => {
+    if (!property) return;
+    try {
+      const updated = await propertyService.updateProperty(property.id, { renew: true });
+      setProperty(updated);
+      toast({
+        title: 'Listing renewed',
+        description: 'This property is visible in public search again.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to renew property',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Flex justify="center" align="center" minH="400px">
@@ -144,6 +167,15 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
               onClick={() => onEdit?.(property)}
             >
               Edit
+            </Button>
+          )}
+          {isPropertyExpired(property.expiresAt) && (
+            <Button
+              leftIcon={<RepeatIcon />}
+              colorScheme="green"
+              onClick={handleRenew}
+            >
+              Renew
             </Button>
           )}
           {onDelete && (
@@ -254,7 +286,14 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
                        property.status === 'maintenance' ? 'Under Maintenance' : property.status}
                     </Badge>
                   </HStack>
-                  
+
+                  {isPropertyExpired(property.expiresAt) && (
+                    <HStack justify="space-between">
+                      <Text fontWeight="medium">Public Visibility</Text>
+                      <Badge colorScheme="red">Expired — not shown in public search</Badge>
+                    </HStack>
+                  )}
+
                   <HStack justify="space-between">
                     <Text fontWeight="medium">Price</Text>
                     <Text color="blue.600" fontSize="xl" fontWeight="bold">

@@ -36,7 +36,7 @@ import { invoiceService } from '@/services/invoiceService';
 import { billingService } from '@/services/billingService';
 import { UsageSummary } from '@/features/billing/types';
 import { Invoice, InvoiceStatus } from '@/features/invoicing/types';
-import { formatFileSize } from '@/lib/utils';
+import { formatFileSize, isPropertyExpired } from '@/lib/utils';
 
 interface ActivityItem {
   key: string;
@@ -144,7 +144,10 @@ export default function DashboardPage() {
         
         // Calculate stats from user's properties (already filtered by backend)
         const totalProperties = properties.length;
-        const activeListings = properties.filter(p => p.status === 'available').length;
+        // Same "counts against the plan cap" definition as the backend's usage.properties
+        // (PropertyHandler.createProperty) — available and not expired — so this card's
+        // number never disagrees with the "X of Y used" text right below it.
+        const activeListings = properties.filter(p => p.status === 'available' && !isPropertyExpired(p.expiresAt)).length;
         const totalViews = properties.reduce((sum, p) => sum + (p.viewCount || 0), 0);
         
         setStats(prev => ({

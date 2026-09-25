@@ -1,6 +1,6 @@
 import { Plan } from '../models/account';
 import { PLAN_LIMITS } from './planLimits';
-import { PropertyRepository } from '../repositories/propertyRepository';
+import { PropertyRepository, isPropertyExpired } from '../repositories/propertyRepository';
 
 // Called whenever an account's plan changes (today: only from the platform-admin manual
 // plan-toggle endpoint). Standalone on purpose — the future Payments and Subscription
@@ -11,7 +11,10 @@ export async function reconcilePropertyListingsForPlan(accountId: string, newPla
   if (maxProperties === Infinity) return;
 
   const { items } = await PropertyRepository.listByOwner(accountId, 1000);
-  const active = items.filter(p => p.status !== 'unlisted');
+  // Same "counts against the cap" definition as createProperty's check: available and not
+  // expired. A rented/sold/maintenance/already-expired listing isn't occupying a slot, so
+  // downgrading never touches it — only genuinely active listings get unlisted.
+  const active = items.filter(p => p.status === 'available' && !isPropertyExpired(p.expiresAt));
   const excessCount = active.length - maxProperties;
   if (excessCount <= 0) return;
 

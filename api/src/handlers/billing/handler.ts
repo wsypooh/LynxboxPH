@@ -4,7 +4,7 @@ import { resolveActor, canManageBilling, Actor } from '../../lib/auth';
 import { AccountRepository } from '../../repositories/accountRepository';
 import { PaymentSubmissionRepository } from '../../repositories/paymentSubmissionRepository';
 import { PromoCodeRepository } from '../../repositories/promoCodeRepository';
-import { PropertyRepository } from '../../repositories/propertyRepository';
+import { PropertyRepository, isPropertyExpired } from '../../repositories/propertyRepository';
 import { DocumentRepository } from '../../repositories/documentRepository';
 import { MembershipRepository } from '../../repositories/membershipRepository';
 import { PLAN_LIMITS } from '../../lib/planLimits';
@@ -79,7 +79,9 @@ export class BillingHandler {
       MembershipRepository.listByAccount(actor.accountId).catch(() => []),
     ]);
 
-    const activeListings = propertiesResult.items.filter(p => !p.deletedAt && p.status !== 'unlisted').length;
+    // Same "counts against the cap" definition as PropertyHandler.createProperty: available
+    // and not expired — keeps this usage display consistent with what actually blocks a new listing.
+    const activeListings = propertiesResult.items.filter(p => !p.deletedAt && p.status === 'available' && !isPropertyExpired(p.expiresAt)).length;
     // Solo accounts that never invited anyone have zero MEMBER# rows — still one seat (the owner).
     const seats = members.length > 0 ? members.length : 1;
     const documentBytes = documents.reduce((sum, d) => sum + d.fileSize, 0);

@@ -1,5 +1,6 @@
 import { ddbDocClient, EntityType, BaseEntity } from '../lib/dynamodb';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { isPropertyExpired } from './propertyRepository';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE || 'lynxbox-ph-dev';
 
@@ -52,9 +53,9 @@ export class PlatformAdminRepository {
       switch (item.entityType) {
         case EntityType.PROPERTY:
           bucket.propertyCount++;
-          // Matches BillingHandler.getUsage()'s definition — everything except the
-          // permanent plan-downgrade 'unlisted' status counts as an active listing.
-          if (item.status !== 'unlisted') bucket.activeListingCount++;
+          // Matches BillingHandler.getUsage()'s / PropertyHandler.createProperty's definition
+          // of "counts against the plan cap": available and not expired.
+          if (item.status === 'available' && !isPropertyExpired(item.expiresAt)) bucket.activeListingCount++;
           break;
         case EntityType.TENANT:
           bucket.tenantCount++;

@@ -168,7 +168,7 @@ export default function Home() {
                   <Icon as={Search} boxSize={12} color="primary.500" />
                   <Heading size="md">Smart Search</Heading>
                   <Text color="gray.600">
-                    Map-based property search with advanced filters for location, price, and property type
+                    Advanced filters for location, price, and property type
                   </Text>
                 </VStack>
               </CardBody>

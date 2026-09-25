@@ -49,10 +49,10 @@ import {
   Divider,
 } from '@chakra-ui/react'
 import { Search, Filter, Building2, X, Plus, Grid, List, ChevronUp, ChevronDown } from 'lucide-react'
-import { EditIcon, DeleteIcon, ViewIcon } from '@chakra-ui/icons'
+import { EditIcon, DeleteIcon, ViewIcon, RepeatIcon } from '@chakra-ui/icons'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Property, propertyService, PropertyType } from '@/services/propertyService';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, isPropertyExpired } from '@/lib/utils';
 import { PropertyStatusUpdater } from './PropertyStatusUpdater';
 import { SecureImage } from '@/components/SecureImage';
 import { useAccount } from '@/features/account/AccountContext';
@@ -761,6 +761,28 @@ export function DashboardPropertyList({
     setProperties(prev => prev.map(p => p.id === updatedProperty.id ? updatedProperty : p));
   };
 
+  const handleRenew = async (property: Property) => {
+    try {
+      const updated = await propertyService.updateProperty(property.id, { renew: true });
+      setProperties(prev => prev.map(p => p.id === updated.id ? updated : p));
+      toast({
+        title: 'Listing renewed',
+        description: 'This property is visible in public search again.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to renew property',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const propertyTypes: { value: PropertyType; label: string }[] = [
     { value: 'office', label: 'Office' },
     { value: 'commercial', label: 'Commercial' },
@@ -966,9 +988,14 @@ export function DashboardPropertyList({
                         {property.title}
                       </Heading>
 
-                      <Badge colorScheme="blue" variant="outline">
-                        {property.type}
-                      </Badge>
+                      <HStack>
+                        <Badge colorScheme="blue" variant="outline">
+                          {property.type}
+                        </Badge>
+                        {isPropertyExpired(property.expiresAt) && (
+                          <Badge colorScheme="red">Expired — not shown in public search</Badge>
+                        )}
+                      </HStack>
 
                       <Text color="blue.600" fontSize="xl" fontWeight="bold">
                         {formatCurrency(property.price, property.currency)}
@@ -1030,6 +1057,16 @@ export function DashboardPropertyList({
                             flex={1}
                           >
                             Edit
+                          </Button>
+                        )}
+                        {canWrite && isPropertyExpired(property.expiresAt) && (
+                          <Button
+                            leftIcon={<RepeatIcon />}
+                            size="sm"
+                            colorScheme="green"
+                            onClick={() => handleRenew(property)}
+                          >
+                            Renew
                           </Button>
                         )}
                         {canDestroy && (
@@ -1159,12 +1196,17 @@ export function DashboardPropertyList({
                           </Text>
                         </Td>
                         <Td>
-                          <Badge
-                            colorScheme={property.status === 'available' ? 'green' : 'orange'}
-                            fontSize="xs"
-                          >
-                            {property.status}
-                          </Badge>
+                          <VStack align="start" spacing={1}>
+                            <Badge
+                              colorScheme={property.status === 'available' ? 'green' : 'orange'}
+                              fontSize="xs"
+                            >
+                              {property.status}
+                            </Badge>
+                            {isPropertyExpired(property.expiresAt) && (
+                              <Badge colorScheme="red" fontSize="xs">Expired</Badge>
+                            )}
+                          </VStack>
                         </Td>
                         <Td>
                           <Text fontSize="xs">
@@ -1193,6 +1235,16 @@ export function DashboardPropertyList({
                                 size="xs"
                                 colorScheme="blue"
                                 onClick={() => handleEditProperty?.(property)}
+                                fontSize="xs"
+                              />
+                            )}
+                            {canWrite && isPropertyExpired(property.expiresAt) && (
+                              <IconButton
+                                aria-label="Renew property"
+                                icon={<RepeatIcon />}
+                                size="xs"
+                                colorScheme="green"
+                                onClick={() => handleRenew(property)}
                                 fontSize="xs"
                               />
                             )}

@@ -4,7 +4,7 @@ Status: **implemented**. This doc is kept up to date, not just a historical spec
 
 ## Context
 
-`Property` (`api/src/models/property.ts`) is the public, publicly-browsable marketplace listing entity — title/price/photos/location, its own `/api/public/properties` API — described in `CLAUDE.md`'s Pricing & Plan Limits section as the product's marketing/vacancy-advertising pillar, separate from Building/Tenant/Invoice. This doc covers two problems found and fixed in the same session: how property images actually get from the browser to S3, and how the public listing endpoints exposed owners' phone/email to scraping.
+`Property` (`api/src/models/property.ts`) is the public, publicly-browsable marketplace listing entity — title/price/photos/location, its own `/api/public/properties` API — described in `CLAUDE.md`'s Pricing & Plan Limits section as the product's marketing/vacancy-advertising pillar, separate from Building/Tenant/Invoice. This doc covers a series of problems found and fixed while working through this feature: how property images actually get from the browser to S3, how the public listing endpoints exposed owners' phone/email to scraping, several property form/field UX bugs, a human-friendly `propertyNumber`, and a listing-visibility enforcement gap across the public endpoints.
 
 ## Image upload — direct-to-S3, not base64-through-Lambda
 
@@ -90,6 +90,26 @@ Both the owner-facing (`PropertyDetail.tsx`) and public (`PropertyDetailClient.t
 
 This only replaces what's *shown*; the public URL (`/properties/detail?id=<uuid>` / `/properties/[id]`) still resolves by the raw UUID, same as before. Making the URL itself use `LB-00000123` would need a code→property lookup, which isn't free with this table's single-GSI design (GSI1 is already committed to owner-scoped queries) — the clean way would be a second lightweight pointer item per property (`PK: 'PROPERTY_NUMBER#<number>'` → `{ propertyId }`), not a new GSI. Deliberately left out of this round; worth doing later only if prettier/shareable URLs turn out to matter.
 
+## Listing visibility enforcement — a real gap closed, plus a Renew action
+
+### What was found
+
+Tracing through "how does listing visibility duration actually work end to end" surfaced a real, pre-existing bug: three separate public endpoints only checked `property.status !== 'available'` and never checked expiry or the Payments plan's past-due suspension at all — `getPublicProperty` (the listing detail page itself), `getPublicPresignedViewUrl` (public image URLs), and `getPublicContactInfo` (the contact-reveal endpoint from this doc's scraping-protection section). So an expired or past-due-suspended listing correctly disappeared from browse/search results, but was still fully reachable — detail page, images, even contact info — by anyone with the direct/bookmarked link.
+
+Separately: **the manual "renew an expired listing" mechanism (`PUT /api/properties/{id}` with `renew: true`) existed entirely on the backend with no UI anywhere to trigger it.** No button, no `renew` field even declared on the frontend's `PropertyUpdate` type. Every plan's listings — not just Free's, all three finite-duration tiers use the identical mechanism — would go dark after their window with literally no way for the owner to bring them back except calling the API directly.
+
+### What changed
+
+- All three endpoints above now also check `isListingCurrentlyVisible()` (exported from `propertyRepository.ts` rather than duplicating the expiry/suspension logic) — an expired or suspended listing now consistently 404s everywhere, not just in list/search. `getStaticListingImageUrl` was deliberately left alone — it's explicitly designed to skip DynamoDB entirely for embeddable widgets, so adding a lookup there would defeat its purpose.
+- Added a **Renew action**: `DashboardPropertyList.tsx` (both card and table view) and `PropertyDetail.tsx` now show a Renew button (`RepeatIcon`) whenever `isPropertyExpired(property.expiresAt)` is true, calling `propertyService.updateProperty(id, { renew: true })`. Added `renew?: boolean` to the frontend `PropertyUpdate` type (was simply missing) and a shared `isPropertyExpired()` helper (`lynxbox-ph/src/lib/utils.ts`, mirrors the same check the backend already had).
+- Added an **"Expired" badge** next to the status badge in both components, and `expiresAt`/`listingSuspended` to the frontend `Property` type (present in the wire payload all along, just never typed) — so an owner can actually see *why* a listing isn't showing up, not just notice it silently vanished.
+
+### A related, real bug found and fixed the same pass: editing an unlisted property
+
+`PropertyForm.tsx`'s Property Status field is (was) `z.enum(['available', 'rented', 'sold', 'maintenance'])`, with a `<Select>` offering exactly those four options — but `reconcilePropertyListingsForPlan()` (see docs/Pricing-Strategy-Plan.md) can set a fifth value, `'unlisted'`, that was never in the enum or the dropdown at all. Since it's a plain native `<select>`, opening the edit form for an unlisted property silently fell back to displaying "Available" (the first option) — and saving without deliberately touching Status would submit `status: 'available'`, silently undoing the plan-limit enforcement the moment the owner edited anything else.
+
+Fixed by widening `PropertyStatus`/the zod enum to include `'unlisted'`, but rendering `<option value="unlisted">` **only when the property's current status already is `'unlisted'`** — so it displays correctly and can be freely switched *away from* (that's the actual re-listing mechanism the billing page's own copy already promises: "you can choose which to re-list"), but is never offered as something to manually switch *into*. An explanatory line appears next to the dropdown when this applies, telling the owner why and what to do.
+
 ## Other changes made this session
 
 - **Description character counter** — `PropertyForm.tsx`'s Description field now shows a live `n/1000` counter (red past the limit) next to the existing validation error, and the `Textarea` got `maxLength={1000}` so it can't be typed past the zod schema's existing `.max(1000, ...)` limit in the first place. Purely a UX addition, no backend change (the 1000-char limit already existed and was already enforced by validation — this just makes it visible while typing).
@@ -103,12 +123,16 @@ This only replaces what's *shown*; the public URL (`/properties/detail?id=<uuid>
 - `api/src/repositories/propertyRepository.ts` — added `getNextPropertyNumber()`, wired into `create()`
 - `api/src/scripts/backfillPropertyNumbers.ts` (new)
 - `api/package.json` — added `properties:backfill-numbers` script
-- `api/src/handlers/properties/handler.ts` — removed base64/multipart paths, added `confirmImageUpload` + `getPublicContactInfo`, masked the three public read endpoints, relaxed `getPresignedUploadUrl`'s existence check, protected `propertyNumber` from being overwritten via update
+- `api/src/handlers/properties/handler.ts` — removed base64/multipart paths, added `confirmImageUpload` + `getPublicContactInfo`, masked the three public read endpoints, relaxed `getPresignedUploadUrl`'s existence check, protected `propertyNumber` from being overwritten via update, added `isListingCurrentlyVisible` check to `getPublicProperty`/`getPublicPresignedViewUrl`/`getPublicContactInfo`, narrowed the active-listing-count definition (see docs/Pricing-Strategy-Plan.md)
 - `api/serverless.yml`, `infra/modules/api/routes.tf`, `api/local-server.ts` — route changes for the image-upload and contact-scraping features above
-- `lynxbox-ph/src/services/propertyService.ts` — dropped `base64Images` from types, fixed the presigned-upload envelope-unwrap bug, added `confirmImageUpload`/`getPublicPropertyContact`, added `propertyNumber`
+- `api/src/repositories/propertyRepository.ts` — exported `isListingCurrentlyVisible`, added `isPropertyExpired`
+- `api/src/lib/reconcilePropertyListings.ts`, `api/src/handlers/billing/handler.ts`, `api/src/repositories/platformAdminRepository.ts` — aligned to the same narrowed active-listing-count definition
+- `lynxbox-ph/src/services/propertyService.ts` — dropped `base64Images` from types, fixed the presigned-upload envelope-unwrap bug, added `confirmImageUpload`/`getPublicPropertyContact`, added `propertyNumber`/`expiresAt`/`listingSuspended`, added `renew?: boolean` to `PropertyUpdate`, widened `PropertyStatus` to include `'unlisted'`
 - `lynxbox-ph/src/data/philippineLocations.ts` (new) — PH provinces/cities static data
-- `lynxbox-ph/src/components/PropertyForm.tsx` — image-state refactor, real upload flow, description character counter, area decimal-input fix, floor relabel, province/city cascading selects
+- `lynxbox-ph/src/components/PropertyForm.tsx` — image-state refactor, real upload flow, description character counter, area decimal-input fix, floor relabel, province/city cascading selects, unlisted-status dropdown fix
 - `lynxbox-ph/src/app/properties/[id]/PropertyDetailClient.tsx` — click-to-reveal contact flow, floor ordinal display, Property Number display
-- `lynxbox-ph/src/components/PropertyDetail.tsx` — floor ordinal display, Property Number display
-- `lynxbox-ph/src/lib/utils.ts` — removed now-unused `convertFileToBase64`/`extractBase64Data`, added `formatFloor()`
+- `lynxbox-ph/src/components/PropertyDetail.tsx` — floor ordinal display, Property Number display, Renew action, Expired badge
+- `lynxbox-ph/src/components/DashboardPropertyList.tsx` — Renew action (card + table view), Expired badge
+- `lynxbox-ph/src/app/dashboard/page.tsx` — aligned the "Active Listings" stat card to the same narrowed definition, so it never disagrees with the "X of Y used" text next to it
+- `lynxbox-ph/src/lib/utils.ts` — removed now-unused `convertFileToBase64`/`extractBase64Data`, added `formatFloor()`, added `isPropertyExpired()`
 - `docs/Documents-Feature-Plan.md` — added a note pointing at this doc where it previously described the property base64 flow as still-live

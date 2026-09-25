@@ -403,7 +403,7 @@ export default function Landlord() {
                 Smart Search
               </h3>
               <p style={{ color: '#4c5a6b', lineHeight: '1.6', margin: 0 }}>
-                Help tenants find the right space faster with map-based search and smart filters for price, location, and property type
+                Help tenants find the right space faster with smart filters for price, location, and property type
               </p>
             </div>
 

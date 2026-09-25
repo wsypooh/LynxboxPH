@@ -1,6 +1,6 @@
 // src/handlers/properties/handler.ts
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { PropertyRepository } from '../../repositories/propertyRepository';
+import { PropertyRepository, isListingCurrentlyVisible, isPropertyExpired } from '../../repositories/propertyRepository';
 import { ApiResponse } from '../../lib/apiResponse';
 import { Property, PropertyFeatures, PropertyLocation, PropertyContactInfo } from '../../models/property';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
@@ -54,9 +54,12 @@ export class PropertyHandler {
       };
 
       // docs/Pricing-Strategy-Plan.md — plan-based listing count / photo count limits.
+      // Only counts against the cap while it's actually taking up a public "slot": available
+      // and not expired. Marking something rented/sold/maintenance, or just letting it expire,
+      // frees up a slot on its own — no separate unlist step needed.
       const limits = PLAN_LIMITS[actor.plan];
       const { items: existingListings } = await PropertyRepository.listByOwner(userId, 1000);
-      const activeListingCount = existingListings.filter(p => p.status !== 'unlisted').length;
+      const activeListingCount = existingListings.filter(p => p.status === 'available' && !isPropertyExpired(p.expiresAt)).length;
       if (activeListingCount >= limits.maxProperties) {
         return ApiResponse.forbidden("You've reached your plan's active listing limit. Upgrade to add more.");
       }
@@ -105,8 +108,11 @@ export class PropertyHandler {
         return ApiResponse.notFound('Property not found');
       }
 
-      // Only show available properties to the public
-      if (property.status !== 'available') {
+      // Only show available properties to the public — same visibility rule the
+      // list/search paths already enforce (docs/Pricing-Strategy-Plan.md's expiry window,
+      // docs/Payments-and-Subscription-Plan.md's past-due suspension), so an expired or
+      // suspended listing can't still be reached via a direct/bookmarked link.
+      if (property.status !== 'available' || !isListingCurrentlyVisible(property)) {
         return ApiResponse.error('Property not available', 404);
       }
 
@@ -135,7 +141,7 @@ export class PropertyHandler {
       }
 
       const property = await PropertyRepository.findById(id);
-      if (!property || property.deletedAt || property.status !== 'available') {
+      if (!property || property.deletedAt || property.status !== 'available' || !isListingCurrentlyVisible(property)) {
         return ApiResponse.notFound('Property not found');
       }
 
@@ -599,14 +605,15 @@ export class PropertyHandler {
         return ApiResponse.notFound('Property not found');
       }
 
-      // Only allow access to images of available properties
-      if (property.status !== 'available') {
+      // Only allow access to images of available properties — same visibility rule as
+      // getPublicProperty above (expiry window / past-due suspension), not just status.
+      if (property.status !== 'available' || !isListingCurrentlyVisible(property)) {
         return ApiResponse.forbidden('Property is not available for public viewing');
       }
 
       // Verify the image belongs to this property (check both full URL and key)
       const hasImage = property.images.some(img => {
-        const imgKey = img.startsWith('https://') 
+        const imgKey = img.startsWith('https://')
           ? img.split('/').slice(3).join('/') 
           : img;
         return imgKey === imageKey;
