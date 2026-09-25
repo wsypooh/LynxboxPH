@@ -166,7 +166,6 @@ resource "aws_lambda_function" "api" {
         NODE_ENV       = var.environment
         DYNAMODB_TABLE = var.dynamodb_table_name
         USER_POOL_ID   = var.user_pool_id
-        CLIENT_ID      = var.user_pool_client_id
         S3_BUCKET_NAME = var.s3_bucket_name
         FRONTEND_URL   = var.domain_name != "" ? "https://${var.domain_name}" : "http://localhost:3001"
       },

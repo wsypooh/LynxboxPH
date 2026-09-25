@@ -36,7 +36,7 @@ Lynxbox's edge: VAT+EWT compliance and FIFO/penalty-interest ledger automation a
 | **Listing visibility duration** | 7 days (manual renew) | 30 days | 60 days | No expiry |
 | **Public search placement** | Standard | Standard | Priority | Top/Featured |
 | **Invoices/month** (soft fair-use) | 10 | 50 | 200 | Unlimited |
-| **Team seats** (owner/manager/staff/viewer) | 1 (owner only) | 2 | 5 | Unlimited |
+| **Team seats** (owner/manager/staff/viewer) | 1 (owner only) | 3 | 10 | Unlimited |
 | **Document storage** | 250MB | 1GB | 5GB | Unlimited (fair use) |
 | **Ledger (FIFO + penalty automation)** | ✅ | ✅ | ✅ | ✅ |
 | **VAT/EWT auto-calc, PDF Statement of Account** | ✅ (Lynxbox branded) | ✅ (unbranded) | ✅ (unbranded + custom logo watermark) | ✅ (full white-label) |
@@ -96,8 +96,8 @@ export const PLAN_LIMITS: Record<Plan, {
   maxInvoicesPerMonth: number; maxSeats: number; maxDocumentBytes: number;
 }> = {
   free:     { maxProperties: 2,  maxPhotosPerListing: 3,  listingDurationDays: 7,    searchPlacement: 'standard', maxInvoicesPerMonth: 10,  maxSeats: 1, maxDocumentBytes: 250 * MB },
-  starter:  { maxProperties: 5,  maxPhotosPerListing: 10, listingDurationDays: 30,   searchPlacement: 'standard', maxInvoicesPerMonth: 50,  maxSeats: 2, maxDocumentBytes: 1 * GB },
-  growth:   { maxProperties: 15, maxPhotosPerListing: 10, listingDurationDays: 60,   searchPlacement: 'priority', maxInvoicesPerMonth: 200, maxSeats: 5, maxDocumentBytes: 5 * GB },
+  starter:  { maxProperties: 5,  maxPhotosPerListing: 10, listingDurationDays: 30,   searchPlacement: 'standard', maxInvoicesPerMonth: 50,  maxSeats: 3, maxDocumentBytes: 1 * GB },
+  growth:   { maxProperties: 15, maxPhotosPerListing: 10, listingDurationDays: 60,   searchPlacement: 'priority', maxInvoicesPerMonth: 200, maxSeats: 10, maxDocumentBytes: 5 * GB },
   business: { maxProperties: Infinity, maxPhotosPerListing: 10, listingDurationDays: null, searchPlacement: 'featured', maxInvoicesPerMonth: Infinity, maxSeats: Infinity, maxDocumentBytes: Infinity },
 };
 export const DOCUMENT_COUNT_ABUSE_GUARD = 500; // flat, plan-independent — see Implementation notes #12

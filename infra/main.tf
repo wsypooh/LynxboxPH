@@ -179,20 +179,15 @@ module "api" {
 
   # Environment variables for Lambda
   environment_variables = {
-    NODE_ENV                     = var.environment
-    TABLE_NAME                   = local.resource_names.dynamodb_table
-    USER_POOL_ID                 = module.auth.user_pool_id
-    CLIENT_ID                    = module.auth.user_pool_client_id
-    S3_BUCKET_NAME               = module.s3.bucket_name
-    CLOUDFRONT_DISTRIBUTION_ID   = module.frontend.cloudfront_distribution_id
-    COGNITO_USER_POOL_CLIENT_ID  = module.auth.user_pool_client_id
-    COGNITO_USER_POOL_ISSUER     = "https://cognito-idp.${var.aws_region}.amazonaws.com/${module.auth.user_pool_id}"
-    ZEPTOMAIL_API_KEY              = var.zeptomail_api_key
-    ZEPTOMAIL_TEMPLATE_API_KEY    = var.zeptomail_template_api_key
-    ZEPTOMAIL_TEMPLATE_MAPPING   = var.zeptomail_template_mapping
-    ZEPTOMAIL_SENDER_EMAIL         = var.zeptomail_sender_email
-    ZEPTOMAIL_SENDER_NAME          = var.zeptomail_sender_name
-    ZEPTOMAIL_BCC_EMAIL            = var.zeptomail_bcc_email
+    NODE_ENV                   = var.environment
+    USER_POOL_ID               = module.auth.user_pool_id
+    S3_BUCKET_NAME             = module.s3.bucket_name
+    ZEPTOMAIL_API_KEY          = var.zeptomail_api_key
+    ZEPTOMAIL_TEMPLATE_API_KEY = var.zeptomail_template_api_key
+    ZEPTOMAIL_TEMPLATE_MAPPING = var.zeptomail_template_mapping
+    ZEPTOMAIL_SENDER_EMAIL     = var.zeptomail_sender_email
+    ZEPTOMAIL_SENDER_NAME      = var.zeptomail_sender_name
+    ZEPTOMAIL_BCC_EMAIL        = var.zeptomail_bcc_email
   }
 
   # CORS settings
@@ -204,13 +199,13 @@ module "api" {
 
 # Frontend Module
 module "frontend" {
-  source       = "./modules/frontend"
-  project_name = var.project_name
-  environment  = var.environment
-  bucket_name  = local.resource_names.frontend_bucket
-  domain_name  = local.frontend_config.domain_name
+  source              = "./modules/frontend"
+  project_name        = var.project_name
+  environment         = var.environment
+  bucket_name         = local.resource_names.frontend_bucket
+  domain_name         = local.frontend_config.domain_name
   ssl_certificate_arn = var.ssl_certificate_arn
-  use_route53  = false  # Set to false since using Cloudflare CNAME
+  use_route53         = false # Set to false since using Cloudflare CNAME
   common_tags = merge(local.common_tags, {
     Environment = var.environment
   })

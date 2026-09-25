@@ -30,11 +30,11 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   },
   starter: {
     maxProperties: 5, maxPhotosPerListing: 10, listingDurationDays: 30, searchPlacement: 'standard',
-    maxInvoicesPerMonth: 50, maxSeats: 2, maxDocumentBytes: 1 * GB,
+    maxInvoicesPerMonth: 50, maxSeats: 3, maxDocumentBytes: 1 * GB,
   },
   growth: {
     maxProperties: 15, maxPhotosPerListing: 10, listingDurationDays: 60, searchPlacement: 'priority',
-    maxInvoicesPerMonth: 200, maxSeats: 5, maxDocumentBytes: 5 * GB,
+    maxInvoicesPerMonth: 200, maxSeats: 10, maxDocumentBytes: 5 * GB,
   },
   business: {
     maxProperties: Infinity, maxPhotosPerListing: 10, listingDurationDays: null, searchPlacement: 'featured',
