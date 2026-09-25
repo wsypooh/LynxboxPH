@@ -12,6 +12,7 @@ import { PaymentVerificationHandler } from './handlers/platformAdmin/paymentVeri
 import { AccountHandler } from './handlers/account/handler';
 import { BillingHandler } from './handlers/billing/handler';
 import { PublicBillingHandler } from './handlers/publicBilling/handler';
+import { PublicContactHandler } from './handlers/publicContact/handler';
 import { SubscriptionCronHandler } from './handlers/subscriptionCron/handler';
 
 export async function handler(event: any): Promise<APIGatewayProxyResult> {
@@ -96,6 +97,10 @@ export async function handler(event: any): Promise<APIGatewayProxyResult> {
 
     if (event.path?.includes('/api/public/promo-codes')) {
       return await PublicBillingHandler.handle(event);
+    }
+
+    if (event.path?.includes('/api/public/contact')) {
+      return await PublicContactHandler.handle(event);
     }
 
     return await propertyHandler(event);

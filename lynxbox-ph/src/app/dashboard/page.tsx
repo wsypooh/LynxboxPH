@@ -250,7 +250,7 @@ export default function DashboardPage() {
                 </StatNumber>
                 <StatHelpText>
                   {usage && usage.limits.maxProperties !== Infinity
-                    ? `${usage.usage.properties} of ${usage.limits.maxProperties} used`
+                    ? `of ${usage.limits.maxProperties} allowed`
                     : 'Available for rent'}
                 </StatHelpText>
               </Stat>

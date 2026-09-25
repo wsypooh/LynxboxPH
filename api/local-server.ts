@@ -341,6 +341,11 @@ app.all('/api/public/promo-codes/active-auto-apply', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
+// Contact Us / Support page
+app.all('/api/public/contact', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
 // Invoices routes
 app.all('/api/invoices', async (req, res) => {
   await handlePropertyRequest(req, res);

@@ -32,7 +32,7 @@ import {
 } from '@chakra-ui/react';
 import { Property, propertyService } from '@/services/propertyService';
 import { formatCurrency, formatFloor, isPropertyExpired } from '@/lib/utils';
-import { EditIcon, DeleteIcon, ArrowBackIcon, PhoneIcon, EmailIcon, RepeatIcon } from '@chakra-ui/icons';
+import { EditIcon, DeleteIcon, ArrowBackIcon, PhoneIcon, EmailIcon, RepeatIcon, CheckIcon } from '@chakra-ui/icons';
 import { ImageGallery } from '@/components/ImageGallery';
 
 interface PropertyDetailProps {
@@ -131,6 +131,29 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
     }
   };
 
+  const handlePublish = async () => {
+    if (!property) return;
+    try {
+      const updated = await propertyService.updateProperty(property.id, { status: 'available' });
+      setProperty(updated);
+      toast({
+        title: 'Listing published',
+        description: 'This property is now visible in public search.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to publish property',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Flex justify="center" align="center" minH="400px">
@@ -176,6 +199,15 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
               onClick={handleRenew}
             >
               Renew
+            </Button>
+          )}
+          {property.status === 'draft' && (
+            <Button
+              leftIcon={<CheckIcon />}
+              colorScheme="purple"
+              onClick={handlePublish}
+            >
+              Publish
             </Button>
           )}
           {onDelete && (
@@ -278,14 +310,23 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
                       property.status === 'available' ? 'green' :
                       property.status === 'rented' ? 'blue' :
                       property.status === 'sold' ? 'red' :
-                      property.status === 'maintenance' ? 'orange' : 'gray'
+                      property.status === 'maintenance' ? 'orange' :
+                      property.status === 'draft' ? 'purple' : 'gray'
                     }>
                       {property.status === 'available' ? 'Available' :
                        property.status === 'rented' ? 'Rented' :
                        property.status === 'sold' ? 'Sold' :
-                       property.status === 'maintenance' ? 'Under Maintenance' : property.status}
+                       property.status === 'maintenance' ? 'Under Maintenance' :
+                       property.status === 'draft' ? 'Draft' : property.status}
                     </Badge>
                   </HStack>
+
+                  {property.status === 'draft' && (
+                    <HStack justify="space-between">
+                      <Text fontWeight="medium">Public Visibility</Text>
+                      <Badge colorScheme="purple">Draft — not shown in public search</Badge>
+                    </HStack>
+                  )}
 
                   {isPropertyExpired(property.expiresAt) && (
                     <HStack justify="space-between">

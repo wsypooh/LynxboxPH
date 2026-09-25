@@ -592,6 +592,13 @@ resource "aws_apigatewayv2_route" "public_promo_active_auto_apply" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Contact Us / Support page (no authorizer)
+resource "aws_apigatewayv2_route" "public_contact_submit" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /api/public/contact"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 # docs/Payments-and-Subscription-Plan.md — Platform-admin payment verification
 resource "aws_apigatewayv2_route" "platform_admin_list_payment_submissions" {
   api_id             = aws_apigatewayv2_api.main.id

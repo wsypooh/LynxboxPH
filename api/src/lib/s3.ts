@@ -322,7 +322,7 @@ export class S3Service {
   validateImageFile(fileName: string, contentType: string, size: number): void {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 10 * 1024 * 1024; // 10MB
 
     if (!allowedTypes.includes(contentType)) {
       throw new Error(`Invalid file type. Allowed types: ${allowedTypes.join(', ')}`);
@@ -334,7 +334,7 @@ export class S3Service {
     }
 
     if (size > maxSize) {
-      throw new Error(`File size too large. Maximum size: 5MB`);
+      throw new Error(`File size too large. Maximum size: 10MB`);
     }
   }
 

@@ -202,11 +202,13 @@ export class ImageProcessingService {
       if (metadata.width < 100 || metadata.height < 100) {
         return { valid: false, error: 'Image too small (minimum 100x100)' };
       }
-      
-      if (metadata.width > 5000 || metadata.height > 5000) {
-        return { valid: false, error: 'Image too large (maximum 5000x5000)' };
-      }
-      
+
+      // No upper bound — every image gets resized down to 1200x900 right after this check
+      // anyway (processForPropertyUpload), so rejecting large source photos serves no
+      // purpose and was blocking normal modern phone-camera photos (many exceed 5000px on
+      // the long edge). The 10MB file-size cap (S3Service.validateImageFile) is the limit
+      // that actually matters here.
+
       return { valid: true };
     } catch (error) {
       return { valid: false, error: `Image validation failed: ${error}` };

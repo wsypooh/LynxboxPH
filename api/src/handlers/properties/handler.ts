@@ -44,31 +44,41 @@ export class PropertyHandler {
       }
       const userId = actor.accountId;
 
+      // 'unlisted' is deliberately excluded here — system-set only (reconcilePropertyListingsForPlan),
+      // never something a create call can set directly.
+      const CREATABLE_STATUSES = ['available', 'rented', 'sold', 'maintenance', 'draft'];
+      const status = CREATABLE_STATUSES.includes(propertyData.status) ? propertyData.status : 'available';
+
       const finalPropertyData: any = {
         ...propertyData,
         id: propertyId, // Use the pre-generated ID
         ownerId: userId,
         currency: 'PHP', // Default currency
-        status: 'available', // Default status
+        status,
         images: propertyData.images || [],
       };
 
       // docs/Pricing-Strategy-Plan.md — plan-based listing count / photo count limits.
       // Only counts against the cap while it's actually taking up a public "slot": available
       // and not expired. Marking something rented/sold/maintenance, or just letting it expire,
-      // frees up a slot on its own — no separate unlist step needed.
+      // frees up a slot on its own — no separate unlist step needed. A 'draft' listing never
+      // occupies a slot until it's actually published.
       const limits = PLAN_LIMITS[actor.plan];
-      const { items: existingListings } = await PropertyRepository.listByOwner(userId, 1000);
-      const activeListingCount = existingListings.filter(p => p.status === 'available' && !isPropertyExpired(p.expiresAt)).length;
-      if (activeListingCount >= limits.maxProperties) {
-        return ApiResponse.forbidden("You've reached your plan's active listing limit. Upgrade to add more.");
+      if (status === 'available') {
+        const { items: existingListings } = await PropertyRepository.listByOwner(userId, 1000);
+        const activeListingCount = existingListings.filter(p => p.status === 'available' && !isPropertyExpired(p.expiresAt)).length;
+        if (activeListingCount >= limits.maxProperties) {
+          return ApiResponse.forbidden("You've reached your plan's active listing limit. Upgrade to add more.");
+        }
       }
       if (finalPropertyData.images.length > limits.maxPhotosPerListing) {
         return ApiResponse.forbidden(`Your plan allows up to ${limits.maxPhotosPerListing} photos per listing. Upgrade for more.`);
       }
-      finalPropertyData.expiresAt = limits.listingDurationDays == null
-        ? null
-        : new Date(Date.now() + limits.listingDurationDays * 24 * 60 * 60 * 1000).toISOString();
+      // The visibility-duration clock only starts once a listing is actually live — a draft
+      // gets a fresh window computed from now, whenever it's later published (see updateProperty).
+      finalPropertyData.expiresAt = (status === 'available' && limits.listingDurationDays != null)
+        ? new Date(Date.now() + limits.listingDurationDays * 24 * 60 * 60 * 1000).toISOString()
+        : null;
 
       const property = await PropertyRepository.create(finalPropertyData);
       return ApiResponse.success(property, 201);
@@ -243,6 +253,14 @@ export class PropertyHandler {
 
       const updates = JSON.parse(event.body);
 
+      // 'unlisted' is system-set only (reconcilePropertyListingsForPlan calls
+      // PropertyRepository.update() directly, bypassing this handler entirely) — a normal
+      // update call can move a property away from 'unlisted' but never manually into it,
+      // same rule createProperty enforces.
+      if (updates.status === 'unlisted') {
+        return ApiResponse.forbidden('"unlisted" cannot be set directly — it is assigned automatically when a plan downgrade exceeds your active listing limit.');
+      }
+
       // Handle image removal and replacement
       if (updates.removeImages && Array.isArray(updates.removeImages)) {
         console.log(`=== IMAGE DELETION TRIGGERED ===`);
@@ -262,9 +280,32 @@ export class PropertyHandler {
         return ApiResponse.forbidden(`Your plan allows up to ${limits.maxPhotosPerListing} photos per listing. Upgrade for more.`);
       }
 
+      // A status change that makes this listing newly count against the plan cap (e.g.
+      // publishing a draft, or un-marking rented/sold back to available) needs the same
+      // enforcement createProperty already does — otherwise drafts (which don't count while
+      // they stay drafts) become a loophole to exceed the plan's active-listing limit one
+      // publish at a time.
+      const isNewlyAvailable = updates.status === 'available' && property.status !== 'available';
+      if (isNewlyAvailable) {
+        const { items: existingListings } = await PropertyRepository.listByOwner(actor.accountId, 1000);
+        const activeListingCount = existingListings.filter(p => p.id !== id && p.status === 'available' && !isPropertyExpired(p.expiresAt)).length;
+        if (activeListingCount >= limits.maxProperties) {
+          return ApiResponse.forbidden("You've reached your plan's active listing limit. Upgrade to add more.");
+        }
+      }
+
       // Remove fields that shouldn't be updated
       const { id: _, ownerId, createdAt, propertyNumber, removeImages, renew, ...validUpdates } = updates;
       validUpdates.images = finalImages;
+
+      // Same "visibility clock only runs while actually live" rule createProperty follows —
+      // a listing newly becoming available (publishing a draft, un-marking rented/sold/etc.)
+      // starts a fresh window from now, same as an explicit renew.
+      if (isNewlyAvailable) {
+        validUpdates.expiresAt = limits.listingDurationDays == null
+          ? null
+          : new Date(Date.now() + limits.listingDurationDays * 24 * 60 * 60 * 1000).toISOString();
+      }
 
       // docs/Pricing-Strategy-Plan.md — owner manually renews a listing whose visibility
       // window (set from their plan at creation time) has run out, instead of a cron job.
@@ -645,6 +686,11 @@ export class PropertyHandler {
         return ApiResponse.error('Property ID and imageKey are required', 400);
       }
 
+      const actor = await resolveActor(event);
+      if (!actor) {
+        return ApiResponse.unauthorized('User authentication required');
+      }
+
       // Extract S3 key from full URL if needed
       if (imageKey.startsWith('https://')) {
         const urlParts = imageKey.split('/');
@@ -657,10 +703,17 @@ export class PropertyHandler {
         return ApiResponse.notFound('Property not found');
       }
 
+      // This is the authenticated (not public) view-url endpoint — was previously missing
+      // any ownership check at all, unnoticed only because SecureImage.tsx had a bug that
+      // made it always call the *public* endpoint instead, regardless of context.
+      if (property.ownerId !== actor.accountId) {
+        return ApiResponse.forbidden("You do not have permission to view this property's images");
+      }
+
       // Verify the image belongs to this property (check both full URL and key)
       const hasImage = property.images.some(img => {
-        const imgKey = img.startsWith('https://') 
-          ? img.split('/').slice(3).join('/') 
+        const imgKey = img.startsWith('https://')
+          ? img.split('/').slice(3).join('/')
           : img;
         return imgKey === imageKey;
       });
@@ -765,7 +818,9 @@ export class PropertyHandler {
       return ApiResponse.success({ key: result.key, contentType: result.contentType, size: result.size });
     } catch (error) {
       console.error('Error confirming property image upload:', error);
-      return ApiResponse.error('Failed to process uploaded image', 500);
+      // Surface the real reason (invalid image, too large, wrong dimensions, etc.) instead
+      // of a generic message — these are all user-actionable, not internal details to hide.
+      return ApiResponse.error(error instanceof Error ? error.message : 'Failed to process uploaded image', 500);
     }
   }
 }

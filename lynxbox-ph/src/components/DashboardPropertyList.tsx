@@ -41,6 +41,7 @@ import {
   Td,
   TableContainer,
   IconButton,
+  Tooltip,
   Menu,
   MenuButton,
   MenuList,
@@ -49,11 +50,12 @@ import {
   Divider,
 } from '@chakra-ui/react'
 import { Search, Filter, Building2, X, Plus, Grid, List, ChevronUp, ChevronDown } from 'lucide-react'
-import { EditIcon, DeleteIcon, ViewIcon, RepeatIcon } from '@chakra-ui/icons'
+import { EditIcon, DeleteIcon, ViewIcon, RepeatIcon, CheckIcon } from '@chakra-ui/icons'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Property, propertyService, PropertyType } from '@/services/propertyService';
 import { formatCurrency, isPropertyExpired } from '@/lib/utils';
 import { PropertyStatusUpdater } from './PropertyStatusUpdater';
+import { PropertyCsvUpload } from '@/features/properties/components/PropertyCsvUpload';
 import { SecureImage } from '@/components/SecureImage';
 import { useAccount } from '@/features/account/AccountContext';
 
@@ -87,6 +89,13 @@ interface TableSortState {
   sortOrder: 'asc' | 'desc';
 }
 
+function statusBadgeColor(status: string): string {
+  if (status === 'available') return 'green';
+  if (status === 'draft') return 'purple';
+  if (status === 'unlisted') return 'red';
+  return 'orange'; // rented, sold, maintenance
+}
+
 interface DashboardPropertyListProps {
   onView?: (property: Property) => void;
   onEdit?: (property: Property) => void;
@@ -105,6 +114,17 @@ export function DashboardPropertyList({
 }: DashboardPropertyListProps) {
   const { canWrite, canDestroy } = useAccount();
   const STORAGE_KEY = 'dashboard-properties-filters';
+  const VIEW_MODE_STORAGE_KEY = 'dashboard-properties-view-mode';
+
+  const initializeViewMode = (): 'cards' | 'table' => {
+    try {
+      const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+      if (saved === 'cards' || saved === 'table') return saved;
+    } catch (error) {
+      console.error('Error loading view mode from localStorage:', error);
+    }
+    return 'cards';
+  };
 
   // Initialize search params from localStorage
   const initializeSearchParams = (): PropertySearchParams => {
@@ -137,11 +157,12 @@ export function DashboardPropertyList({
   const [hasMore, setHasMore] = useState(false)
   const [lastKey, setLastKey] = useState<string | undefined>()
   const [totalCount, setTotalCount] = useState(0)
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(initializeViewMode)
   const lastKeyRef = useRef<string | undefined>() // Use ref to avoid infinite loop
   const toast = useToast();
 
   const { isOpen: isFilterOpen, onOpen: onFilterOpen, onClose: onFilterClose } = useDisclosure()
+  const { isOpen: isCsvOpen, onOpen: onCsvOpen, onClose: onCsvClose } = useDisclosure()
   
   // Save search params to localStorage whenever they change
   useEffect(() => {
@@ -151,6 +172,15 @@ export function DashboardPropertyList({
       console.error('Error saving search params to localStorage:', error);
     }
   }, [searchParams]);
+
+  // Remember the last-selected view (cards/table) across visits
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+    } catch (error) {
+      console.error('Error saving view mode to localStorage:', error);
+    }
+  }, [viewMode]);
 
   // Apply table sorting when switching to table view or changing table sort
   useEffect(() => {
@@ -783,9 +813,33 @@ export function DashboardPropertyList({
     }
   };
 
+  const handlePublish = async (property: Property) => {
+    try {
+      const updated = await propertyService.updateProperty(property.id, { status: 'available' });
+      setProperties(prev => prev.map(p => p.id === updated.id ? updated : p));
+      toast({
+        title: 'Listing published',
+        description: 'This property is now visible in public search.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to publish property',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const propertyTypes: { value: PropertyType; label: string }[] = [
     { value: 'office', label: 'Office' },
-    { value: 'commercial', label: 'Commercial' },
+    { value: 'retail', label: 'Retail' },
+    { value: 'warehouse', label: 'Warehouse' },
+    { value: 'industrial', label: 'Industrial' },
     { value: 'land', label: 'Land' },
   ]
   
@@ -804,23 +858,32 @@ export function DashboardPropertyList({
         <HStack spacing={4} flexWrap="wrap">
           {/* View Mode Toggle */}
           <HStack spacing={2} bg="gray.100" p={1} borderRadius="md">
-            <IconButton
-              aria-label="Card view"
-              icon={<Grid size={16} />}
-              size="sm"
-              variant={viewMode === 'cards' ? 'solid' : 'ghost'}
-              colorScheme={viewMode === 'cards' ? 'blue' : 'gray'}
-              onClick={() => setViewMode('cards')}
-            />
-            <IconButton
-              aria-label="Table view"
-              icon={<List size={16} />}
-              size="sm"
-              variant={viewMode === 'table' ? 'solid' : 'ghost'}
-              colorScheme={viewMode === 'table' ? 'blue' : 'gray'}
-              onClick={() => setViewMode('table')}
-            />
+            <Tooltip label="Card view">
+              <IconButton
+                aria-label="Card view"
+                icon={<Grid size={16} />}
+                size="sm"
+                variant={viewMode === 'cards' ? 'solid' : 'ghost'}
+                colorScheme={viewMode === 'cards' ? 'blue' : 'gray'}
+                onClick={() => setViewMode('cards')}
+              />
+            </Tooltip>
+            <Tooltip label="Table view">
+              <IconButton
+                aria-label="Table view"
+                icon={<List size={16} />}
+                size="sm"
+                variant={viewMode === 'table' ? 'solid' : 'ghost'}
+                colorScheme={viewMode === 'table' ? 'blue' : 'gray'}
+                onClick={() => setViewMode('table')}
+              />
+            </Tooltip>
           </HStack>
+          {canWrite && (
+            <Button variant="outline" onClick={onCsvOpen}>
+              Import CSV
+            </Button>
+          )}
           {canWrite && onAddNew && (
             <Button
               leftIcon={<Plus />}
@@ -975,7 +1038,7 @@ export function DashboardPropertyList({
                       position="absolute"
                       top={2}
                       right={2}
-                      colorScheme={property.status === 'available' ? 'green' : 'orange'}
+                      colorScheme={statusBadgeColor(property.status)}
                     >
                       {property.status}
                     </Badge>
@@ -1171,19 +1234,14 @@ export function DashboardPropertyList({
                     {properties.map((property) => (
                       <Tr key={property.id}>
                         <Td>
-                          <VStack align="start" spacing={2} maxW="220px">
-                            <HStack spacing={2} align="start">
-                              <Text fontWeight="medium" fontSize="sm" noOfLines={1} flex={1}>
-                                {property.title}
-                              </Text>
-                              <Badge colorScheme="blue" variant="outline" fontSize="xs" flexShrink={0}>
-                                {property.type}
-                              </Badge>
-                            </HStack>
-                            <Text fontSize="xs" color="gray.600" noOfLines={2} wordBreak="break-word">
-                              {property.description}
+                          <HStack spacing={2} align="start" maxW="220px">
+                            <Text fontWeight="medium" fontSize="sm" noOfLines={1} flex={1}>
+                              {property.title}
                             </Text>
-                          </VStack>
+                            <Badge colorScheme="blue" variant="outline" fontSize="xs" flexShrink={0}>
+                              {property.type}
+                            </Badge>
+                          </HStack>
                         </Td>
                         <Td>
                           <Text fontWeight="bold" color="blue.600" fontSize="xs" whiteSpace="nowrap">
@@ -1198,7 +1256,7 @@ export function DashboardPropertyList({
                         <Td>
                           <VStack align="start" spacing={1}>
                             <Badge
-                              colorScheme={property.status === 'available' ? 'green' : 'orange'}
+                              colorScheme={statusBadgeColor(property.status)}
                               fontSize="xs"
                             >
                               {property.status}
@@ -1220,44 +1278,64 @@ export function DashboardPropertyList({
                         </Td>
                         <Td>
                           <HStack spacing={1} minW="80px">
-                            <IconButton
-                              aria-label="View property"
-                              icon={<ViewIcon />}
-                              size="xs"
-                              variant="outline"
-                              onClick={() => onView?.(property)}
-                              fontSize="xs"
-                            />
-                            {canWrite && (
+                            <Tooltip label="View">
                               <IconButton
-                                aria-label="Edit property"
-                                icon={<EditIcon />}
+                                aria-label="View property"
+                                icon={<ViewIcon />}
                                 size="xs"
-                                colorScheme="blue"
-                                onClick={() => handleEditProperty?.(property)}
+                                variant="outline"
+                                onClick={() => onView?.(property)}
                                 fontSize="xs"
                               />
+                            </Tooltip>
+                            {canWrite && (
+                              <Tooltip label="Edit">
+                                <IconButton
+                                  aria-label="Edit property"
+                                  icon={<EditIcon />}
+                                  size="xs"
+                                  colorScheme="blue"
+                                  onClick={() => handleEditProperty?.(property)}
+                                  fontSize="xs"
+                                />
+                              </Tooltip>
                             )}
                             {canWrite && isPropertyExpired(property.expiresAt) && (
-                              <IconButton
-                                aria-label="Renew property"
-                                icon={<RepeatIcon />}
-                                size="xs"
-                                colorScheme="green"
-                                onClick={() => handleRenew(property)}
-                                fontSize="xs"
-                              />
+                              <Tooltip label="Renew">
+                                <IconButton
+                                  aria-label="Renew property"
+                                  icon={<RepeatIcon />}
+                                  size="xs"
+                                  colorScheme="green"
+                                  onClick={() => handleRenew(property)}
+                                  fontSize="xs"
+                                />
+                              </Tooltip>
+                            )}
+                            {canWrite && property.status === 'draft' && (
+                              <Tooltip label="Publish">
+                                <IconButton
+                                  aria-label="Publish property"
+                                  icon={<CheckIcon />}
+                                  size="xs"
+                                  colorScheme="purple"
+                                  onClick={() => handlePublish(property)}
+                                  fontSize="xs"
+                                />
+                              </Tooltip>
                             )}
                             {canDestroy && (
-                              <IconButton
-                                aria-label="Delete property"
-                                icon={<DeleteIcon />}
-                                size="xs"
-                                colorScheme="red"
-                                variant="outline"
-                                onClick={() => handleDelete(property)}
-                                fontSize="xs"
-                              />
+                              <Tooltip label="Delete">
+                                <IconButton
+                                  aria-label="Delete property"
+                                  icon={<DeleteIcon />}
+                                  size="xs"
+                                  colorScheme="red"
+                                  variant="outline"
+                                  onClick={() => handleDelete(property)}
+                                  fontSize="xs"
+                                />
+                              </Tooltip>
                             )}
                           </HStack>
                         </Td>
@@ -1488,6 +1566,13 @@ export function DashboardPropertyList({
           </Box>
         </ModalContent>
       </Modal>
+
+      <PropertyCsvUpload
+        isOpen={isCsvOpen}
+        onClose={onCsvClose}
+        existingProperties={properties}
+        onImported={() => loadProperties(true)}
+      />
     </VStack>
   )
 }

@@ -21,7 +21,11 @@ interface PropertyStatusUpdaterProps {
   compact?: boolean;
 }
 
+// 'unlisted' is deliberately excluded — system-set only (docs/Pricing-Strategy-Plan.md's
+// downgrade reconciliation), never something an owner picks here. 'draft' is a normal,
+// always-available choice, same as PropertyForm.tsx's Status field.
 const statusOptions: { value: PropertyStatus; label: string; colorScheme: string }[] = [
+  { value: 'draft', label: 'Draft', colorScheme: 'purple' },
   { value: 'available', label: 'Available', colorScheme: 'green' },
   { value: 'rented', label: 'Rented', colorScheme: 'blue' },
   { value: 'sold', label: 'Sold', colorScheme: 'red' },
@@ -32,6 +36,12 @@ export function PropertyStatusUpdater({ property, onStatusUpdate, compact = fals
   const [status, setStatus] = useState<PropertyStatus>(property.status);
   const [isUpdating, setIsUpdating] = useState(false);
   const toast = useToast();
+
+  // Only ever shown when the property is already unlisted — same "display it, but never
+  // offer it as a manual choice" rule PropertyForm.tsx's Status field follows.
+  const options = property.status === 'unlisted'
+    ? [...statusOptions, { value: 'unlisted' as PropertyStatus, label: 'Unlisted (plan limit)', colorScheme: 'gray' }]
+    : statusOptions;
 
   const handleStatusUpdate = async () => {
     if (status === property.status) return; // No change needed
@@ -55,7 +65,7 @@ export function PropertyStatusUpdater({ property, onStatusUpdate, compact = fals
       console.error('Failed to update property status:', error);
       toast({
         title: 'Update Failed',
-        description: 'Failed to update property status. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to update property status. Please try again.',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -65,8 +75,8 @@ export function PropertyStatusUpdater({ property, onStatusUpdate, compact = fals
     }
   };
 
-  const currentStatusOption = statusOptions.find(option => option.value === property.status);
-  const selectedStatusOption = statusOptions.find(option => option.value === status);
+  const currentStatusOption = options.find(option => option.value === property.status);
+  const selectedStatusOption = options.find(option => option.value === status);
 
   return (
     <Box>
@@ -79,7 +89,7 @@ export function PropertyStatusUpdater({ property, onStatusUpdate, compact = fals
             isDisabled={isUpdating}
             minW="100px"
           >
-            {statusOptions.map((option) => (
+            {options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -109,7 +119,7 @@ export function PropertyStatusUpdater({ property, onStatusUpdate, compact = fals
               size="sm"
               isDisabled={isUpdating}
             >
-              {statusOptions.map((option) => (
+              {options.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

@@ -25,9 +25,11 @@ export interface PropertyContactInfo {
 }
 
 // 'unlisted' is system-set only (docs/Pricing-Strategy-Plan.md's downgrade reconciliation) —
-// not a status an owner picks from the create/edit form's normal options.
-export type PropertyStatus = 'available' | 'rented' | 'sold' | 'maintenance' | 'unlisted';
-export type PropertyType = 'office' | 'commercial' | 'land';
+// not a status an owner picks from the create/edit form's normal options. 'draft' is the
+// opposite: owner-selectable, never counts against the plan's active-listing cap, and never
+// gets a visibility window (expiresAt) until it's actually published to 'available'.
+export type PropertyStatus = 'available' | 'rented' | 'sold' | 'maintenance' | 'unlisted' | 'draft';
+export type PropertyType = 'office' | 'retail' | 'warehouse' | 'industrial' | 'land';
 
 export interface Property {
   id: string;

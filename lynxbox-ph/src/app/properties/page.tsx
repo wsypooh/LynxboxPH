@@ -318,7 +318,9 @@ export default function PropertiesPage() {
 
   const propertyTypes: { value: PropertyType; label: string }[] = [
     { value: 'office', label: 'Office' },
-    { value: 'commercial', label: 'Commercial' },
+    { value: 'retail', label: 'Retail' },
+    { value: 'warehouse', label: 'Warehouse' },
+    { value: 'industrial', label: 'Industrial' },
     { value: 'land', label: 'Land' },
   ]
 

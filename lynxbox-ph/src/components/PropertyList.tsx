@@ -443,7 +443,9 @@ export function PropertyList({
             bg="white"
           >
             <option value="office">Office</option>
-            <option value="commercial">Commercial</option>
+            <option value="retail">Retail</option>
+            <option value="warehouse">Warehouse</option>
+            <option value="industrial">Industrial</option>
             <option value="land">Land</option>
           </Select>
           

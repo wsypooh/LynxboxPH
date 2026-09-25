@@ -511,6 +511,12 @@ functions:
           method: get
           cors: true
 
+      # Contact Us / Support page (no authorizer, like other /api/public/*)
+      - http:
+          path: /api/public/contact
+          method: post
+          cors: true
+
       # docs/Payments-and-Subscription-Plan.md — Platform-admin payment verification
       - http:
           path: /api/platform-admin/payment-submissions

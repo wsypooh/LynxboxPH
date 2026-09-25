@@ -37,9 +37,11 @@ export interface Property {
   }
 }
 
-export type PropertyType = 
+export type PropertyType =
   | 'office'
-  | 'commercial'
+  | 'retail'
+  | 'warehouse'
+  | 'industrial'
   | 'land'
 
 export type PropertyStatus = 

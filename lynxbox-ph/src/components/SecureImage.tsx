@@ -40,33 +40,24 @@ export const SecureImage: React.FC<SecureImageProps> = (props) => {
       setIsLoading(true);
       setHasError(false);
       
-      // Use secure temporary URL with 1-hour expiration
-      try {
-        // Default to public endpoint for property detail pages (safer default)
-        // Also force public endpoint if propertyId exists (likely property detail page)
-        const usePublic = usePublicEndpoint === true || usePublicEndpoint === undefined || propertyId;
-        
-        const imageUrls = usePublic 
-          ? await propertyService.getPublicPropertyImageUrls(propertyId, [imageKey])
-          : await propertyService.getPropertyImageUrls(propertyId, [imageKey]);
-        const temporaryUrl = imageUrls[imageKey];
-        
-        // Validate that we got a proper URL
-        if (!temporaryUrl || temporaryUrl === imageKey || !temporaryUrl.startsWith('http')) {
-          console.warn(`Invalid temporary URL received: ${temporaryUrl}, falling back to direct S3 URL`);
-          // Fallback to direct S3 URL
-          const directS3Url = `https://lynxbox-ph-objects-dev-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/${imageKey}`;
-          setImageUrl(directS3Url);
-        } else {
-          setImageUrl(temporaryUrl);
-        }
-      } catch (apiError) {
-        console.error(`API call failed, falling back to direct S3 URL:`, apiError);
-        // Fallback to direct S3 URL
-        const directS3Url = `https://lynxbox-ph-objects-dev-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/${imageKey}`;
-        setImageUrl(directS3Url);
+      // Use secure temporary URL with 1-hour expiration. Only the public marketplace page
+      // explicitly opts into the no-auth endpoint (usePublicEndpoint={true}); every other
+      // caller (dashboard/owner views) must use the authenticated one, which doesn't require
+      // the property to be status: 'available' — a draft/rented/etc. listing's own owner
+      // still needs to see its photos. (The previous `|| propertyId` here made this always
+      // true regardless of the prop, silently routing every dashboard view through the
+      // public endpoint too — which is why images 404'd for anything not yet published.)
+      const usePublic = usePublicEndpoint === true;
+
+      const imageUrls = usePublic
+        ? await propertyService.getPublicPropertyImageUrls(propertyId, [imageKey])
+        : await propertyService.getPropertyImageUrls(propertyId, [imageKey]);
+      const temporaryUrl = imageUrls[imageKey];
+
+      if (!temporaryUrl || temporaryUrl === imageKey || !temporaryUrl.startsWith('http')) {
+        throw new Error(`Invalid presigned URL received for ${imageKey}`);
       }
-      
+      setImageUrl(temporaryUrl);
       setIsLoading(false); // Explicitly set loading to false
       
     } catch (error: any) {

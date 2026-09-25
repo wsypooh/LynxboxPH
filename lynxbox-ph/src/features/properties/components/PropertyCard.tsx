@@ -37,12 +37,11 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
 
   const getTypeColor = (type: string) => {
     const colors = {
-      apartment: 'blue',
-      house: 'green',
-      condo: 'purple',
-      commercial: 'orange',
+      office: 'blue',
+      retail: 'green',
+      warehouse: 'orange',
+      industrial: 'purple',
       land: 'yellow',
-      office: 'red',
     }
     return colors[type as keyof typeof colors] || 'gray'
   }
@@ -58,7 +57,7 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
   }
 
   return (
-    <Card maxW="sm" overflow="hidden" shadow="md" _hover={{ shadow: 'lg', transform: 'translateY(-2px)' }} transition="all 0.2s">
+    <Card maxW="sm" h="full" overflow="hidden" shadow="md" _hover={{ shadow: 'lg', transform: 'translateY(-2px)' }} transition="all 0.2s">
       <Box position="relative">
         {(property.images?.length ?? 0) > 0 && property.images[property.defaultImageIndex || 0] ? (
           <SecureImage
@@ -67,6 +66,7 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
             alt={property.title}
             className="w-full h-48 object-cover"
             fallbackClassName="w-full h-48 bg-gray-100"
+            usePublicEndpoint
           />
         ) : (
           <Box 
@@ -103,15 +103,12 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
         </Badge>
       </Box>
 
-      <CardBody>
-        <Stack spacing={3}>
+      <CardBody display="flex" flexDirection="column" flex="1">
+        <Stack spacing={3} flex="1">
           <VStack align="start" spacing={2}>
-            <Heading size="md" noOfLines={2}>
+            <Heading size="md" noOfLines={2} minH="3rem">
               {property.title}
             </Heading>
-            <Text color="gray.600" fontSize="sm" noOfLines={2}>
-              {property.description}
-            </Text>
           </VStack>
 
           <HStack spacing={2} color="gray.500" fontSize="sm">
@@ -133,6 +130,8 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
               <Text>{property.viewCount} views</Text>
             </HStack>
           </HStack>
+
+          <Spacer />
 
           <Flex align="center">
             <VStack align="start" spacing={0}>

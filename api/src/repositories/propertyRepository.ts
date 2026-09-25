@@ -41,7 +41,13 @@ export class PropertyRepository {
     const { Attributes } = await ddbDocClient.send(new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { PK: 'COUNTER#PROPERTY_NUMBER', SK: 'COUNTER#PROPERTY_NUMBER' },
-      UpdateExpression: 'ADD sequence :one SET entityType = :entityType, updatedAt = :now, createdAt = if_not_exists(createdAt, :now)',
+      // 'sequence' is a reserved word in DynamoDB's expression grammar — has to be aliased
+      // via ExpressionAttributeNames, unlike AccountRepository's `invoiceCount` counter,
+      // which happens not to collide with anything reserved.
+      UpdateExpression: 'ADD #sequence :one SET entityType = :entityType, updatedAt = :now, createdAt = if_not_exists(createdAt, :now)',
+      ExpressionAttributeNames: {
+        '#sequence': 'sequence',
+      },
       ExpressionAttributeValues: {
         ':one': 1,
         ':entityType': EntityType.COUNTER,

@@ -102,12 +102,11 @@ export default function PropertyDetailClient({ id }: { id: string }) {
 
   const getPropertyTypeColor = (type: string) => {
     const colors = {
-      'office-space': 'blue',
-      'retail-space': 'green',
-      'warehouse': 'orange',
-      'co-working': 'purple',
-      'executive-suite': 'red',
-      'home-office': 'cyan',
+      office: 'blue',
+      retail: 'green',
+      warehouse: 'orange',
+      industrial: 'purple',
+      land: 'yellow',
     }
     return colors[type as keyof typeof colors] || 'gray'
   }
@@ -335,7 +334,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
               {/* Description */}
               <Box>
                 <Heading size="md" mb={4}>Description</Heading>
-                <Text lineHeight="tall" color="gray.700">
+                <Text lineHeight="tall" color="gray.700" whiteSpace="pre-wrap">
                   {property.description || 'No description available'}
                 </Text>
               </Box>

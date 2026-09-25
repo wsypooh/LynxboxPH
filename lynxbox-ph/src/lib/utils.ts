@@ -39,7 +39,7 @@ export function formatFileSize(bytes: number): string {
 
 export function validateImageFile(file: File): { isValid: boolean; error?: string } {
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  const maxSize = 10 * 1024 * 1024; // 10MB
 
   if (!validTypes.includes(file.type)) {
     return {
@@ -51,7 +51,7 @@ export function validateImageFile(file: File): { isValid: boolean; error?: strin
   if (file.size > maxSize) {
     return {
       isValid: false,
-      error: 'File size too large. Please upload images smaller than 5MB.',
+      error: 'File size too large. Please upload images smaller than 10MB.',
     };
   }
 

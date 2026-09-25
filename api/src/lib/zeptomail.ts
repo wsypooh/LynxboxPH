@@ -528,6 +528,43 @@ Helping Small Commercial Landlords Go Digital`;
     });
   }
 
+  // Contact Us / Support page — one-way notification to the internal support inbox, no
+  // confirmation email back to the submitter (matches the plain "send an email" scope
+  // this was built for; add sendContactFormConfirmationEmail later if that's ever needed).
+  async sendContactFormEmail(data: {
+    name: string;
+    email: string;
+    subject?: string;
+    message: string;
+  }): Promise<void> {
+    const smtpKey = process.env.ZEPTOMAIL_SMTP_KEY || process.env.ZEPTOMAIL_API_KEY;
+    if (!smtpKey) {
+      console.log('ZeptoMail not configured, skipping contact form email');
+      return;
+    }
+
+    const subjectLabel = data.subject?.trim() || 'General Inquiry';
+    const html = this.wrapSimpleEmail(
+      `New Contact Form Submission: ${subjectLabel}`,
+      `<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+         <tr><td style="padding: 8px; font-weight: 600;">Name</td><td style="padding: 8px;">${data.name}</td></tr>
+         <tr><td style="padding: 8px; font-weight: 600;">Email</td><td style="padding: 8px;">${data.email}</td></tr>
+         <tr><td style="padding: 8px; font-weight: 600;">Subject</td><td style="padding: 8px;">${subjectLabel}</td></tr>
+       </table>
+       <p style="margin-top: 16px; font-weight: 600;">Message</p>
+       <p style="white-space: pre-wrap;">${data.message}</p>`
+    );
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: process.env.ZEPTOMAIL_INTERNAL_EMAIL || 'wsypooh@gmail.com',
+      replyTo: data.email,
+      subject: `Contact Form: ${subjectLabel} — ${data.name}`,
+      html,
+    });
+    console.log(`Contact form email sent for ${data.email}`);
+  }
+
   async sendNewPaymentSubmissionAdminNotification(data: {
     accountId: string;
     accountEmail: string | null;

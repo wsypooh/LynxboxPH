@@ -28,6 +28,10 @@ const NAV_ITEMS: Array<NavItem> = [
     href: '/#pricing',
   },
   {
+    label: 'Contact Us',
+    href: '/contact',
+  },
+  {
     label: 'Dashboard',
     href: route('/dashboard'),
     isPrivate: true,

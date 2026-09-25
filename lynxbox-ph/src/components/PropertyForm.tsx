@@ -51,7 +51,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.exec
 const propertySchema = z.object({
   title: z.string().min(1, 'Title is required').max(100, 'Title must be less than 100 characters'),
   description: z.string().min(1, 'Description is required').max(1000, 'Description must be less than 1000 characters'),
-  type: z.enum(['office', 'commercial', 'land'] as const),
+  type: z.enum(['office', 'retail', 'warehouse', 'industrial', 'land'] as const),
   price: z.number().min(0, 'Price must be a positive number'),
   currency: z.string().default('PHP'),
   location: z.object({
@@ -76,7 +76,7 @@ const propertySchema = z.object({
   // reconcilePropertyListingsForPlan() when a downgrade puts the account over its plan's
   // active-listing cap. Included in the enum only so a currently-unlisted property's status
   // round-trips correctly; the option itself is only ever rendered when already selected.
-  status: z.enum(['available', 'rented', 'sold', 'maintenance', 'unlisted'] as const).default('available'),
+  status: z.enum(['available', 'rented', 'sold', 'maintenance', 'unlisted', 'draft'] as const).default('available'),
   contactInfo: z.object({
     name: z.string().min(1, 'Contact name is required'),
     email: z.string().email('Valid email is required'),
@@ -422,7 +422,9 @@ export function PropertyForm({
                       <FormLabel>Property Type</FormLabel>
                       <Select {...register('type')}>
                         <option value="office">Office</option>
-                        <option value="commercial">Commercial</option>
+                        <option value="retail">Retail</option>
+                        <option value="warehouse">Warehouse</option>
+                        <option value="industrial">Industrial</option>
                         <option value="land">Land</option>
                       </Select>
                       <Text color="red.500" fontSize="sm">
@@ -433,6 +435,7 @@ export function PropertyForm({
                     <FormControl isInvalid={!!errors.status}>
                       <FormLabel>Property Status</FormLabel>
                       <Select {...register('status')}>
+                        <option value="draft">Draft (not public)</option>
                         <option value="available">Available</option>
                         <option value="rented">Rented</option>
                         <option value="sold">Sold</option>
@@ -692,7 +695,7 @@ export function PropertyForm({
                       Add Images
                     </Button>
                     <Text fontSize="sm" color="gray.600" mt={2}>
-                      Upload up to 10 images. Supported formats: JPEG, PNG, GIF, WebP. Max size: 5MB per image.
+                      Upload up to 10 images. Supported formats: JPEG, PNG, GIF, WebP. Max size: 10MB per image.
                     </Text>
                   </FormControl>
 
