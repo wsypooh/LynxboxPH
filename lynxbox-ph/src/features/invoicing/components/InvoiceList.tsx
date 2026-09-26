@@ -9,6 +9,8 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { Invoice, InvoiceStatus } from '@/features/invoicing/types';
 import { useAccount } from '@/features/account/AccountContext';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { PlanGatedButton } from '@/components/PlanGatedButton';
 
 const LS_KEY      = 'invoice-columns-v2';
 const LS_SORT_KEY = 'invoice-sort-v1';
@@ -169,6 +171,8 @@ interface Props {
 export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDelete, onVoid }: Props) {
   const router = useRouter();
   const { canDestroy } = useAccount();
+  const planLimits = usePlanLimits();
+  const dataExportEnabled = planLimits?.dataExportEnabled ?? true;
 
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => {
     try {
@@ -259,9 +263,16 @@ export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDe
               ))}
             </MenuList>
           </Menu>
-          <Button size="xs" variant="outline" colorScheme="green" onClick={() => exportCsv(sorted)}>
+          <PlanGatedButton
+            size="xs"
+            variant="outline"
+            colorScheme="green"
+            enabled={dataExportEnabled}
+            upgradeMessage="CSV export is available on Starter, Growth, and Business plans."
+            onClick={() => exportCsv(sorted)}
+          >
             Export CSV
-          </Button>
+          </PlanGatedButton>
         </HStack>
       </HStack>
 

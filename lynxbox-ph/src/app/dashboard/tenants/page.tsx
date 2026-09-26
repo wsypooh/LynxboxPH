@@ -13,6 +13,8 @@ import { TenantCsvUpload } from '@/features/invoicing/components/TenantCsvUpload
 import { LedgerCsvUpload } from '@/features/invoicing/components/LedgerCsvUpload';
 import { Tenant, Building } from '@/features/invoicing/types';
 import { useAccount } from '@/features/account/AccountContext';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { PlanGatedButton } from '@/components/PlanGatedButton';
 
 const FILTERS_KEY = 'tenants-filters-v1';
 
@@ -26,6 +28,8 @@ function loadStoredFilters(): { building: string; status: string; lessee: string
 
 export default function TenantsPage() {
   const { canWrite } = useAccount();
+  const planLimits = usePlanLimits();
+  const dataImportEnabled = planLimits?.dataImportEnabled ?? true;
   const searchParams = useSearchParams();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -136,8 +140,22 @@ export default function TenantsPage() {
           </Select>
           {canWrite && (
             <>
-              <Button variant="outline" onClick={onCsvOpen}>Import CSV</Button>
-              <Button variant="outline" onClick={onLedgerCsvOpen}>Import Historical Balances</Button>
+              <PlanGatedButton
+                variant="outline"
+                enabled={dataImportEnabled}
+                upgradeMessage="CSV import is available on Starter, Growth, and Business plans."
+                onClick={onCsvOpen}
+              >
+                Import CSV
+              </PlanGatedButton>
+              <PlanGatedButton
+                variant="outline"
+                enabled={dataImportEnabled}
+                upgradeMessage="CSV import is available on Starter, Growth, and Business plans."
+                onClick={onLedgerCsvOpen}
+              >
+                Import Historical Balances
+              </PlanGatedButton>
               <Button colorScheme="blue" onClick={() => { setEditTenant(null); onOpen(); }}>+ Add Tenant</Button>
             </>
           )}

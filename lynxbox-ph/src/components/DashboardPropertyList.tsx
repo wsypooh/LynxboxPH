@@ -53,11 +53,13 @@ import { Search, Filter, Building2, X, Plus, Grid, List, ChevronUp, ChevronDown 
 import { EditIcon, DeleteIcon, ViewIcon, RepeatIcon, CheckIcon } from '@chakra-ui/icons'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Property, propertyService, PropertyType } from '@/services/propertyService';
-import { formatCurrency, isPropertyExpired } from '@/lib/utils';
+import { formatCurrency, formatExpiryDate, isPropertyExpired } from '@/lib/utils';
 import { PropertyStatusUpdater } from './PropertyStatusUpdater';
 import { PropertyCsvUpload } from '@/features/properties/components/PropertyCsvUpload';
 import { SecureImage } from '@/components/SecureImage';
 import { useAccount } from '@/features/account/AccountContext';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { PlanGatedButton } from '@/components/PlanGatedButton';
 
 interface FilterState {
   type?: PropertyType[];
@@ -158,12 +160,17 @@ export function DashboardPropertyList({
   const [lastKey, setLastKey] = useState<string | undefined>()
   const [totalCount, setTotalCount] = useState(0)
   const [viewMode, setViewMode] = useState<'cards' | 'table'>(initializeViewMode)
+  // Defaults to enabled so the button doesn't flash disabled while this loads, and fails
+  // open on a fetch error — there's no backend enforcement to fall back on either way (see
+  // PlanLimits.csvImportEnabled), so this is a discoverability gate, not a security one.
+  const planLimits = usePlanLimits();
+  const csvImportEnabled = planLimits?.csvImportEnabled ?? true;
   const lastKeyRef = useRef<string | undefined>() // Use ref to avoid infinite loop
   const toast = useToast();
 
   const { isOpen: isFilterOpen, onOpen: onFilterOpen, onClose: onFilterClose } = useDisclosure()
   const { isOpen: isCsvOpen, onOpen: onCsvOpen, onClose: onCsvClose } = useDisclosure()
-  
+
   // Save search params to localStorage whenever they change
   useEffect(() => {
     try {
@@ -880,9 +887,14 @@ export function DashboardPropertyList({
             </Tooltip>
           </HStack>
           {canWrite && (
-            <Button variant="outline" onClick={onCsvOpen}>
+            <PlanGatedButton
+              variant="outline"
+              enabled={csvImportEnabled}
+              upgradeMessage="Bulk CSV import is available on Growth and Business plans."
+              onClick={onCsvOpen}
+            >
               Import CSV
-            </Button>
+            </PlanGatedButton>
           )}
           {canWrite && onAddNew && (
             <Button
@@ -1018,6 +1030,9 @@ export function DashboardPropertyList({
                   boxShadow="md"
                   border="1px solid"
                   borderColor="gray.200"
+                  h="full"
+                  display="flex"
+                  flexDirection="column"
                 >
                   {/* Property Image */}
                   <Box position="relative" h="200px">
@@ -1045,9 +1060,9 @@ export function DashboardPropertyList({
                   </Box>
 
                   {/* Property Details */}
-                  <Box p={4}>
-                    <VStack align="start" spacing={3}>
-                      <Heading size="md" noOfLines={2}>
+                  <Box p={4} flex="1" display="flex" flexDirection="column">
+                    <VStack align="start" spacing={3} flex="1">
+                      <Heading size="md" noOfLines={2} minH="3rem">
                         {property.title}
                       </Heading>
 
@@ -1060,12 +1075,14 @@ export function DashboardPropertyList({
                         )}
                       </HStack>
 
+                      {property.status === 'available' && (
+                        <Text fontSize="xs" color={isPropertyExpired(property.expiresAt) ? 'red.500' : 'gray.500'}>
+                          {formatExpiryDate(property.expiresAt)}
+                        </Text>
+                      )}
+
                       <Text color="blue.600" fontSize="xl" fontWeight="bold">
                         {formatCurrency(property.price, property.currency)}
-                      </Text>
-
-                      <Text noOfLines={2} color="gray.600">
-                        {property.description}
                       </Text>
 
                       <Text fontSize="sm" color="gray.500">
@@ -1086,6 +1103,8 @@ export function DashboardPropertyList({
                           <Text>👁️ {property.viewCount.toLocaleString()} views</Text>
                         )}
                       </HStack>
+
+                      <Spacer />
 
                       {/* Quick Status Update */}
                       {canWrite && (
@@ -1122,7 +1141,7 @@ export function DashboardPropertyList({
                             Edit
                           </Button>
                         )}
-                        {canWrite && isPropertyExpired(property.expiresAt) && (
+                        {canWrite && property.status === 'available' && (
                           <Button
                             leftIcon={<RepeatIcon />}
                             size="sm"
@@ -1264,6 +1283,11 @@ export function DashboardPropertyList({
                             {isPropertyExpired(property.expiresAt) && (
                               <Badge colorScheme="red" fontSize="xs">Expired</Badge>
                             )}
+                            {property.status === 'available' && (
+                              <Text fontSize="xs" color={isPropertyExpired(property.expiresAt) ? 'red.500' : 'gray.500'} whiteSpace="nowrap">
+                                {formatExpiryDate(property.expiresAt)}
+                              </Text>
+                            )}
                           </VStack>
                         </Td>
                         <Td>
@@ -1300,7 +1324,7 @@ export function DashboardPropertyList({
                                 />
                               </Tooltip>
                             )}
-                            {canWrite && isPropertyExpired(property.expiresAt) && (
+                            {canWrite && property.status === 'available' && (
                               <Tooltip label="Renew">
                                 <IconButton
                                   aria-label="Renew property"

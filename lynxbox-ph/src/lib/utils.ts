@@ -13,6 +13,20 @@ export function isPropertyExpired(expiresAt: string | null | undefined): boolean
   return !!expiresAt && new Date(expiresAt).getTime() <= Date.now();
 }
 
+// docs/Pricing-Strategy-Plan.md — lets owners see when a listing's visibility window
+// ends without having to wait for the Renew button to appear.
+export function formatExpiryDate(expiresAt: string | null | undefined): string {
+  if (!expiresAt) return 'Never expires';
+
+  const formatted = new Date(expiresAt).toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  return isPropertyExpired(expiresAt) ? `Expired ${formatted}` : `Expires ${formatted}`;
+}
+
 export function formatFloor(floor: number): string {
   if (floor === 0) return 'Ground';
 

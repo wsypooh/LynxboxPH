@@ -1,5 +1,6 @@
 'use client';
 import { useRef, useState, ChangeEvent } from 'react';
+import JSZip from 'jszip';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter,
   Button, VStack, HStack, Text, Box, Table, Thead, Tbody, Tr, Th, Td,
@@ -8,6 +9,13 @@ import {
 import { Property, PropertyInput, propertyService } from '@/services/propertyService';
 import { PH_PROVINCES, getCitiesForProvince } from '@/data/philippineLocations';
 import { billingService } from '@/services/billingService';
+
+// `defaultImage` always becomes images[0]/defaultImageIndex 0 on import — column order
+// otherwise decides display order for the rest.
+const IMAGE_COLUMNS = [
+  'defaultImage', 'image2', 'image3', 'image4', 'image5',
+  'image6', 'image7', 'image8', 'image9', 'image10',
+];
 
 const CSV_HEADERS = [
   'propertyNumber',
@@ -30,13 +38,19 @@ const CSV_HEADERS = [
   'contactEmail',
   'contactPhone',
   'status',
+  ...IMAGE_COLUMNS,
 ];
 
 const EXAMPLE_ROW = [
   '', 'Prime Office Space in Makati', 'Fully furnished 2-floor office unit ready for occupancy.',
   'office', '45000', 'PHP', '123 Ayala Ave', 'Makati City', 'Metro Manila', '85', '2', '3',
   'true', 'true', 'true', 'true', 'Juan dela Cruz', 'juan@example.com', '09171234567', 'draft',
+  'lobby.jpg', 'office-1.jpg', '', '', '', '', '', '', '', '',
 ];
+
+// A ZIP this large would sit entirely in browser memory (JSZip decompresses in-memory —
+// there's no server-side unzip step) — reject upfront rather than let the tab hang or crash.
+const MAX_ZIP_SIZE_BYTES = 300 * 1024 * 1024; // 300MB
 
 // Quotes a CSV field per RFC 4180 whenever it contains a comma, quote, or newline — needed
 // because a plain `.join(',')` (what this previously did) silently corrupts the column count
@@ -96,6 +110,87 @@ function parseCSV(text: string): string[][] {
   return rows;
 }
 
+function guessImageMimeType(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'png': return 'image/png';
+    case 'webp': return 'image/webp';
+    case 'gif': return 'image/gif';
+    default: return 'image/jpeg';
+  }
+}
+
+// ── ZIP handling ───────────────────────────────────────────────────────────────
+
+interface ZipImageEntry {
+  filename: string; // basename as stored in the ZIP, for display
+  file: JSZip.JSZipObject;
+}
+
+// Keyed by lowercased basename (folder path ignored) → the matching entry, or `null` when
+// more than one file in the ZIP shares that basename in different folders (ambiguous, so
+// every row referencing it is flagged rather than silently picking one).
+type ZipIndex = Map<string, ZipImageEntry | null>;
+
+function buildZipIndex(zip: JSZip): ZipIndex {
+  const index: ZipIndex = new Map();
+  zip.forEach((relativePath, entry) => {
+    if (entry.dir) return;
+    const basename = relativePath.split('/').pop() || relativePath;
+    const key = basename.toLowerCase();
+    index.set(key, index.has(key) ? null : { filename: basename, file: entry });
+  });
+  return index;
+}
+
+// Files present in the ZIP that no CSV row referenced — surfaced as a non-blocking warning
+// (likely a typo somewhere), never blocks the rows that did match correctly.
+function findUnusedZipEntries(zipIndex: ZipIndex, csvRows: { data: Record<string, string> }[]): string[] {
+  const referenced = new Set<string>();
+  for (const row of csvRows) {
+    for (const col of IMAGE_COLUMNS) {
+      const filename = row.data[col]?.trim();
+      if (filename) referenced.add(filename.toLowerCase());
+    }
+  }
+  const unused: string[] = [];
+  zipIndex.forEach((entry, key) => {
+    if (entry && !referenced.has(key)) unused.push(entry.filename);
+  });
+  return unused;
+}
+
+interface ResolvedImage {
+  column: string;
+  filename: string;
+  entry: JSZip.JSZipObject;
+}
+
+// Resolves this row's `defaultImage`/`image2`..`image10` columns against the ZIP, pushing a
+// user-facing error for anything unresolvable (missing file, ambiguous filename, or a column
+// filled in with no ZIP uploaded at all) — this is the "verify everything matches before
+// import" step, run at preview time, well before any property is created.
+function resolveRowImages(data: Record<string, string>, zipIndex: ZipIndex | null, errors: string[]): ResolvedImage[] {
+  const resolved: ResolvedImage[] = [];
+  for (const col of IMAGE_COLUMNS) {
+    const filename = data[col]?.trim();
+    if (!filename) continue;
+    if (!zipIndex) {
+      errors.push(`${col} "${filename}" referenced but no ZIP file was uploaded`);
+      continue;
+    }
+    const match = zipIndex.get(filename.toLowerCase());
+    if (match === undefined) {
+      errors.push(`${col} "${filename}" not found in ZIP`);
+    } else if (match === null) {
+      errors.push(`${col} "${filename}" matches more than one file in the ZIP (duplicate filename in different folders)`);
+    } else {
+      resolved.push({ column: col, filename: match.filename, entry: match.file });
+    }
+  }
+  return resolved;
+}
+
 // ── row validation ────────────────────────────────────────────────────────────
 
 interface ParsedRow {
@@ -105,6 +200,7 @@ interface ParsedRow {
   action: 'create' | 'update';
   existingId?: string;
   payload?: PropertyInput;
+  resolvedImages: ResolvedImage[];
   // True when this row would make a listing newly count against the plan's active-listing
   // cap (a brand-new 'available' row, or an update that publishes something that wasn't
   // already available) — used for the pre-import capacity check, see flagOverCapRows().
@@ -115,6 +211,7 @@ function validateRow(
   data: Record<string, string>,
   existingProperties: Property[],
   rowNum: number,
+  zipIndex: ZipIndex | null,
 ): ParsedRow {
   const errors: string[] = [];
 
@@ -155,6 +252,8 @@ function validateRow(
     canonicalCity = cities.find(c => c.toLowerCase() === data.city.toLowerCase()) || '';
     if (!canonicalCity) errors.push(`city "${data.city}" not found in ${canonicalProvince}`);
   }
+
+  const resolvedImages = resolveRowImages(data, zipIndex, errors);
 
   // Match for update by propertyNumber (e.g. "LB-00000123") — same "explicit business
   // identifier decides create vs. update" convention as TenantCsvUpload's lesseeNo match.
@@ -198,15 +297,17 @@ function validateRow(
         email: data.contactEmail,
         phone: data.contactPhone,
       },
-      // Images can't travel through a CSV — every imported listing starts with none.
-      // On update, `images` is deliberately omitted so an existing listing's photos are
-      // never wiped out by a CSV-driven update.
-      ...(action === 'create' && { images: [] }),
+      // No images referenced: keep the existing behavior exactly — `images: []` on create (a
+      // fresh listing starts with none), omitted entirely on update (never wipe existing
+      // photos). When images ARE referenced, `images`/`defaultImageIndex` are filled in later,
+      // in handleImport, only once every referenced file has actually finished uploading —
+      // and for an update row this deliberately REPLACES the existing photo set wholesale.
+      ...(action === 'create' && resolvedImages.length === 0 && { images: [] }),
       ...(resolvedStatus !== undefined && { status: resolvedStatus as PropertyInput['status'] }),
     };
   }
 
-  return { rowNum, data, errors, action, existingId: existing?.id, payload, willBeNewlyAvailable };
+  return { rowNum, data, errors, action, existingId: existing?.id, payload, resolvedImages, willBeNewlyAvailable };
 }
 
 // Flags rows that would push the account's active-listing count past its plan's cap — a
@@ -239,8 +340,20 @@ interface Props {
   onImported: () => void;
 }
 
+interface UsageSnapshot {
+  properties: number;
+  maxProperties: number;
+}
+
 export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImported }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
+  const csvFileRef = useRef<HTMLInputElement>(null);
+  const zipFileRef = useRef<HTMLInputElement>(null);
+
+  const [rawRows, setRawRows] = useState<{ data: Record<string, string>; rowNum: number }[]>([]);
+  const [zipIndex, setZipIndex] = useState<ZipIndex | null>(null);
+  const [zipFileName, setZipFileName] = useState('');
+  const [unusedZipFiles, setUnusedZipFiles] = useState<string[]>([]);
+  const [usage, setUsage] = useState<UsageSnapshot | null>(null);
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -257,7 +370,17 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
     URL.revokeObjectURL(url);
   };
 
-  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
+  const revalidate = (
+    data: { data: Record<string, string>; rowNum: number }[],
+    zip: ZipIndex | null,
+    usageData: UsageSnapshot | null,
+  ) => {
+    const result = data.map(({ data: rowData, rowNum }) => validateRow(rowData, existingProperties, rowNum, zip));
+    setRows(usageData ? flagOverCapRows(result, usageData.properties, usageData.maxProperties) : result);
+    setUnusedZipFiles(zip ? findUnusedZipEntries(zip, data) : []);
+  };
+
+  const handleCsvFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -269,22 +392,54 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
         return;
       }
       const headers = parsed[0].map(h => h.trim());
-      const result = parsed.slice(1).map((cols, i) => {
+      const parsedRows = parsed.slice(1).map((cols, i) => {
         const data: Record<string, string> = {};
         headers.forEach((h, j) => { data[h] = cols[j] ?? ''; });
-        return validateRow(data, existingProperties, i + 2);
+        return { data, rowNum: i + 2 };
       });
+      setRawRows(parsedRows);
 
-      try {
-        const usage = await billingService.getUsage();
-        setRows(flagOverCapRows(result, usage.usage.properties, usage.limits.maxProperties));
-      } catch {
-        // Can't pre-check without knowing the plan limit — the backend still enforces it
-        // for real at import time, this is just a best-effort earlier warning.
-        setRows(result);
+      let usageData = usage;
+      if (!usageData) {
+        try {
+          const u = await billingService.getUsage();
+          usageData = { properties: u.usage.properties, maxProperties: u.limits.maxProperties };
+          setUsage(usageData);
+        } catch {
+          // Can't pre-check without knowing the plan limit — the backend still enforces it
+          // for real at import time, this is just a best-effort earlier warning.
+          usageData = null;
+        }
       }
+      revalidate(parsedRows, zipIndex, usageData);
     };
     reader.readAsText(file);
+  };
+
+  const handleZipFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_ZIP_SIZE_BYTES) {
+      toast({ title: `ZIP is too large (max ${MAX_ZIP_SIZE_BYTES / (1024 * 1024)}MB)`, status: 'error' });
+      if (zipFileRef.current) zipFileRef.current.value = '';
+      return;
+    }
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const index = buildZipIndex(zip);
+      setZipIndex(index);
+      setZipFileName(file.name);
+      revalidate(rawRows, index, usage);
+    } catch {
+      toast({ title: 'Could not read ZIP file — is it a valid .zip?', status: 'error' });
+    }
+  };
+
+  const removeZip = () => {
+    setZipIndex(null);
+    setZipFileName('');
+    if (zipFileRef.current) zipFileRef.current.value = '';
+    revalidate(rawRows, null, usage);
   };
 
   const validRows = rows.filter(r => r.errors.length === 0);
@@ -300,10 +455,25 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
       try {
+        const payload: PropertyInput = { ...row.payload! };
+
+        if (row.resolvedImages.length > 0) {
+          const propertyId = row.action === 'create' ? payload.id! : row.existingId!;
+          const keys: string[] = [];
+          for (const img of row.resolvedImages) {
+            const blob = await img.entry.async('blob');
+            const file = new File([blob], img.filename, { type: guessImageMimeType(img.filename) });
+            const { key } = await propertyService.uploadPropertyImage(propertyId, file);
+            keys.push(key);
+          }
+          payload.images = keys;
+          payload.defaultImageIndex = 0;
+        }
+
         if (row.action === 'update' && row.existingId) {
-          await propertyService.updateProperty(row.existingId, row.payload!);
+          await propertyService.updateProperty(row.existingId, payload);
         } else {
-          await propertyService.createProperty(row.payload!);
+          await propertyService.createProperty(payload);
         }
         successCount++;
       } catch {
@@ -324,9 +494,15 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
   };
 
   const handleClose = () => {
+    setRawRows([]);
+    setZipIndex(null);
+    setZipFileName('');
+    setUnusedZipFiles([]);
+    setUsage(null);
     setRows([]);
     setProgress(0);
-    if (fileRef.current) fileRef.current.value = '';
+    if (csvFileRef.current) csvFileRef.current.value = '';
+    if (zipFileRef.current) zipFileRef.current.value = '';
     onClose();
   };
 
@@ -345,13 +521,17 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
                 match real Philippine locations. Required: title, description, type, price, address, city,
                 province, area, contactName, contactEmail, contactPhone.
                 If <strong>propertyNumber</strong> (e.g. LB-00000123) matches an existing listing, it will be
-                updated instead of created — existing photos are kept either way, and a blank
-                <strong>status</strong> column never changes an existing listing&apos;s current status.
+                updated instead of created — a blank <strong>status</strong> column never changes an existing
+                listing&apos;s current status.
                 Leave <strong>status</strong> blank on a new row (or set it to <code>draft</code>) to import
-                it privately — recommended, since it has no photos yet — then add photos and publish it from
-                the listing&apos;s edit page when ready. Setting <strong>status</strong> to <code>available</code>
+                it privately — recommended if you&apos;re not attaching photos — then publish it from the
+                listing&apos;s edit page when ready. Setting <strong>status</strong> to <code>available</code>
                 imports it live immediately; if that would exceed your plan&apos;s active listing limit, the
                 row is flagged below instead of being imported.
+                <strong> defaultImage</strong>/<strong>image2</strong>...<strong>image10</strong> are optional —
+                fill them in with filenames from the ZIP you upload in Step 3 to attach photos on import.
+                On an update row, filling in any of these replaces that listing&apos;s existing photos entirely;
+                leaving all of them blank keeps its current photos untouched.
               </Text>
               <Button size="sm" variant="outline" onClick={downloadTemplate}>
                 Download Template CSV
@@ -360,7 +540,31 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
 
             <Box p={4} borderWidth={1} borderRadius="md">
               <Text fontWeight="semibold" mb={2} fontSize="sm">Step 2 — Upload your filled CSV</Text>
-              <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} />
+              <input ref={csvFileRef} type="file" accept=".csv" onChange={handleCsvFile} />
+            </Box>
+
+            <Box p={4} borderWidth={1} borderRadius="md">
+              <Text fontWeight="semibold" mb={1} fontSize="sm">Step 3 — (Optional) Upload a ZIP of images</Text>
+              <Text fontSize="xs" color="gray.600" mb={3}>
+                Add every photo referenced by your CSV&apos;s image columns into one ZIP file (subfolders are
+                fine — only the filename is matched). Skip this step if you&apos;re importing without photos.
+              </Text>
+              <HStack>
+                <input ref={zipFileRef} type="file" accept=".zip" onChange={handleZipFile} />
+                {zipFileName && (
+                  <>
+                    <Badge colorScheme="green">{zipFileName}</Badge>
+                    <Button size="xs" variant="ghost" onClick={removeZip}>Remove</Button>
+                  </>
+                )}
+              </HStack>
+              {unusedZipFiles.length > 0 && (
+                <Alert status="info" fontSize="xs" mt={3}>
+                  <AlertIcon />
+                  {unusedZipFiles.length} file{unusedZipFiles.length !== 1 ? 's' : ''} in the ZIP {unusedZipFiles.length !== 1 ? "aren't" : "isn't"} referenced
+                  by any row: {unusedZipFiles.slice(0, 5).join(', ')}{unusedZipFiles.length > 5 ? `, +${unusedZipFiles.length - 5} more` : ''}
+                </Alert>
+              )}
             </Box>
 
             {rows.length > 0 && (
@@ -374,7 +578,7 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
                 {errorRows.length > 0 && (
                   <Alert status="warning" fontSize="sm">
                     <AlertIcon />
-                    Fix the errors in your CSV and re-upload to include all rows.
+                    Fix the errors in your CSV (or ZIP) and re-upload to include all rows.
                   </Alert>
                 )}
 
@@ -389,6 +593,7 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
                         <Th>Status</Th>
                         <Th>City</Th>
                         <Th isNumeric>Price (₱)</Th>
+                        <Th>Images</Th>
                         <Th>Action</Th>
                       </Tr>
                     </Thead>
@@ -402,6 +607,13 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
                           <Td fontSize="xs">{row.data.status || (row.action === 'create' ? 'draft' : '—')}</Td>
                           <Td fontSize="xs">{row.data.city || '—'}</Td>
                           <Td isNumeric>{row.data.price || '—'}</Td>
+                          <Td fontSize="xs">
+                            {row.resolvedImages.length > 0
+                              ? <Badge colorScheme="green">{row.resolvedImages.length} matched</Badge>
+                              : IMAGE_COLUMNS.some(col => row.data[col]?.trim())
+                              ? <Badge colorScheme="red">mismatch</Badge>
+                              : '—'}
+                          </Td>
                           <Td>
                             {row.errors.length > 0
                               ? <Badge colorScheme="red">Error</Badge>

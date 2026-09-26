@@ -21,9 +21,13 @@ import { DocumentList } from '@/features/documents/components/DocumentList';
 import { DocumentUploadModal } from '@/features/documents/components/DocumentUploadModal';
 import { Document } from '@/features/documents/types';
 import { useAccount } from '@/features/account/AccountContext';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { PlanGatedButton } from '@/components/PlanGatedButton';
 
 export default function TenantDetailClient({ id }: { id: string }) {
   const { canWrite, canDestroy } = useAccount();
+  const planLimits = usePlanLimits();
+  const dataImportEnabled = planLimits?.dataImportEnabled ?? true;
   const router = useRouter();
   const toast = useToast();
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -289,7 +293,15 @@ export default function TenantDetailClient({ id }: { id: string }) {
               <HStack flexWrap="wrap" gap={2}>
                 {canWrite && (
                   <>
-                    <Button size="sm" variant="outline" onClick={openLedgerCsv}>Import Historical Balances</Button>
+                    <PlanGatedButton
+                      size="sm"
+                      variant="outline"
+                      enabled={dataImportEnabled}
+                      upgradeMessage="CSV import is available on Starter, Growth, and Business plans."
+                      onClick={openLedgerCsv}
+                    >
+                      Import Historical Balances
+                    </PlanGatedButton>
                     <Button size="sm" colorScheme="green" onClick={openPayment}>Record Payment</Button>
                   </>
                 )}
@@ -315,7 +327,15 @@ export default function TenantDetailClient({ id }: { id: string }) {
               <HStack flexWrap="wrap" gap={2}>
                 {canWrite && (
                   <>
-                    <Button size="sm" variant="outline" onClick={openInvoiceCsv}>Import CSV</Button>
+                    <PlanGatedButton
+                      size="sm"
+                      variant="outline"
+                      enabled={dataImportEnabled}
+                      upgradeMessage="CSV import is available on Starter, Growth, and Business plans."
+                      onClick={openInvoiceCsv}
+                    >
+                      Import CSV
+                    </PlanGatedButton>
                     <Button size="sm" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices/new?tenantId=${id}`)}>
                       + New Invoice
                     </Button>

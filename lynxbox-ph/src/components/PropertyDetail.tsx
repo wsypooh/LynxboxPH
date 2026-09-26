@@ -31,7 +31,7 @@ import {
   useDisclosure,
 } from '@chakra-ui/react';
 import { Property, propertyService } from '@/services/propertyService';
-import { formatCurrency, formatFloor, isPropertyExpired } from '@/lib/utils';
+import { formatCurrency, formatExpiryDate, formatFloor, isPropertyExpired } from '@/lib/utils';
 import { EditIcon, DeleteIcon, ArrowBackIcon, PhoneIcon, EmailIcon, RepeatIcon, CheckIcon } from '@chakra-ui/icons';
 import { ImageGallery } from '@/components/ImageGallery';
 
@@ -192,7 +192,7 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
               Edit
             </Button>
           )}
-          {isPropertyExpired(property.expiresAt) && (
+          {property.status === 'available' && (
             <Button
               leftIcon={<RepeatIcon />}
               colorScheme="green"
@@ -332,6 +332,13 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
                     <HStack justify="space-between">
                       <Text fontWeight="medium">Public Visibility</Text>
                       <Badge colorScheme="red">Expired — not shown in public search</Badge>
+                    </HStack>
+                  )}
+
+                  {property.status === 'available' && !isPropertyExpired(property.expiresAt) && (
+                    <HStack justify="space-between">
+                      <Text fontWeight="medium">Listing Expiry</Text>
+                      <Text color="gray.600">{formatExpiryDate(property.expiresAt)}</Text>
                     </HStack>
                   )}
 

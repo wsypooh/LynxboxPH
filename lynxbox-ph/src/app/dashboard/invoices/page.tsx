@@ -12,6 +12,8 @@ import { InvoiceList } from '@/features/invoicing/components/InvoiceList';
 import { InvoiceCsvUpload } from '@/features/invoicing/components/InvoiceCsvUpload';
 import { Invoice, Building, Tenant } from '@/features/invoicing/types';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { PlanGatedButton } from '@/components/PlanGatedButton';
 
 const FILTERS_KEY = 'invoices-filters-v1';
 
@@ -40,6 +42,8 @@ export default function InvoicesPage() {
   const toast = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const planLimits = usePlanLimits();
+  const dataImportEnabled = planLimits?.dataImportEnabled ?? true;
 
   const loadData = async () => {
     try {
@@ -248,7 +252,15 @@ export default function InvoicesPage() {
             </Menu>
           )}
 
-          <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>Import CSV</Button>
+          <PlanGatedButton
+            variant="outline"
+            size="sm"
+            enabled={dataImportEnabled}
+            upgradeMessage="CSV import is available on Starter, Growth, and Business plans."
+            onClick={() => setCsvOpen(true)}
+          >
+            Import CSV
+          </PlanGatedButton>
           <Button colorScheme="blue" size="sm" onClick={() => router.push('/dashboard/invoices/new')}>
             + New Invoice
           </Button>

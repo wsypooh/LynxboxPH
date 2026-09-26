@@ -35,6 +35,9 @@ export interface PlanLimits {
   maxInvoicesPerMonth: number;
   maxSeats: number;
   maxDocumentBytes: number;
+  csvImportEnabled: boolean;
+  dataImportEnabled: boolean;
+  dataExportEnabled: boolean;
 }
 
 export interface UsageSummary {

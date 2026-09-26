@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { Tenant, Building } from '@/features/invoicing/types';
 import { useAccount } from '@/features/account/AccountContext';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { PlanGatedButton } from '@/components/PlanGatedButton';
 
 const LS_COL_KEY  = 'tenant-columns-v2';
 const LS_SORT_KEY = 'tenant-sort-v1';
@@ -182,6 +184,8 @@ interface Props {
 export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
   const router = useRouter();
   const { canWrite, canDestroy } = useAccount();
+  const planLimits = usePlanLimits();
+  const dataExportEnabled = planLimits?.dataExportEnabled ?? true;
 
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => {
     try {
@@ -269,9 +273,16 @@ export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
               ))}
             </MenuList>
           </Menu>
-          <Button size="xs" variant="outline" colorScheme="green" onClick={() => exportCsv(sorted, buildings)}>
+          <PlanGatedButton
+            size="xs"
+            variant="outline"
+            colorScheme="green"
+            enabled={dataExportEnabled}
+            upgradeMessage="CSV export is available on Starter, Growth, and Business plans."
+            onClick={() => exportCsv(sorted, buildings)}
+          >
             Export CSV
-          </Button>
+          </PlanGatedButton>
         </HStack>
       </HStack>
 
