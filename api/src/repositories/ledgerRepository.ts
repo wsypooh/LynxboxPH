@@ -6,7 +6,10 @@ import {
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE || 'lynxbox-ph-dev';
-const PENALTY_RATE = 0.05;
+// Fallback only — every real call site should pass the tenant's own Building.penaltyRate
+// (BuildingForm.tsx's "Penalty Rate (%)" field). This used to be hardcoded here unconditionally,
+// silently ignoring whatever rate an owner configured on their Building — see docs/Ledger-Plan.md.
+export const DEFAULT_PENALTY_RATE = 0.05;
 
 export interface PreviousBalanceEntry {
   invoiceNumber: string;
@@ -24,9 +27,20 @@ function monthsOverdue(billingMonth: string, currentBillingMonth: string): numbe
   return Math.max(0, (currentYear - chargeYear) * 12 + (currentMonth - chargeMonth));
 }
 
-export function pendingPenalty(entry: ChargeEntry, currentBillingMonth: string): number {
+export function pendingPenalty(
+  entry: ChargeEntry,
+  currentBillingMonth: string,
+  penaltyRate: number = DEFAULT_PENALTY_RATE,
+): number {
+  // Frozen historical penalty from a CSV import (docs/Ledger-Plan.md #9) — trust the old
+  // system's own accrued amount rather than recomputing simple interest from billingMonth,
+  // and never let it grow further. penaltyPaid still draws it down as it's collected.
+  if (entry.importedPenalty != null) {
+    return Math.max(0, Math.round((entry.importedPenalty - entry.penaltyPaid) * 100) / 100);
+  }
+
   const overdue = monthsOverdue(entry.billingMonth, currentBillingMonth);
-  const raw = Math.max(0, entry.principalOutstanding * PENALTY_RATE * overdue - entry.penaltyPaid);
+  const raw = Math.max(0, entry.principalOutstanding * penaltyRate * overdue - entry.penaltyPaid);
   return Math.round(raw * 100) / 100;
 }
 
@@ -235,7 +249,8 @@ export class LedgerRepository {
   static async getLedgerSummary(
     tenantId: string,
     currentBillingMonth: string,
-    penaltyEnabled: boolean
+    penaltyEnabled: boolean,
+    penaltyRate: number = DEFAULT_PENALTY_RATE,
   ): Promise<{ previousBalance: number; previousBalanceHistory: PreviousBalanceEntry[] }> {
     const charges = await this.listChargesByTenant(tenantId);
     const outstanding = charges.filter(c => c.principalOutstanding > 0);
@@ -246,13 +261,23 @@ export class LedgerRepository {
       amountDue: entry.principalAmount,
       amountPaid: entry.principalAmount - entry.principalOutstanding,
       outstanding: entry.principalOutstanding,
-      penalty: penaltyEnabled ? pendingPenalty(entry, currentBillingMonth) : 0,
+      penalty: penaltyEnabled ? pendingPenalty(entry, currentBillingMonth, penaltyRate) : 0,
     }));
     const previousBalance = previousBalanceHistory.reduce((s, e) => s + e.outstanding + e.penalty, 0);
     return { previousBalance, previousBalanceHistory };
   }
 
-  static async recordPaymentWithFIFO(data: PaymentEntryInput): Promise<PaymentEntry> {
+  // `penaltyEnabled` used to not be checked here at all — a payment for a tenant with
+  // penalties disabled still had `pendingPenalty` computed and deducted first, penalty-before-
+  // principal, exactly as if penalties were on. Only the read-side (getLedgerSummary/getLedger)
+  // ever respected the flag. Fixed alongside threading the real penaltyRate through, since both
+  // bugs are the same root cause: this function never received the tenant/building context it
+  // needed to compute penalty correctly.
+  static async recordPaymentWithFIFO(
+    data: PaymentEntryInput,
+    penaltyEnabled: boolean = true,
+    penaltyRate: number = DEFAULT_PENALTY_RATE,
+  ): Promise<PaymentEntry> {
     const charges = await this.listChargesByTenant(data.tenantId);
     const outstanding = charges.filter(c => c.principalOutstanding > 0);
     const currentBillingMonth = data.paymentDate.slice(0, 7);
@@ -263,7 +288,7 @@ export class LedgerRepository {
 
     for (const entry of outstanding) {
       if (remaining <= 0) break;
-      const penaltyApplied = Math.min(remaining, pendingPenalty(entry, currentBillingMonth));
+      const penaltyApplied = penaltyEnabled ? Math.min(remaining, pendingPenalty(entry, currentBillingMonth, penaltyRate)) : 0;
       remaining -= penaltyApplied;
       const principalApplied = Math.min(remaining, entry.principalOutstanding);
       remaining -= principalApplied;

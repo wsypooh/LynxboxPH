@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { LedgerRepository, pendingPenalty } from '../../repositories/ledgerRepository';
+import { LedgerRepository, pendingPenalty, DEFAULT_PENALTY_RATE } from '../../repositories/ledgerRepository';
 import { TenantRepository } from '../../repositories/tenantRepository';
+import { BuildingRepository } from '../../repositories/buildingRepository';
 import { ApiResponse } from '../../lib/apiResponse';
 import { Actor, canDestroy, canWrite, resolveActor } from '../../lib/auth';
 
@@ -51,6 +52,7 @@ export class LedgerHandler {
       ownerId: actor.accountId,
       billingMonth,
       principalAmount,
+      importedPenalty: body.penaltyAmount != null ? Number(body.penaltyAmount) : undefined,
       invoiceNumber: body.invoiceNumber,
       description: body.description || `Imported balance — ${billingMonth}`,
       source: 'import',
@@ -64,6 +66,8 @@ export class LedgerHandler {
     const tenant = await TenantRepository.findById(tenantId);
     if (!tenant || tenant.ownerId !== actor.accountId) return ApiResponse.notFound('Tenant not found');
 
+    const building = await BuildingRepository.findById(tenant.buildingId);
+    const penaltyRate = building?.penaltyRate ?? DEFAULT_PENALTY_RATE;
     const penaltyEnabled = tenant.penaltyEnabled ?? true;
     const asOf = event.queryStringParameters?.asOf;
     const currentBillingMonth = asOf && /^\d{4}-\d{2}$/.test(asOf) ? asOf : new Date().toISOString().slice(0, 7);
@@ -71,12 +75,12 @@ export class LedgerHandler {
     const [charges, payments, { previousBalance, previousBalanceHistory }] = await Promise.all([
       LedgerRepository.listChargesByTenant(tenantId),
       LedgerRepository.listPaymentsByTenant(tenantId),
-      LedgerRepository.getLedgerSummary(tenantId, currentBillingMonth, penaltyEnabled),
+      LedgerRepository.getLedgerSummary(tenantId, currentBillingMonth, penaltyEnabled, penaltyRate),
     ]);
 
     const chargesWithPenalty = charges.map(c => ({
       ...c,
-      pendingPenalty: penaltyEnabled ? pendingPenalty(c, currentBillingMonth) : 0,
+      pendingPenalty: penaltyEnabled ? pendingPenalty(c, currentBillingMonth, penaltyRate) : 0,
     }));
 
     return ApiResponse.success({
@@ -95,6 +99,10 @@ export class LedgerHandler {
     if (!body.amount || body.amount <= 0) return ApiResponse.error('amount must be a positive number');
     if (!body.paymentMethod) return ApiResponse.error('paymentMethod is required');
 
+    const building = await BuildingRepository.findById(tenant.buildingId);
+    const penaltyRate = building?.penaltyRate ?? DEFAULT_PENALTY_RATE;
+    const penaltyEnabled = tenant.penaltyEnabled ?? true;
+
     const paymentEntry = await LedgerRepository.recordPaymentWithFIFO({
       tenantId,
       ownerId: actor.accountId,
@@ -103,7 +111,7 @@ export class LedgerHandler {
       paymentMethod: body.paymentMethod,
       note: body.note,
       appliedTo: [],
-    });
+    }, penaltyEnabled, penaltyRate);
     return ApiResponse.success({ paymentEntry }, 201);
   }
 

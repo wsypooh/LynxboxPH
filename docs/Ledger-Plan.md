@@ -17,6 +17,8 @@ Fully implemented and confirmed working in sandbox, plus several additions beyon
 5. **Manual penalty override on draft invoices** — the "Previous Balance Detail" table's Penalty column is editable via `InvoiceForm` while an invoice is still `draft` (Due/Paid columns kept here since it's an internal tool). Only affects what's billed on that specific invoice; does **not** change the ledger's own `pendingPenalty()` formula for future invoices — flagged directly in the UI as a caveat.
 6. **"+ New Invoice" now carries forward meter readings.** Previously only "Roll Over" did this; a blank new invoice created from the tenant page always reset `electricity.previousReading`/`water.previousReading` to 0. Fixed by looking up the tenant's most recent invoice on page load and seeding those fields from it.
 7. **Simplified the customer-facing Previous Balance table** — dropped the Due/Paid columns (kept Outstanding/Penalty only) on the Statement of Account and PDF after they contributed to the double-counting confusion in #4; the internal `InvoiceForm` edit table keeps the full breakdown since that one is a business tool, not customer-facing.
+8. **Real bug found and fixed (2026-09-27): `Building.penaltyRate` (`BuildingForm.tsx`'s "Penalty Rate (%)" field, defaults 5%) was never actually read by any penalty computation.** `LedgerRepository.pendingPenalty()` used a hardcoded module-level `PENALTY_RATE = 0.05` constant instead — an owner could set a custom rate on their Building and it would silently have zero effect anywhere: not on the ledger view, not on invoice `previousBalance`, not on FIFO payment application. Reported as "I entered the penalty [rate] but it isn't being considered — it just computes its own." Fixed by threading a `penaltyRate` parameter through `pendingPenalty()`, `getLedgerSummary()`, and `recordPaymentWithFIFO()` (default `DEFAULT_PENALTY_RATE = 0.05`, used only when a Building lookup somehow comes back empty), and having every call site (`LedgerHandler.getLedger`/`recordPayment`, `InvoiceHandler.createInvoice`/its rollover-to-next-month path) fetch `Building.penaltyRate` the same way `withholdingTaxRate`/`vatRate` already were and pass it in. **A second, related bug found in the same function while fixing this**: `recordPaymentWithFIFO` never checked `tenant.penaltyEnabled` at all — a tenant with penalties explicitly disabled still had `pendingPenalty()` computed and deducted penalty-before-principal on every payment; only the read-side (`getLedger`/`getLedgerSummary`) ever respected that flag. Fixed by threading `penaltyEnabled` through the same call. No data migration needed for either fix — penalty was never stored, only computed fresh on every read, so correcting the formula immediately corrects every future read with no backfill.
+9. **Historical-balance CSV import can now carry an optional, frozen penalty amount (2026-09-27).** Recomputing simple interest from a charge's original `billingMonth` using *this system's* current rate doesn't necessarily match what the old system actually tracked as owed (different rate, different rules, or simply a number already agreed with the tenant) — entry #8 above made the rate at least correct, but still recomputed from scratch. New optional `penaltyAmount` column in `LedgerCsvUpload.tsx`'s template, stored as `ChargeEntry.importedPenalty`. When set, `pendingPenalty()` short-circuits to `max(0, importedPenalty - penaltyPaid)` instead of the formula — **frozen by design**, never recomputed/grown further, decreasing only as `penaltyPaid` increases from FIFO-applied payments (same mechanism a normal computed-penalty charge already uses). Left blank (the common case), a charge behaves exactly as before — formula-computed from the Building's `penaltyRate`. Chosen over the alternative (an imported baseline that keeps accruing more penalty going forward) for simplicity: no new "since" reference date needed, and it mirrors how `InvoiceForm.tsx`'s existing manual penalty override on draft invoices is also frozen/display-only rather than feeding back into future accrual.
 
 **Infra fixes surfaced along the way (blocked sandbox testing, not ledger-specific):**
 - This project deploys API Gateway via Terraform (`infra/modules/api/routes.tf`), not `api/serverless.yml` (local-dev only, drives `serverless-offline`/`local-server.ts`) — all 5 new ledger routes had to be added there before sandbox worked at all. See the callout at the top of `CLAUDE.md`.
@@ -58,6 +60,8 @@ T-003,2024-03,8000.50,,Partial balance from March
 | `description` | no | Free text | Narrative note |
 
 **Validation per row:** blank/unknown tenantCode → skip; unparseable/future billingMonth → skip; zero/negative amount → skip; same tenantCode+billingMonth appearing twice in the same file → warn + skip second.
+
+**Since added (see "Added beyond the original plan" #9 above): an optional `penaltyAmount` column** — leave blank to compute penalty from the Building's rate as this table describes, or set it to freeze that row's penalty at an exact carried-over amount instead.
 
 ---
 
@@ -102,9 +106,10 @@ appliedTo: Array<{
 
 ### Penalty formula
 ```
-pendingPenalty(entry, currentBillingMonth) =
-  max(0, entry.principalOutstanding × 0.05 × monthsOverdue - entry.penaltyPaid)
+pendingPenalty(entry, currentBillingMonth, penaltyRate) =
+  max(0, entry.principalOutstanding × penaltyRate × monthsOverdue - entry.penaltyPaid)
 ```
+- `penaltyRate` is the tenant's Building's own `penaltyRate` (`BuildingForm.tsx`'s "Penalty Rate (%)", defaults 5% for new Buildings) — **not** a global constant. `DEFAULT_PENALTY_RATE = 0.05` in `ledgerRepository.ts` only exists as a same-value fallback for the (should-never-happen) case a Building lookup comes back empty; see "Added beyond the original plan" #8 for the real bug this was fixed from (a hardcoded rate that ignored the Building's configured value entirely).
 - `monthsOverdue = (currentYear - chargeYear) × 12 + (currentMonth - chargeMonth)`, min 0
 - Simple interest on remaining principal — NOT compound
 - `penaltyPaid` ensures penalty already collected is not re-billed next month
@@ -113,7 +118,7 @@ pendingPenalty(entry, currentBillingMonth) =
 1. Load all ChargeEntries for tenant ordered by billingMonth ascending (oldest first)
 2. Filter to `principalOutstanding > 0`
 3. Walk with `remaining` counter:
-   - `penaltyApplied = min(remaining, pendingPenalty(entry))`; remaining -= penaltyApplied
+   - `penaltyApplied = penaltyEnabled ? min(remaining, pendingPenalty(entry, currentBillingMonth, penaltyRate)) : 0`; remaining -= penaltyApplied
    - `principalApplied = min(remaining, entry.principalOutstanding)`; remaining -= principalApplied
    - Update `entry.principalOutstanding -= principalApplied`; `entry.penaltyPaid += penaltyApplied`
 4. Parallel UpdateCommand calls for all mutated entries

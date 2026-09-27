@@ -186,6 +186,9 @@ export interface ChargeEntry {
   principalOutstanding: number;
   penaltyPaid: number;
   pendingPenalty?: number;
+  // Frozen historical penalty from a CSV import — see docs/Ledger-Plan.md #9. When set,
+  // `pendingPenalty` above is this minus `penaltyPaid`, not a formula-computed amount.
+  importedPenalty?: number;
   invoiceNumber?: string;
   invoiceId?: string;
   description: string;
@@ -222,6 +225,7 @@ export type LedgerChargeInput = {
   tenantId: string;
   billingMonth: string;
   principalAmount: number;
+  penaltyAmount?: number;
   invoiceNumber?: string;
   description?: string;
 };

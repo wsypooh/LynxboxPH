@@ -148,7 +148,7 @@ export class InvoiceHandler {
 
     const billingLabel = getBillingLabel(billingMonth);
     const [{ previousBalance, previousBalanceHistory }, paymentsReceived] = await Promise.all([
-      LedgerRepository.getLedgerSummary(tenantId, billingMonth, tenant.penaltyEnabled ?? true),
+      LedgerRepository.getLedgerSummary(tenantId, billingMonth, tenant.penaltyEnabled ?? true, building.penaltyRate),
       InvoiceHandler.getPaymentsReceivedSinceLastInvoice(tenantId),
     ]);
 
@@ -389,7 +389,7 @@ export class InvoiceHandler {
     const electricityRate = building?.currentElectricityRate ?? invoice.electricity.rate;
 
     const { previousBalance, previousBalanceHistory } = await LedgerRepository.getLedgerSummary(
-      invoice.tenantId, nextMonth, tenant?.penaltyEnabled ?? true
+      invoice.tenantId, nextMonth, tenant?.penaltyEnabled ?? true, building?.penaltyRate
     );
 
     const draftData = {

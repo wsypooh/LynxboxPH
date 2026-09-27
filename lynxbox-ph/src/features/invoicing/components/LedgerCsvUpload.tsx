@@ -8,9 +8,9 @@ import {
 import { Tenant, LedgerChargeInput } from '@/features/invoicing/types';
 import { tenantService } from '@/services/tenantService';
 
-const CSV_HEADERS = ['tenantCode', 'billingMonth', 'amount', 'invoiceNumber', 'description'];
+const CSV_HEADERS = ['tenantCode', 'billingMonth', 'amount', 'penaltyAmount', 'invoiceNumber', 'description'];
 
-const EXAMPLE_ROW = ['T-001', '2024-01', '15000.00', 'INV-2024-01-0001', 'January 2024 rent unpaid'];
+const EXAMPLE_ROW = ['T-001', '2024-01', '15000.00', '750.00', 'INV-2024-01-0001', 'January 2024 rent unpaid'];
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +86,15 @@ function validateRow(
   const amount = parseNum(data.amount);
   if (!data.amount || amount <= 0) errors.push('amount must be a positive number');
 
+  // Optional — if blank, the ledger computes penalty using the tenant's Building penalty
+  // rate as usual. If set, it's frozen at this value (never recomputed) rather than
+  // reapplying this system's rate retroactively over however long it was already overdue.
+  const hasPenaltyAmount = data.penaltyAmount !== undefined && data.penaltyAmount.trim() !== '';
+  const penaltyAmount = hasPenaltyAmount ? parseNum(data.penaltyAmount) : undefined;
+  if (hasPenaltyAmount && penaltyAmount! < 0) {
+    errors.push('penaltyAmount must be a non-negative number, or blank');
+  }
+
   if (tenant && errors.length === 0) {
     const dupKey = `${tenant.id}#${billingMonth}`;
     if (seenKeys.has(dupKey)) {
@@ -101,6 +110,7 @@ function validateRow(
       tenantId: tenant.id,
       billingMonth,
       principalAmount: amount,
+      penaltyAmount,
       invoiceNumber: data.invoiceNumber || undefined,
       description: data.description || `Imported balance — ${billingMonth}`,
     };
@@ -211,6 +221,9 @@ export function LedgerCsvUpload({ isOpen, onClose, tenants, onImported }: Props)
                 match an existing tenant. <strong>amount</strong> is the outstanding balance still owed.
                 Required: tenantCode, billingMonth, amount. Dates should be in <strong>YYYY-MM</strong> or{' '}
                 <strong>MM/YYYY</strong> format and cannot be in the future.
+                <strong> penaltyAmount</strong> is optional — leave it blank to let the system compute
+                penalty using your building&apos;s penalty rate, or enter the exact penalty already accrued in
+                your old system to use that instead (it&apos;s frozen at that amount going forward, not recomputed).
               </Text>
               <Button size="sm" variant="outline" onClick={downloadTemplate}>
                 Download Template CSV
@@ -244,6 +257,7 @@ export function LedgerCsvUpload({ isOpen, onClose, tenants, onImported }: Props)
                         <Th>Tenant Code</Th>
                         <Th>Billing Month</Th>
                         <Th isNumeric>Amount (₱)</Th>
+                        <Th isNumeric>Penalty (₱)</Th>
                         <Th>Invoice No.</Th>
                         <Th>Status</Th>
                       </Tr>
@@ -255,6 +269,7 @@ export function LedgerCsvUpload({ isOpen, onClose, tenants, onImported }: Props)
                           <Td fontFamily="mono" fontSize="xs">{row.data.tenantCode || '—'}</Td>
                           <Td>{row.data.billingMonth || '—'}</Td>
                           <Td isNumeric>{row.data.amount || '—'}</Td>
+                          <Td isNumeric>{row.data.penaltyAmount || '—'}</Td>
                           <Td fontSize="xs">{row.data.invoiceNumber || '—'}</Td>
                           <Td>
                             {row.errors.length > 0

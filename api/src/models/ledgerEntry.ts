@@ -18,6 +18,13 @@ export interface ChargeEntry extends BaseEntity {
   principalAmount: number;
   principalOutstanding: number;
   penaltyPaid: number;
+  // A fixed penalty amount carried over from a historical-balance CSV import (docs/Ledger-Plan.md
+  // "Added beyond the original plan" #9) — when set, LedgerRepository.pendingPenalty() returns
+  // this (minus penaltyPaid) instead of computing simple interest from billingMonth, since the
+  // old system's own record of accrued penalty is more accurate than reapplying this system's
+  // rate retroactively over however long the charge was already overdue before migration. Frozen
+  // by design: it never grows further, unlike a normal charge's formula-computed penalty.
+  importedPenalty?: number;
   invoiceNumber?: string;
   invoiceId?: string;
   description: string;
@@ -46,6 +53,7 @@ export type ChargeEntryInput = {
   ownerId: string;
   billingMonth: string;
   principalAmount: number;
+  importedPenalty?: number;
   invoiceNumber?: string;
   invoiceId?: string;
   description: string;
@@ -79,6 +87,7 @@ export function createChargeEntry(data: ChargeEntryInput): ChargeEntry {
     principalAmount: data.principalAmount,
     principalOutstanding: data.principalAmount,
     penaltyPaid: 0,
+    importedPenalty: data.importedPenalty,
     invoiceNumber: data.invoiceNumber,
     invoiceId: data.invoiceId,
     description: data.description,
