@@ -7,6 +7,7 @@ import { LedgerRepository } from '../../repositories/ledgerRepository';
 import { PdfService } from '../../lib/pdf';
 import { ZeptoMailService } from '../../lib/zeptomail';
 import { ApiResponse } from '../../lib/apiResponse';
+import { round2 } from '../../lib/money';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const archiver = require('archiver') as (format: string, options?: any) => any;
 import { Writable } from 'stream';
@@ -155,8 +156,8 @@ export class InvoiceHandler {
     const vatRate = building.vatRate ?? 0.12;
     const withholdingTaxRate = building.withholdingTaxRate ?? 0.05;
     const rent = body.rent ?? tenant.defaultRent;
-    const vat = body.vat ?? (tenant.vatEnabled ? rent * vatRate : 0);
-    const withholdingTax = body.withholdingTax ?? (tenant.withholdingTaxEnabled ? rent * withholdingTaxRate : 0);
+    const vat = body.vat ?? (tenant.vatEnabled ? round2(rent * vatRate) : 0);
+    const withholdingTax = body.withholdingTax ?? (tenant.withholdingTaxEnabled ? round2(rent * withholdingTaxRate) : 0);
 
     const electricityMode = tenant.electricityMode ?? 'metered';
     let electricity;
@@ -166,7 +167,7 @@ export class InvoiceHandler {
       const electricityRate = body.electricity?.rate ?? building.currentElectricityRate;
       const elecPresent = body.electricity?.presentReading ?? 0;
       const elecPrevious = body.electricity?.previousReading ?? 0;
-      electricity = { mode: 'metered' as const, presentReading: elecPresent, previousReading: elecPrevious, rate: electricityRate, amount: Math.max(0, (elecPresent - elecPrevious) * electricityRate) };
+      electricity = { mode: 'metered' as const, presentReading: elecPresent, previousReading: elecPrevious, rate: electricityRate, amount: round2(Math.max(0, (elecPresent - elecPrevious) * electricityRate)) };
     }
 
     let water;
@@ -178,7 +179,7 @@ export class InvoiceHandler {
         amount: tenant.waterMode === 'fixed' ? (tenant.defaultFixedWater ?? building.defaultFixedWaterAmount ?? 0) : 0,
       };
       if (water.mode === 'metered' && water.presentReading !== undefined && water.previousReading !== undefined) {
-        water.amount = Math.max(0, (water.presentReading - water.previousReading) * (water.rate ?? building.waterRate ?? 0));
+        water.amount = round2(Math.max(0, (water.presentReading - water.previousReading) * (water.rate ?? building.waterRate ?? 0)));
       }
     }
 
@@ -207,6 +208,7 @@ export class InvoiceHandler {
       previousBalance,
       previousBalanceHistory,
       paymentsReceived,
+      waived: tenant.paymentWaived,
     };
 
     const invoice = await InvoiceRepository.create(invoiceData);
@@ -220,6 +222,7 @@ export class InvoiceHandler {
       ownerId: userId,
       billingMonth,
       principalAmount: invoice.currentChargesTotal,
+      waived: tenant.paymentWaived,
       invoiceNumber: invoice.invoiceNumber,
       invoiceId: invoice.id,
       description: `Invoice ${invoice.invoiceNumber} — ${billingLabel}`,
@@ -271,15 +274,15 @@ export class InvoiceHandler {
     const rent = body.rent ?? invoice.rent;
     const vat = body.vat ?? invoice.vat;
     const wt = Math.abs(body.withholdingTax ?? invoice.withholdingTax ?? 0);
-    const subtotal = rent + vat - wt;
+    const subtotal = round2(rent + vat - wt);
     const water = body.water ?? invoice.water;
     const elec = body.electricity ?? invoice.electricity;
     const guard = body.guard ?? invoice.guard;
     const otherCharges = body.otherCharges ?? invoice.otherCharges;
     const discount = body.discount ?? invoice.discount;
-    const currentChargesTotal = subtotal + (water.amount ?? 0) + (elec.amount ?? 0) + guard + otherCharges.reduce((s: number, c: any) => s + c.amount, 0) - discount;
+    const currentChargesTotal = round2(subtotal + (water.amount ?? 0) + (elec.amount ?? 0) + guard + otherCharges.reduce((s: number, c: any) => s + c.amount, 0) - discount);
     const previousBalance = body.previousBalance ?? invoice.previousBalance;
-    const totalDue = currentChargesTotal + previousBalance;
+    const totalDue = round2(currentChargesTotal + previousBalance);
     const outstanding = totalDue - invoice.amountPaid;
     const status = outstanding <= 0 ? 'paid' : invoice.amountPaid > 0 ? 'partial' : (body.status ?? invoice.status);
 
@@ -302,6 +305,15 @@ export class InvoiceHandler {
     if (!invoice || invoice.ownerId !== userId || invoice.deletedAt) return ApiResponse.notFound('Invoice not found');
     if (invoice.status !== 'draft') {
       return ApiResponse.error('Only draft invoices can be deleted. Void this invoice instead to keep it on record.', 400);
+    }
+    // "Revert to Draft" only changes the *current* status — it doesn't erase the fact that
+    // this invoice was once sent/printed (a real document that may have already reached the
+    // tenant). Without this check, revert-then-delete would bypass the entire reason delete
+    // is restricted to draft in the first place: void exists specifically to guarantee
+    // anything that ever left draft keeps its record and invoice number permanently.
+    const everLeftDraft = (invoice.statusHistory ?? []).some(h => h.to !== 'draft');
+    if (everLeftDraft) {
+      return ApiResponse.error('This invoice was previously sent or printed. Void it instead to keep the record and invoice number intact.', 400);
     }
     await InvoiceRepository.delete(id);
     await LedgerRepository.deleteChargeEntryByInvoiceId(invoice.tenantId, id);

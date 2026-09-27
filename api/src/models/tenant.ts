@@ -32,6 +32,11 @@ export interface Tenant extends BaseEntity {
   defaultFixedWater?: number;
   defaultGuard?: number;
   penaltyEnabled: boolean;
+  // For tenants where invoices are raised purely to record utility pass-throughs
+  // (electricity/guard/water) that this owner never actually collects on — see
+  // docs/Ledger-Plan.md. Every invoice's linked ChargeEntry is created already-settled
+  // (principalOutstanding: 0) rather than sitting outstanding and accruing penalty forever.
+  paymentWaived: boolean;
   status: 'active' | 'inactive';
   contracts: TenantContract[];
   deletedAt?: string;
@@ -57,6 +62,7 @@ export type TenantInput = {
   defaultFixedWater?: number;
   defaultGuard?: number;
   penaltyEnabled?: boolean;
+  paymentWaived?: boolean;
   status?: 'active' | 'inactive';
   contracts?: TenantContract[];
 };
@@ -90,6 +96,7 @@ export function createTenant(data: TenantInput, tenantCode: string): Tenant {
     defaultFixedWater: data.defaultFixedWater,
     defaultGuard: data.defaultGuard,
     penaltyEnabled: data.penaltyEnabled ?? true,
+    paymentWaived: data.paymentWaived ?? false,
     status: data.status ?? 'active',
     contracts: data.contracts ?? [],
     createdAt: now,

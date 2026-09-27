@@ -178,11 +178,13 @@ export class PdfService {
 
     // ---- Totals ----
     y += 10;
-    const totalRows: { label: string; amount: number; bold?: boolean; currency?: boolean }[] = [
+    const totalRows: { label: string; amount?: number; text?: string; bold?: boolean; currency?: boolean }[] = [
       { label: 'Previous Balance', amount: invoice.previousBalance },
-      { label: 'TOTAL DUE', amount: invoice.totalDue, bold: true, currency: true },
+      invoice.waived
+        ? { label: 'TOTAL DUE', text: 'Waived — No Payment Required', bold: true }
+        : { label: 'TOTAL DUE', amount: invoice.totalDue, bold: true, currency: true },
     ];
-    if (invoice.amountPaid > 0) {
+    if (!invoice.waived && invoice.amountPaid > 0) {
       totalRows.push({ label: 'Amount Paid', amount: invoice.amountPaid });
       totalRows.push({ label: 'Balance Outstanding', amount: invoice.outstanding, bold: true, currency: true });
     }
@@ -190,7 +192,7 @@ export class PdfService {
     totalRows.forEach((row) => {
       doc.rect(col1, y, doc.page.width - 100, 18).fill(row.bold ? '#dde4ee' : '#f9f9f9');
       const totalFont = row.bold ? 'Helvetica-Bold' : 'Helvetica';
-      const totalAmtStr = row.currency ? formatCurrency(row.amount) : formatAmount(row.amount);
+      const totalAmtStr = row.text ?? (row.currency ? formatCurrency(row.amount!) : formatAmount(row.amount!));
       doc.fill(primary).fontSize(10).font(totalFont)
         .text(row.label, col1 + 5, y + 4, { width: col2 - col1 - 10 })
         .text(totalAmtStr, col1, y + 4, { width: col3 - col1 - 5, align: 'right' });

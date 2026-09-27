@@ -12,9 +12,11 @@ import { Tenant, Building } from '@/features/invoicing/types';
 import { useAccount } from '@/features/account/AccountContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { PlanGatedButton } from '@/components/PlanGatedButton';
+import { downloadCsv } from '@/lib/csv';
 
 const LS_COL_KEY  = 'tenant-columns-v2';
 const LS_SORT_KEY = 'tenant-sort-v1';
+const LS_PAGE_KEY = 'tenant-page-v1';
 const PAGE_SIZES  = [25, 50, 100];
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -38,7 +40,7 @@ function exportCsv(tenants: Tenant[], buildings: Building[]) {
     'buildingName', 'floor', 'roomNumber', 'lesseeNo', 'lesseeName', 'area',
     'contactEmail', 'contactPhone', 'tin', 'defaultRent',
     'vatEnabled', 'withholdingTaxEnabled', 'electricityMode', 'waterMode',
-    'defaultWaterRate', 'defaultFixedWater', 'defaultGuard', 'penaltyEnabled', 'status',
+    'defaultWaterRate', 'defaultFixedWater', 'defaultGuard', 'penaltyEnabled', 'paymentWaived', 'status',
     'contractStartDate', 'contractEndDate', 'contractRentAmount', 'contractDeposit', 'contractNotes',
   ];
   const rows = tenants.map(t => {
@@ -51,18 +53,13 @@ function exportCsv(tenants: Tenant[], buildings: Building[]) {
       t.electricityMode, t.waterMode,
       t.defaultWaterRate ?? '', t.defaultFixedWater ?? '', t.defaultGuard ?? '',
       t.penaltyEnabled ?? true,
+      t.paymentWaived ?? false,
       t.status,
       c?.startDate ?? '', c?.endDate ?? '', c?.rentAmount ?? '', c?.deposit ?? '', c?.notes ?? '',
     ].map(v => (typeof v === 'string' && v.includes(',')) ? `"${v}"` : v);
   });
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `tenants-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(`tenants-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
 // ── column definitions ──────────────────────────────────────────────────────────
@@ -205,11 +202,20 @@ export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
     catch { return 'asc'; }
   });
 
-  const [pageSize, setPageSize] = useState(25);
-  const [page, setPage]         = useState(1);
+  const [pageSize, setPageSize] = useState(() => {
+    try { return Number(JSON.parse(localStorage.getItem(LS_PAGE_KEY) ?? '{}').pageSize) || 25; }
+    catch { return 25; }
+  });
+  const [page, setPage] = useState(() => {
+    try { return Number(JSON.parse(localStorage.getItem(LS_PAGE_KEY) ?? '{}').page) || 1; }
+    catch { return 1; }
+  });
 
-  // Reset to page 1 whenever the data or sort changes
-  useEffect(() => { setPage(1); }, [tenants, sortKey, sortDir]);
+  // Re-sorting is the one case worth jumping back to page 1 for — a fresh reload/refetch of
+  // the same view (a new `tenants` array reference) is not, since that would otherwise
+  // clobber the persisted page every time the parent refreshes data. `safePage` below already
+  // clamps to whatever's actually valid if the persisted page no longer exists.
+  useEffect(() => { setPage(1); }, [sortKey, sortDir]);
 
   useEffect(() => {
     try { localStorage.setItem(LS_COL_KEY, JSON.stringify(Array.from(visibleKeys))); } catch {}
@@ -218,6 +224,10 @@ export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
   useEffect(() => {
     try { localStorage.setItem(LS_SORT_KEY, JSON.stringify({ key: sortKey, dir: sortDir })); } catch {}
   }, [sortKey, sortDir]);
+
+  useEffect(() => {
+    try { localStorage.setItem(LS_PAGE_KEY, JSON.stringify({ pageSize, page })); } catch {}
+  }, [pageSize, page]);
 
   const toggleCol = (key: string) =>
     setVisibleKeys(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });

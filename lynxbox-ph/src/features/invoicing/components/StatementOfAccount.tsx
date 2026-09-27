@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Box, Table, Thead, Tbody, Tr, Th, Td, Text, Divider, HStack, Button } from '@chakra-ui/react';
+import { Box, Table, Thead, Tbody, Tr, Th, Td, Text, Divider, HStack, Button, Badge } from '@chakra-ui/react';
 import { Invoice } from '@/features/invoicing/types';
 import { invoiceService } from '@/services/invoiceService';
 
@@ -178,9 +178,12 @@ export function StatementOfAccount({ invoice }: Props) {
           </HStack>
           <Divider my={2} />
           <HStack justify="space-between" fontWeight="bold" fontSize="lg" color="#0e2949">
-            <Text>TOTAL DUE</Text><Text>₱{fmt(invoice.totalDue)}</Text>
+            <Text>TOTAL DUE</Text>
+            {invoice.waived
+              ? <Badge colorScheme="orange" fontSize="sm" px={2} py={1}>Waived — No Payment Required</Badge>
+              : <Text>₱{fmt(invoice.totalDue)}</Text>}
           </HStack>
-          {invoice.amountPaid > 0 && (
+          {!invoice.waived && invoice.amountPaid > 0 && (
             <>
               <HStack justify="space-between" fontSize="sm" color="green.600">
                 <Text>Amount Paid</Text><Text>{fmt(invoice.amountPaid)}</Text>

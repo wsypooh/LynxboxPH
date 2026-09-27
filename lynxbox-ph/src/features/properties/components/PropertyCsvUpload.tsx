@@ -9,6 +9,7 @@ import {
 import { Property, PropertyInput, propertyService } from '@/services/propertyService';
 import { PH_PROVINCES, getCitiesForProvince } from '@/data/philippineLocations';
 import { billingService } from '@/services/billingService';
+import { readCsvFile, downloadCsv } from '@/lib/csv';
 
 // `defaultImage` always becomes images[0]/defaultImageIndex 0 on import — column order
 // otherwise decides display order for the rest.
@@ -361,13 +362,7 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
 
   const downloadTemplate = () => {
     const csv = [toCsvRow(CSV_HEADERS), toCsvRow(EXAMPLE_ROW)].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'properties-template.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv('properties-template.csv', csv);
   };
 
   const revalidate = (
@@ -380,40 +375,36 @@ export function PropertyCsvUpload({ isOpen, onClose, existingProperties, onImpor
     setUnusedZipFiles(zip ? findUnusedZipEntries(zip, data) : []);
   };
 
-  const handleCsvFile = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleCsvFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const text = ev.target?.result as string;
-      const parsed = parseCSV(text);
-      if (parsed.length < 2) {
-        toast({ title: 'CSV has no data rows', status: 'warning' });
-        return;
-      }
-      const headers = parsed[0].map(h => h.trim());
-      const parsedRows = parsed.slice(1).map((cols, i) => {
-        const data: Record<string, string> = {};
-        headers.forEach((h, j) => { data[h] = cols[j] ?? ''; });
-        return { data, rowNum: i + 2 };
-      });
-      setRawRows(parsedRows);
+    const text = await readCsvFile(file);
+    const parsed = parseCSV(text);
+    if (parsed.length < 2) {
+      toast({ title: 'CSV has no data rows', status: 'warning' });
+      return;
+    }
+    const headers = parsed[0].map(h => h.trim());
+    const parsedRows = parsed.slice(1).map((cols, i) => {
+      const data: Record<string, string> = {};
+      headers.forEach((h, j) => { data[h] = cols[j] ?? ''; });
+      return { data, rowNum: i + 2 };
+    });
+    setRawRows(parsedRows);
 
-      let usageData = usage;
-      if (!usageData) {
-        try {
-          const u = await billingService.getUsage();
-          usageData = { properties: u.usage.properties, maxProperties: u.limits.maxProperties };
-          setUsage(usageData);
-        } catch {
-          // Can't pre-check without knowing the plan limit — the backend still enforces it
-          // for real at import time, this is just a best-effort earlier warning.
-          usageData = null;
-        }
+    let usageData = usage;
+    if (!usageData) {
+      try {
+        const u = await billingService.getUsage();
+        usageData = { properties: u.usage.properties, maxProperties: u.limits.maxProperties };
+        setUsage(usageData);
+      } catch {
+        // Can't pre-check without knowing the plan limit — the backend still enforces it
+        // for real at import time, this is just a best-effort earlier warning.
+        usageData = null;
       }
-      revalidate(parsedRows, zipIndex, usageData);
-    };
-    reader.readAsText(file);
+    }
+    revalidate(parsedRows, zipIndex, usageData);
   };
 
   const handleZipFile = async (e: ChangeEvent<HTMLInputElement>) => {

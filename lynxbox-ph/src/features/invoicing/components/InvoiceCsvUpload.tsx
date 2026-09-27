@@ -7,6 +7,7 @@ import {
 } from '@chakra-ui/react';
 import { Tenant, Invoice } from '@/features/invoicing/types';
 import { invoiceService } from '@/services/invoiceService';
+import { readCsvFile, downloadCsv } from '@/lib/csv';
 
 // ── template ──────────────────────────────────────────────────────────────────
 
@@ -174,39 +175,29 @@ export function InvoiceCsvUpload({ isOpen, onClose, tenants, invoices, onImporte
 
   const downloadTemplate = () => {
     const csv = [CSV_HEADERS.join(','), EXAMPLE_ROW.join(',')].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'invoices-template.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv('invoices-template.csv', csv);
   };
 
-  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     // Build a set of existing tenantId:billingMonth for duplicate detection
     const existingKeys = new Set(
       invoices.map(inv => `${inv.tenantId}:${inv.billingMonth}`)
     );
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const parsed = parseCSV(text);
-      if (parsed.length < 2) {
-        toast({ title: 'CSV has no data rows', status: 'warning' });
-        return;
-      }
-      const headers = parsed[0].map(h => h.trim());
-      const result = parsed.slice(1).map((cols, i) => {
-        const data: Record<string, string> = {};
-        headers.forEach((h, j) => { data[h] = cols[j] ?? ''; });
-        return validateRow(data, tenants, i + 2, existingKeys);
-      });
-      setRows(result);
-    };
-    reader.readAsText(file);
+    const text = await readCsvFile(file);
+    const parsed = parseCSV(text);
+    if (parsed.length < 2) {
+      toast({ title: 'CSV has no data rows', status: 'warning' });
+      return;
+    }
+    const headers = parsed[0].map(h => h.trim());
+    const result = parsed.slice(1).map((cols, i) => {
+      const data: Record<string, string> = {};
+      headers.forEach((h, j) => { data[h] = cols[j] ?? ''; });
+      return validateRow(data, tenants, i + 2, existingKeys);
+    });
+    setRows(result);
   };
 
   const errorRows     = rows.filter(r => r.errors.length > 0);

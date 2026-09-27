@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { EntityType, BaseEntity } from '../lib/dynamodb';
+import { round2 } from '../lib/money';
 
 export interface WaterCharge {
   mode: 'metered' | 'fixed' | 'direct';
@@ -87,6 +88,12 @@ export interface Invoice extends BaseEntity {
   currentChargesTotal: number;
   previousBalance: number;
   totalDue: number;
+  // Snapshotted from Tenant.paymentWaived at creation (same convention as buildingName/
+  // contactInfo/etc. — copied rather than joined live), so the Statement of Account/PDF can
+  // show "Waived — No Payment Required" instead of a real amount due. Doesn't touch
+  // totalDue/outstanding/status — those still compute normally; this only changes what's
+  // displayed to the tenant. See docs/Ledger-Plan.md #10.
+  waived?: boolean;
   amountPaid: number;
   outstanding: number;
   payments: Payment[];
@@ -122,21 +129,27 @@ export type InvoiceInput = {
   previousBalance?: number;
   previousBalanceHistory?: PreviousBalanceEntry[];
   paymentsReceived?: ReceivedPayment[];
+  waived?: boolean;
 };
 
 function computeTotals(data: InvoiceInput) {
   const rent = data.rent;
   const vat = data.vat ?? 0;
   const withholdingTax = data.withholdingTax ?? 0;
-  const subtotal = rent + vat - withholdingTax;
+  // Every input here should already be a clean 2-decimal value by the time it reaches this
+  // function (InvoiceHandler.createInvoice rounds vat/withholdingTax/electricity.amount/
+  // water.amount at the point they're derived) — round2 here is a defensive final pass, since
+  // summing already-rounded values can still land on a binary-floating-point artifact
+  // (e.g. 0.1 + 0.2), and this is the one place every displayed total is actually computed.
+  const subtotal = round2(rent + vat - withholdingTax);
   const waterAmt = data.water?.amount ?? 0;
   const elecAmt = data.electricity?.amount ?? 0;
   const guard = data.guard ?? 0;
   const othersTotal = (data.otherCharges ?? []).reduce((s, c) => s + c.amount, 0);
   const discount = data.discount ?? 0;
-  const currentChargesTotal = subtotal + waterAmt + elecAmt + guard + othersTotal - discount;
+  const currentChargesTotal = round2(subtotal + waterAmt + elecAmt + guard + othersTotal - discount);
   const previousBalance = data.previousBalance ?? 0;
-  const totalDue = currentChargesTotal + previousBalance;
+  const totalDue = round2(currentChargesTotal + previousBalance);
   return { subtotal, currentChargesTotal, totalDue };
 }
 
@@ -177,6 +190,7 @@ export function createInvoice(data: InvoiceInput, invoiceNumber: string): Invoic
     currentChargesTotal,
     previousBalance: data.previousBalance ?? 0,
     totalDue,
+    waived: data.waived ?? false,
     amountPaid: 0,
     outstanding: totalDue,
     payments: [],

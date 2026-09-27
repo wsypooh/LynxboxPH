@@ -43,6 +43,7 @@ const schema = z.object({
   defaultFixedWater: z.number().optional(),
   defaultGuard: z.number().min(0).optional(),
   penaltyEnabled: z.boolean(),
+  paymentWaived: z.boolean(),
   status: z.enum(['active', 'inactive']),
   contracts: z.array(contractSchema),
 });
@@ -79,6 +80,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
       defaultFixedWater: defaultValues?.defaultFixedWater,
       defaultGuard: defaultValues?.defaultGuard ?? 0,
       penaltyEnabled: defaultValues?.penaltyEnabled ?? true,
+      paymentWaived: defaultValues?.paymentWaived ?? false,
       status: defaultValues?.status ?? 'active',
       contracts: defaultValues?.contracts ?? [],
     },
@@ -240,10 +242,23 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
             <NumberInputField />
           </NumberInput>
         </FormControl>
-        <FormControl display="flex" alignItems="center">
-          <FormLabel mb={0}>Penalty Enabled</FormLabel>
-          <Switch {...register('penaltyEnabled')} defaultChecked={defaultValues?.penaltyEnabled ?? true} />
-        </FormControl>
+        <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
+          <FormControl display="flex" alignItems="center">
+            <FormLabel mb={0}>Penalty Enabled</FormLabel>
+            <Switch {...register('penaltyEnabled')} defaultChecked={defaultValues?.penaltyEnabled ?? true} />
+          </FormControl>
+          <FormControl display="flex" alignItems="center">
+            <FormLabel mb={0}>Payment Waived</FormLabel>
+            <Switch {...register('paymentWaived')} defaultChecked={defaultValues?.paymentWaived ?? false} />
+          </FormControl>
+        </Stack>
+        {watch('paymentWaived') && (
+          <Text fontSize="xs" color="gray.500" mt={-2}>
+            Every invoice for this tenant is created already settled — no balance owed, no penalty,
+            no payment to record. Use this for tenants where you never actually collect payment
+            (e.g. utility pass-throughs you&apos;re absorbing yourself).
+          </Text>
+        )}
 
         <Divider />
         <HStack justify="space-between" flexWrap="wrap" gap={2}>

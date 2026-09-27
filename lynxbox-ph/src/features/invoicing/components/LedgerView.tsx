@@ -97,7 +97,12 @@ export function LedgerView({ tenantId, penaltyEnabled = true, reloadToken }: Pro
                 <Tr key={c.id} bg={c.principalOutstanding > 0 ? 'red.50' : undefined}>
                   <Td>{c.billingMonth}</Td>
                   <Td fontSize="xs">{c.description}</Td>
-                  <Td><Badge colorScheme={c.source === 'import' ? 'purple' : 'blue'}>{c.source}</Badge></Td>
+                  <Td>
+                    <HStack spacing={1}>
+                      <Badge colorScheme={c.source === 'import' ? 'purple' : 'blue'}>{c.source}</Badge>
+                      {c.waived && <Badge colorScheme="gray">waived</Badge>}
+                    </HStack>
+                  </Td>
                   <Td isNumeric>₱{c.principalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</Td>
                   <Td isNumeric>₱{c.principalOutstanding.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</Td>
                   {penaltyEnabled && (

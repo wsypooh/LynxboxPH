@@ -256,6 +256,12 @@ export default function TenantDetailClient({ id }: { id: string }) {
                   {(tenant.penaltyEnabled ?? true) ? 'Enabled' : 'Disabled'}
                 </Text>
               </VStack>
+              {tenant.paymentWaived && (
+                <VStack align="start" spacing={0}>
+                  <Text fontSize="xs" color="gray.500">Payment</Text>
+                  <Badge colorScheme="orange">Waived</Badge>
+                </VStack>
+              )}
             </HStack>
           </CardBody>
         </Card>

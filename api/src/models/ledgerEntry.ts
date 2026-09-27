@@ -25,6 +25,11 @@ export interface ChargeEntry extends BaseEntity {
   // rate retroactively over however long the charge was already overdue before migration. Frozen
   // by design: it never grows further, unlike a normal charge's formula-computed penalty.
   importedPenalty?: number;
+  // Tenant.paymentWaived was on when this charge was created — principalOutstanding is 0
+  // from the start (see createChargeEntry below), so this never accrues penalty or shows up
+  // as owed in any rollover; kept here purely so the ledger view can label it "Waived"
+  // instead of looking like a payment was collected with no record of one. See docs/Ledger-Plan.md.
+  waived?: boolean;
   invoiceNumber?: string;
   invoiceId?: string;
   description: string;
@@ -54,6 +59,7 @@ export type ChargeEntryInput = {
   billingMonth: string;
   principalAmount: number;
   importedPenalty?: number;
+  waived?: boolean;
   invoiceNumber?: string;
   invoiceId?: string;
   description: string;
@@ -85,9 +91,10 @@ export function createChargeEntry(data: ChargeEntryInput): ChargeEntry {
     ownerId: data.ownerId,
     billingMonth: data.billingMonth,
     principalAmount: data.principalAmount,
-    principalOutstanding: data.principalAmount,
+    principalOutstanding: data.waived ? 0 : data.principalAmount,
     penaltyPaid: 0,
     importedPenalty: data.importedPenalty,
+    waived: data.waived,
     invoiceNumber: data.invoiceNumber,
     invoiceId: data.invoiceId,
     description: data.description,

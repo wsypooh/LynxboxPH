@@ -7,6 +7,7 @@ import {
 } from '@chakra-ui/react';
 import { Building, Tenant, TenantInput } from '@/features/invoicing/types';
 import { tenantService } from '@/services/tenantService';
+import { readCsvFile, downloadCsv } from '@/lib/csv';
 
 const CSV_HEADERS = [
   'buildingName',
@@ -27,6 +28,7 @@ const CSV_HEADERS = [
   'defaultFixedWater',
   'defaultGuard',
   'penaltyEnabled',
+  'paymentWaived',
   'status',
   'contractStartDate',
   'contractEndDate',
@@ -38,7 +40,7 @@ const CSV_HEADERS = [
 const EXAMPLE_ROW = [
   'My Building', '1F', 'Rm 01', 'T-001', 'Juan dela Cruz', '25',
   'juan@example.com', '09171234567', '123-456-789-000', '15000',
-  'false', 'false', 'metered', 'fixed', '', '500', '2000', 'true', 'active',
+  'false', 'false', 'metered', 'fixed', '', '500', '2000', 'true', 'false', 'active',
   '2025-01-01', '2025-12-31', '15000', '30000', '',
 ];
 
@@ -170,6 +172,7 @@ function validateRow(
       defaultFixedWater: data.defaultFixedWater ? parseNum(data.defaultFixedWater) : undefined,
       defaultGuard: data.defaultGuard ? parseNum(data.defaultGuard) : undefined,
       penaltyEnabled: data.penaltyEnabled ? data.penaltyEnabled.toLowerCase() !== 'false' : true,
+      paymentWaived: data.paymentWaived?.toLowerCase() === 'true',
       status: (data.status as 'active' | 'inactive') || 'active',
       // On create: embed contract. On update: append separately to preserve history.
       contracts: action === 'create' && contract ? [contract] : [],
@@ -202,35 +205,25 @@ export function TenantCsvUpload({ isOpen, onClose, buildings, tenants, onImporte
 
   const downloadTemplate = () => {
     const csv = [CSV_HEADERS.join(','), EXAMPLE_ROW.join(',')].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tenants-template.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv('tenants-template.csv', csv);
   };
 
-  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const parsed = parseCSV(text);
-      if (parsed.length < 2) {
-        toast({ title: 'CSV has no data rows', status: 'warning' });
-        return;
-      }
-      const headers = parsed[0].map(h => h.trim());
-      const result = parsed.slice(1).map((cols, i) => {
-        const data: Record<string, string> = {};
-        headers.forEach((h, j) => { data[h] = cols[j] ?? ''; });
-        return validateRow(data, buildings, tenants, i + 2);
-      });
-      setRows(result);
-    };
-    reader.readAsText(file);
+    const text = await readCsvFile(file);
+    const parsed = parseCSV(text);
+    if (parsed.length < 2) {
+      toast({ title: 'CSV has no data rows', status: 'warning' });
+      return;
+    }
+    const headers = parsed[0].map(h => h.trim());
+    const result = parsed.slice(1).map((cols, i) => {
+      const data: Record<string, string> = {};
+      headers.forEach((h, j) => { data[h] = cols[j] ?? ''; });
+      return validateRow(data, buildings, tenants, i + 2);
+    });
+    setRows(result);
   };
 
   const validRows = rows.filter(r => r.errors.length === 0);

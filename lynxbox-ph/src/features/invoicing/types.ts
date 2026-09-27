@@ -60,6 +60,10 @@ export interface Tenant {
   defaultFixedWater?: number;
   defaultGuard?: number;
   penaltyEnabled: boolean;
+  // Invoices raised purely to record utility pass-throughs (electricity/guard/water) that
+  // this owner never actually collects on — every invoice's linked ChargeEntry is created
+  // already-settled instead of sitting outstanding and accruing penalty. See docs/Ledger-Plan.md.
+  paymentWaived: boolean;
   status: 'active' | 'inactive';
   contracts: TenantContract[];
   createdAt: string;
@@ -147,6 +151,8 @@ export interface Invoice {
   currentChargesTotal: number;
   previousBalance: number;
   totalDue: number;
+  // Snapshotted from Tenant.paymentWaived at creation — see docs/Ledger-Plan.md #10.
+  waived?: boolean;
   amountPaid: number;
   outstanding: number;
   payments: Payment[];
@@ -189,6 +195,10 @@ export interface ChargeEntry {
   // Frozen historical penalty from a CSV import — see docs/Ledger-Plan.md #9. When set,
   // `pendingPenalty` above is this minus `penaltyPaid`, not a formula-computed amount.
   importedPenalty?: number;
+  // Tenant.paymentWaived was on when this charge was created (principalOutstanding starts
+  // at 0) — purely a display flag, so the ledger view can show "Waived" instead of looking
+  // like it was paid with no payment record.
+  waived?: boolean;
   invoiceNumber?: string;
   invoiceId?: string;
   description: string;

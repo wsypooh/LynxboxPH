@@ -11,9 +11,11 @@ import { Invoice, InvoiceStatus } from '@/features/invoicing/types';
 import { useAccount } from '@/features/account/AccountContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { PlanGatedButton } from '@/components/PlanGatedButton';
+import { downloadCsv } from '@/lib/csv';
 
 const LS_KEY      = 'invoice-columns-v2';
 const LS_SORT_KEY = 'invoice-sort-v1';
+const LS_PAGE_KEY = 'invoice-page-v1';
 const PAGE_SIZES  = [25, 50, 100];
 
 // ── column definitions ──────────────────────────────────────────────────────────
@@ -106,13 +108,7 @@ function exportCsv(invoices: Invoice[]) {
     inv.vat ?? 0, -Math.abs(inv.withholdingTax ?? 0), inv.totalDue, inv.amountPaid, inv.outstanding,
   ].map(v => (typeof v === 'string' && v.includes(',')) ? `"${v}"` : v));
   const csv = [fixedHeaders.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `invoices-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(`invoices-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
 // ── sort ────────────────────────────────────────────────────────────────────────
@@ -193,10 +189,20 @@ export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDe
     catch { return 'desc'; }
   });
 
-  const [pageSize, setPageSize] = useState(25);
-  const [page, setPage]         = useState(1);
+  const [pageSize, setPageSize] = useState(() => {
+    try { return Number(JSON.parse(localStorage.getItem(LS_PAGE_KEY) ?? '{}').pageSize) || 25; }
+    catch { return 25; }
+  });
+  const [page, setPage] = useState(() => {
+    try { return Number(JSON.parse(localStorage.getItem(LS_PAGE_KEY) ?? '{}').page) || 1; }
+    catch { return 1; }
+  });
 
-  useEffect(() => { setPage(1); }, [invoices, sortKey, sortDir]);
+  // Re-sorting is the one case worth jumping back to page 1 for — a fresh reload/refetch of
+  // the same view (a new `invoices` array reference) is not, since that would otherwise
+  // clobber the persisted page every time the parent refreshes data. `safePage` below already
+  // clamps to whatever's actually valid if the persisted page no longer exists.
+  useEffect(() => { setPage(1); }, [sortKey, sortDir]);
 
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify(Array.from(visibleKeys))); } catch {}
@@ -205,6 +211,10 @@ export function InvoiceList({ invoices, selectedIds, onToggle, onToggleAll, onDe
   useEffect(() => {
     try { localStorage.setItem(LS_SORT_KEY, JSON.stringify({ key: sortKey, dir: sortDir })); } catch {}
   }, [sortKey, sortDir]);
+
+  useEffect(() => {
+    try { localStorage.setItem(LS_PAGE_KEY, JSON.stringify({ pageSize, page })); } catch {}
+  }, [pageSize, page]);
 
   const toggleCol = (key: string) =>
     setVisibleKeys(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
