@@ -1,4 +1,5 @@
 name: Deploy to AWS
+run-name: Deploy ${{ inputs.target }} to ${{ inputs.environment }} by @${{ github.actor }}
 
 # Manual-only. Deploys infra (Terraform), the Lambda API, and/or the Next.js
 # frontend to dev or prod using the same scripts you already run locally
