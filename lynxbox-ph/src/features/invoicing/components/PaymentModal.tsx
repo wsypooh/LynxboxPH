@@ -1,10 +1,12 @@
 'use client';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter,
-  FormControl, FormLabel, FormErrorMessage, Input, NumberInput, NumberInputField, Button, VStack, Textarea, Select,
+  FormControl, FormLabel, FormErrorMessage, Input, NumberInput, NumberInputField, Button, VStack, HStack,
+  Textarea, Select, Text, Badge, Spinner,
 } from '@chakra-ui/react';
 
 const PAYMENT_METHODS = [
@@ -31,9 +33,12 @@ interface Props {
   onSubmit: (data: FormValues) => Promise<void>;
   isLoading?: boolean;
   maxAmount?: number;
+  subtitle?: string;
+  balance?: number;
+  balanceLoading?: boolean;
 }
 
-export function PaymentModal({ isOpen, onClose, onSubmit, isLoading, maxAmount }: Props) {
+export function PaymentModal({ isOpen, onClose, onSubmit, isLoading, maxAmount, subtitle, balance, balanceLoading }: Props) {
   const { register, handleSubmit, formState: { errors }, setValue, reset } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -44,17 +49,35 @@ export function PaymentModal({ isOpen, onClose, onSubmit, isLoading, maxAmount }
     },
   });
 
+  // maxAmount (the outstanding balance) is only known after the lazy fetch resolves, so the
+  // amount field's default must update once it arrives instead of only at first mount.
+  useEffect(() => {
+    if (maxAmount !== undefined) setValue('amount', maxAmount);
+  }, [maxAmount, setValue]);
+
   const handleClose = () => { reset(); onClose(); };
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose}>
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader>Record Payment</ModalHeader>
+        <ModalHeader>Record Payment{subtitle ? ` — ${subtitle}` : ''}</ModalHeader>
         <ModalCloseButton />
         <form onSubmit={handleSubmit(async (data) => { await onSubmit(data); handleClose(); })}>
           <ModalBody>
             <VStack spacing={4}>
+              {(balanceLoading || balance !== undefined) && (
+                <HStack w="full" justify="space-between">
+                  <Text fontSize="sm" color="gray.500">Outstanding balance:</Text>
+                  {balanceLoading ? (
+                    <Spinner size="xs" />
+                  ) : (
+                    <Badge colorScheme={(balance ?? 0) > 0 ? 'red' : 'green'} fontSize="sm" px={2} py={1}>
+                      ₱{(balance ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                    </Badge>
+                  )}
+                </HStack>
+              )}
               <FormControl isInvalid={!!errors.amount}>
                 <FormLabel>Amount (₱)</FormLabel>
                 <NumberInput min={0} max={maxAmount} defaultValue={maxAmount} onChange={(_, v) => setValue('amount', v)}>

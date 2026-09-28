@@ -1,11 +1,12 @@
 'use client';
 import {
   Table, Thead, Tbody, Tr, Th, Td, Badge, Button, IconButton, HStack, Box, Text, Tooltip,
-  Menu, MenuButton, MenuList, MenuItem, Checkbox, Select,
+  Menu, MenuButton, MenuList, MenuItem, Checkbox, Select, useDisclosure, useToast,
 } from '@chakra-ui/react';
 import { ChevronDownIcon } from '@chakra-ui/icons';
 import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { MdReceipt } from 'react-icons/md';
+import { LuPhilippinePeso } from 'react-icons/lu';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { Tenant, Building } from '@/features/invoicing/types';
@@ -13,6 +14,8 @@ import { useAccount } from '@/features/account/AccountContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { PlanGatedButton } from '@/components/PlanGatedButton';
 import { downloadCsv } from '@/lib/csv';
+import { tenantService } from '@/services/tenantService';
+import { PaymentModal } from '@/features/invoicing/components/PaymentModal';
 
 const LS_COL_KEY  = 'tenant-columns-v2';
 const LS_SORT_KEY = 'tenant-sort-v1';
@@ -180,9 +183,51 @@ interface Props {
 
 export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
   const router = useRouter();
+  const toast = useToast();
   const { canWrite, canDestroy } = useAccount();
   const planLimits = usePlanLimits();
   const dataExportEnabled = planLimits?.dataExportEnabled ?? true;
+
+  const { isOpen: paymentOpen, onOpen: openPaymentModal, onClose: closePaymentModal } = useDisclosure();
+  const [paymentTenant, setPaymentTenant] = useState<Tenant | null>(null);
+  const [paymentBalance, setPaymentBalance] = useState<number | undefined>(undefined);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
+  const handleOpenPayment = async (t: Tenant) => {
+    setPaymentTenant(t);
+    setPaymentBalance(undefined);
+    openPaymentModal();
+    setBalanceLoading(true);
+    try {
+      const summary = await tenantService.getLedger(t.id);
+      setPaymentBalance(summary.previousBalance);
+    } catch (err: any) {
+      toast({ title: 'Failed to load outstanding balance', status: 'error' });
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  const handleClosePayment = () => {
+    closePaymentModal();
+    setPaymentTenant(null);
+    setPaymentBalance(undefined);
+  };
+
+  const handleRecordPayment = async (data: any) => {
+    if (!paymentTenant) return;
+    setPaymentLoading(true);
+    try {
+      await tenantService.recordLedgerPayment(paymentTenant.id, data);
+      toast({ title: `Payment recorded for ${paymentTenant.lesseeName}`, status: 'success' });
+      handleClosePayment();
+    } catch (err: any) {
+      toast({ title: err.message || 'Error recording payment', status: 'error' });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => {
     try {
@@ -340,6 +385,11 @@ export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
                         <IconButton aria-label="Edit tenant" icon={<FiEdit2 />} size="xs" variant="outline" onClick={() => onEdit(t)} />
                       </Tooltip>
                     )}
+                    {canWrite && !t.paymentWaived && (
+                      <Tooltip label="Record Payment">
+                        <IconButton aria-label="Record payment" icon={<LuPhilippinePeso />} size="xs" variant="outline" colorScheme="green" onClick={() => handleOpenPayment(t)} />
+                      </Tooltip>
+                    )}
                     <Tooltip label="Invoices">
                       <IconButton aria-label="View invoices" icon={<MdReceipt />} size="xs" variant="outline" colorScheme="blue" onClick={() => router.push(`/dashboard/invoices?tenantId=${t.id}`)} />
                     </Tooltip>
@@ -377,6 +427,16 @@ export function TenantList({ tenants, buildings, onEdit, onDelete }: Props) {
           </HStack>
         </HStack>
       )}
+
+      <PaymentModal
+        isOpen={paymentOpen}
+        onClose={handleClosePayment}
+        onSubmit={handleRecordPayment}
+        isLoading={paymentLoading}
+        subtitle={paymentTenant?.lesseeName}
+        balance={paymentBalance}
+        balanceLoading={balanceLoading}
+      />
     </Box>
   );
 }
