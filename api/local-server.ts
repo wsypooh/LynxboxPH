@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env' });  // Explicitly load .env file
 
 import express from 'express';
+import helmet from 'helmet';
 import { handler as mainHandler } from './dist/index';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -40,6 +41,9 @@ const ddb = new DynamoDBClient(awsConfig);
 const app = express();
 const port = 3000;
 
+// This is a local-dev-only server (production runs behind API Gateway, not
+// Express) -- helmet is still worth having since it's what real developers hit.
+app.use(helmet());
 app.use(express.json());
 
 // Add CORS middleware

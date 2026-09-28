@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp, { Sharp, Metadata } from 'sharp';
 import { WatermarkService, WatermarkOptions } from './watermark';
 
 export interface ImageProcessingOptions {
@@ -110,10 +110,10 @@ export class ImageProcessingService {
    * Resizes image to 4:3 landscape aspect ratio with smart cropping
    */
   private applyResizing(
-    imageProcessor: sharp.Sharp, 
-    metadata: sharp.Metadata, 
+    imageProcessor: Sharp,
+    metadata: Metadata,
     resizeOptions: ImageProcessingOptions['resize']
-  ): sharp.Sharp {
+  ): Sharp {
     if (!resizeOptions) return imageProcessor;
 
     const { aspectRatio, width, height, fit = 'cover', quality = 85 } = resizeOptions;

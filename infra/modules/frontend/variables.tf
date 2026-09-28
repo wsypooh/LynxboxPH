@@ -19,6 +19,11 @@ variable "bucket_name" {
   type        = string
 }
 
+variable "aws_region" {
+  description = "AWS region the frontend's backing services (API Gateway, Cognito, S3) run in, used to scope the CSP header's allowed origins"
+  type        = string
+}
+
 variable "domain_name" {
   description = "Optional domain name for the frontend. If not provided, CloudFront distribution will be used directly."
   type        = string

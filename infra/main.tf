@@ -203,6 +203,7 @@ module "frontend" {
   project_name        = var.project_name
   environment         = var.environment
   bucket_name         = local.resource_names.frontend_bucket
+  aws_region          = var.aws_region
   domain_name         = local.frontend_config.domain_name
   ssl_certificate_arn = var.ssl_certificate_arn
   use_route53         = false # Set to false since using Cloudflare CNAME

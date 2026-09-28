@@ -107,6 +107,55 @@ resource "aws_cloudfront_function" "url_rewrite" {
   JS
 }
 
+# Security headers, including CSP, added at the CDN layer since the static
+# export (S3 origin, no server) has nothing else that can set them.
+resource "aws_cloudfront_response_headers_policy" "security_headers" {
+  name    = "${var.project_name}-${var.environment}-security-headers"
+  comment = "CSP + baseline security headers for the static frontend"
+
+  security_headers_config {
+    content_security_policy {
+      override = true
+      # script-src/style-src need 'unsafe-inline': the inline GA snippet in
+      # layout.tsx, and Chakra/Emotion's runtime-injected <style> tags,
+      # respectively -- neither supports a CSP nonce without a server.
+      content_security_policy = join("; ", [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob: https://*.s3.${var.aws_region}.amazonaws.com https://*.s3.amazonaws.com",
+        "font-src 'self' data:",
+        "connect-src 'self' https://*.execute-api.${var.aws_region}.amazonaws.com https://cognito-idp.${var.aws_region}.amazonaws.com https://cognito-identity.${var.aws_region}.amazonaws.com https://*.s3.${var.aws_region}.amazonaws.com https://*.s3.amazonaws.com https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com",
+        "frame-ancestors 'self'",
+        "form-action 'self'",
+        "base-uri 'self'",
+        "object-src 'none'",
+      ])
+    }
+
+    content_type_options {
+      override = true
+    }
+
+    frame_options {
+      frame_option = "SAMEORIGIN"
+      override     = true
+    }
+
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+
+    strict_transport_security {
+      access_control_max_age_sec = 63072000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+  }
+}
+
 # CloudFront Distribution
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
@@ -139,11 +188,12 @@ resource "aws_cloudfront_distribution" "frontend" {
       }
     }
 
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = var.min_ttl
-    default_ttl            = var.default_ttl
-    max_ttl                = var.max_ttl
-    
+    viewer_protocol_policy     = "redirect-to-https"
+    min_ttl                    = var.min_ttl
+    default_ttl                = var.default_ttl
+    max_ttl                    = var.max_ttl
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
+
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.url_rewrite.arn

@@ -45,15 +45,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           # The default wrapper script isn't fully Windows-compatible.
           terraform_wrapper: false
@@ -73,6 +73,8 @@ jobs:
       # is harmless/idempotent when target is infra or all.
       - name: Terraform init & select workspace
         working-directory: infra
+        env:
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
         run: |
           # PowerShell 7 turns any native-command stderr write into a terminating
           # exception under $ErrorActionPreference = 'Stop'; these scripts (and
@@ -81,21 +83,24 @@ jobs:
           terraform init -reconfigure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          terraform workspace select ${{ inputs.environment }} 2>$null
+          terraform workspace select $env:DEPLOY_ENVIRONMENT 2>$null
           if ($LASTEXITCODE -ne 0) {
-            terraform workspace new ${{ inputs.environment }}
+            terraform workspace new $env:DEPLOY_ENVIRONMENT
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
       - name: Deploy infrastructure (Terraform)
         if: ${{ inputs.target == 'infra' || inputs.target == 'all' }}
+        env:
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          AUTO_APPROVE_INFRA: ${{ inputs.auto_approve_infra }}
         run: |
           $PSNativeCommandUseErrorActionPreference = $false
           .\infra\scripts\deploy-infra.ps1 `
-            -Environment ${{ inputs.environment }} `
+            -Environment $env:DEPLOY_ENVIRONMENT `
             -AwsAccessKey $env:AWS_ACCESS_KEY_ID `
             -AwsSecretKey $env:AWS_SECRET_ACCESS_KEY `
-            -AutoApprove:$${{ inputs.auto_approve_infra }}
+            -AutoApprove:($env:AUTO_APPROVE_INFRA -eq 'true')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # devDependencies (typescript etc.) aren't installed by
@@ -117,20 +122,24 @@ jobs:
 
       - name: Deploy Lambda (API)
         if: ${{ inputs.target == 'lambda' || inputs.target == 'all' }}
+        env:
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
         run: |
           $PSNativeCommandUseErrorActionPreference = $false
           .\infra\scripts\deploy-lambda.ps1 `
-            -Environment ${{ inputs.environment }} `
+            -Environment $env:DEPLOY_ENVIRONMENT `
             -AwsAccessKey $env:AWS_ACCESS_KEY_ID `
             -AwsSecretKey $env:AWS_SECRET_ACCESS_KEY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Deploy frontend (Next.js)
         if: ${{ inputs.target == 'frontend' || inputs.target == 'all' }}
+        env:
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
         run: |
           $PSNativeCommandUseErrorActionPreference = $false
           .\infra\scripts\deploy-frontend.ps1 `
-            -Environment ${{ inputs.environment }} `
+            -Environment $env:DEPLOY_ENVIRONMENT `
             -AwsAccessKey $env:AWS_ACCESS_KEY_ID `
             -AwsSecretKey $env:AWS_SECRET_ACCESS_KEY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
