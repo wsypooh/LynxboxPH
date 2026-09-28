@@ -53,6 +53,9 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          # The default wrapper script isn't fully Windows-compatible.
+          terraform_wrapper: false
 
       - name: Configure AWS credentials
         run: |
@@ -70,6 +73,10 @@ jobs:
       - name: Terraform init & select workspace
         working-directory: infra
         run: |
+          # PowerShell 7 turns any native-command stderr write into a terminating
+          # exception under $ErrorActionPreference = 'Stop'; these scripts (and
+          # terraform itself) rely on plain exit-code checks, not exceptions.
+          $PSNativeCommandUseErrorActionPreference = $false
           terraform init -reconfigure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -82,6 +89,7 @@ jobs:
       - name: Deploy infrastructure (Terraform)
         if: ${{ inputs.target == 'infra' || inputs.target == 'all' }}
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
           .\infra\scripts\deploy-infra.ps1 `
             -Environment ${{ inputs.environment }} `
             -AwsAccessKey $env:AWS_ACCESS_KEY_ID `
@@ -109,6 +117,7 @@ jobs:
       - name: Deploy Lambda (API)
         if: ${{ inputs.target == 'lambda' || inputs.target == 'all' }}
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
           .\infra\scripts\deploy-lambda.ps1 `
             -Environment ${{ inputs.environment }} `
             -AwsAccessKey $env:AWS_ACCESS_KEY_ID `
@@ -118,6 +127,7 @@ jobs:
       - name: Deploy frontend (Next.js)
         if: ${{ inputs.target == 'frontend' || inputs.target == 'all' }}
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
           .\infra\scripts\deploy-frontend.ps1 `
             -Environment ${{ inputs.environment }} `
             -AwsAccessKey $env:AWS_ACCESS_KEY_ID `
