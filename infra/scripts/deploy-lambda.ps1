@@ -360,7 +360,11 @@ try {
 # Check if Lambda function exists
 $functionExists = $false
 try {
-    ExecOrFail "aws lambda get-function --function-name '$LambdaFunctionName' --region '$AwsRegion'" "Lambda function check failed" -ErrorAction SilentlyContinue
+    # --query/--output text: the full response includes the function's live
+    # Environment.Variables (secrets like the ZeptoMail key) -- ExecOrFail
+    # Write-Hosts whatever comes back, and GitHub Actions can't mask a value
+    # it never saw come from `secrets.*`, so print only the ARN.
+    ExecOrFail "aws lambda get-function --function-name '$LambdaFunctionName' --region '$AwsRegion' --query 'Configuration.FunctionArn' --output text" "Lambda function check failed" -ErrorAction SilentlyContinue
     $functionExists = $true
     Write-Host "✓ Lambda function exists: $LambdaFunctionName" -ForegroundColor Green
 } catch {
@@ -370,7 +374,9 @@ try {
 
 if ($functionExists) {
     # Update existing function from S3
-    ExecOrFail "aws lambda update-function-code --function-name '$LambdaFunctionName' --s3-bucket '$S3BucketName' --s3-key '$S3Key' --region '$AwsRegion'" "Failed to update Lambda function from S3"
+    # --query/--output text: same reasoning as the get-function check above --
+    # the response is the full FunctionConfiguration, including live env vars.
+    ExecOrFail "aws lambda update-function-code --function-name '$LambdaFunctionName' --s3-bucket '$S3BucketName' --s3-key '$S3Key' --region '$AwsRegion' --query 'FunctionArn' --output text" "Failed to update Lambda function from S3"
     
     Write-Host "✓ Updated Lambda function code from S3" -ForegroundColor Green
     Write-Host "ℹ Note: Environment variables are managed by deploy-infra script" -ForegroundColor Yellow
@@ -388,6 +394,9 @@ if ($functionExists) {
     # Convert environment variables to JSON format
     $envVarsJson = $basicEnvVars | ConvertTo-Json -Compress
     
+    # --query/--output text on the response (not the request): create-function
+    # also returns the full FunctionConfiguration, including whatever env vars
+    # end up live on the function.
     $createCommand = @"
 aws lambda create-function `
     --function-name '$LambdaFunctionName' `
@@ -398,7 +407,9 @@ aws lambda create-function `
     --region '$AwsRegion' `
     --environment Variables='$envVarsJson' `
     --memory-size 1024 `
-    --timeout 300
+    --timeout 300 `
+    --query 'FunctionArn' `
+    --output text
 "@
     
     ExecOrFail $createCommand "Failed to create Lambda function from S3"

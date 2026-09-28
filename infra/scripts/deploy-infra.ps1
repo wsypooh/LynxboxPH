@@ -33,10 +33,14 @@ Set-Location $infraRoot
 # Resolve the variables file path
 $TerraformVarsFile = Resolve-Path -Path "$infraRoot/environments/$Environment.tfvars" -ErrorAction Stop
 
-# Set AWS credentials as environment variables
+# Set AWS credentials as environment variables. TF_VAR_* rather than -var= on
+# the command line, so the access/secret key never sit in a process argument
+# list that other tools/processes on the runner could observe.
 $env:AWS_ACCESS_KEY_ID = $AwsAccessKey
 $env:AWS_SECRET_ACCESS_KEY = $AwsSecretKey
 $env:AWS_DEFAULT_REGION = "ap-southeast-1"  # Default to Singapore region
+$env:TF_VAR_aws_access_key = $AwsAccessKey
+$env:TF_VAR_aws_secret_key = $AwsSecretKey
 
 # Check if Terraform is installed
 function Test-TerraformInstalled {
@@ -160,8 +164,6 @@ try {
     # Create plan
     $planArgs = @(
         "plan"
-        "-var=aws_access_key=$AwsAccessKey"
-        "-var=aws_secret_key=$AwsSecretKey"
         "-var-file=$TerraformVarsFile"
         "-out=$planFile"
     )

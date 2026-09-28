@@ -15,10 +15,14 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$BucketNameOverride
 )
-# Set environment variables for AWS authentication
+# Set environment variables for AWS authentication. TF_VAR_* (not -var= on the
+# command line) so the access/secret key never appear in a process argument
+# list or in the "Running: ..." echo below.
 $env:AWS_ACCESS_KEY_ID = $AwsAccessKey
 $env:AWS_SECRET_ACCESS_KEY = $AwsSecretKey
 $env:AWS_DEFAULT_REGION = $AwsRegion
+$env:TF_VAR_aws_access_key = $AwsAccessKey
+$env:TF_VAR_aws_secret_key = $AwsSecretKey
 
 # Initialize Terraform
 Write-Host "Initializing Terraform..."
@@ -159,7 +163,7 @@ try {
 Write-Host "`n=== DESTROYING INFRASTRUCTURE FOR ENVIRONMENT: $Environment ===" -ForegroundColor Red -BackgroundColor Black
 Write-Host "This action cannot be undone!" -ForegroundColor Red
 Write-Host "The following resources will be destroyed:"
-terraform plan -destroy -var="aws_access_key=$AwsAccessKey" -var="aws_secret_key=$AwsSecretKey" -var="aws_region=$AwsRegion" -var="environment=$Environment" -var-file="$envVarsPath"
+terraform plan -destroy -var="aws_region=$AwsRegion" -var="environment=$Environment" -var-file="$envVarsPath"
 
 $confirmation = Read-Host "`nAre you sure you want to destroy all resources in the '$Environment' environment? (type 'destroy-$Environment' to confirm)"
 
@@ -170,8 +174,6 @@ if ($confirmation -ne "destroy-$Environment") {
 
 Write-Host "`nDestroying infrastructure..." -ForegroundColor Red
 $destroyCmd = "terraform destroy -auto-approve " +
-              "-var='aws_access_key=$AwsAccessKey' " +
-              "-var='aws_secret_key=$AwsSecretKey' " +
               "-var='aws_region=$AwsRegion' " +
               "-var='environment=$Environment' " +
               "-var-file='$envVarsPath'"
