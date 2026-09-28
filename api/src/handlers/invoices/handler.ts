@@ -304,6 +304,20 @@ export class InvoiceHandler {
     const updated = (await InvoiceRepository.update(id, {
       ...validBody, subtotal, currentChargesTotal, totalDue, outstanding, status, statusHistory,
     }))!;
+
+    // Keep the linked ChargeEntry's principal in sync with the invoice's own recomputed total —
+    // otherwise the ledger (penalty calc, next month's previousBalance) keeps using the stale
+    // amount from whenever the invoice was first created, silently diverging from what the
+    // invoice itself now shows as due.
+    if (currentChargesTotal !== invoice.currentChargesTotal) {
+      const charge = await LedgerRepository.findChargeByInvoiceId(invoice.tenantId, id);
+      if (charge) {
+        const alreadyApplied = round2(charge.principalAmount - charge.principalOutstanding);
+        const principalOutstanding = charge.waived ? 0 : Math.max(0, round2(currentChargesTotal - alreadyApplied));
+        await LedgerRepository.updateChargeEntry(charge.id, { principalAmount: currentChargesTotal, principalOutstanding });
+      }
+    }
+
     return ApiResponse.success({ invoice: await InvoiceHandler.enrichInvoice(updated) });
   }
 

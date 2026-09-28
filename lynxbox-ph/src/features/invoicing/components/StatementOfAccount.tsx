@@ -121,7 +121,7 @@ export function StatementOfAccount({ invoice }: Props) {
             {invoice.water.amount > 0 && (
               <Tr>
                 <Td>
-                  {invoice.water.presentReading !== undefined || invoice.water.previousReading !== undefined
+                  {invoice.water.mode === 'metered'
                     ? `Water (${invoice.water.presentReading} − ${invoice.water.previousReading} = ${Math.max(0, (invoice.water.presentReading ?? 0) - (invoice.water.previousReading ?? 0))} m³ × ₱${invoice.water.rate})`
                     : 'Water (Fixed)'}
                 </Td>

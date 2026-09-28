@@ -110,10 +110,14 @@ export class LedgerRepository {
   }
 
   static async deleteChargeEntryByInvoiceId(tenantId: string, invoiceId: string): Promise<boolean> {
-    const charges = await this.listChargesByTenant(tenantId);
-    const match = charges.find(c => c.invoiceId === invoiceId);
+    const match = await this.findChargeByInvoiceId(tenantId, invoiceId);
     if (!match) return false;
     return this.deleteChargeEntry(match.id);
+  }
+
+  static async findChargeByInvoiceId(tenantId: string, invoiceId: string): Promise<ChargeEntry | null> {
+    const charges = await this.listChargesByTenant(tenantId);
+    return charges.find(c => c.invoiceId === invoiceId) ?? null;
   }
 
   static async updatePaymentEntry(id: string, updates: Partial<PaymentEntry>): Promise<PaymentEntry | null> {

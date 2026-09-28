@@ -33,7 +33,9 @@ export default function NewInvoicePage() {
       if (preselectedTenantId && !prefillParam) {
         try {
           const invs = await tenantService.listInvoicesByTenant(preselectedTenantId);
-          const latest = [...invs].sort((a, b) => b.billingMonth.localeCompare(a.billingMonth))[0];
+          // A voided invoice is kept only for audit trail (excluded from balances) — it must
+          // not be treated as the source of truth for the tenant's actual last meter reading.
+          const latest = [...invs].filter(i => i.status !== 'void').sort((a, b) => b.billingMonth.localeCompare(a.billingMonth))[0];
           if (latest) {
             setPreviousReadings({
               electricity: latest.electricity?.mode !== 'direct' ? latest.electricity?.presentReading : undefined,

@@ -3,14 +3,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box, Heading, HStack, Button, Badge, useToast, Spinner, Tabs, TabList, Tab, TabPanels, TabPanel,
-  useDisclosure, Text,
+  Text,
 } from '@chakra-ui/react';
 import { invoiceService } from '@/services/invoiceService';
 import { tenantService } from '@/services/tenantService';
 import { buildingService } from '@/services/buildingService';
 import { InvoiceForm } from '@/features/invoicing/components/InvoiceForm';
 import { StatementOfAccount } from '@/features/invoicing/components/StatementOfAccount';
-import { PaymentModal } from '@/features/invoicing/components/PaymentModal';
 import { Invoice, Tenant, Building, InvoiceStatus } from '@/features/invoicing/types';
 import { useAccount } from '@/features/account/AccountContext';
 
@@ -36,7 +35,6 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
   const { canWrite, canDestroy } = useAccount();
   const router = useRouter();
   const toast = useToast();
-  const { isOpen: paymentOpen, onOpen: openPayment, onClose: closePayment } = useDisclosure();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -113,6 +111,20 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
     }
   };
 
+  const handleMarkPrinted = async () => {
+    if (!confirm('Mark this invoice as printed? It will be locked from editing.')) return;
+    setActionLoading(true);
+    try {
+      const updated = await invoiceService.markAsPrinted(id);
+      setInvoice(updated);
+      toast({ title: 'Invoice marked as printed', status: 'success' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Failed to mark as printed', status: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleRevertToDraft = async () => {
     if (!confirm('Revert this invoice to draft? It will be editable again.')) return;
     setActionLoading(true);
@@ -152,19 +164,6 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
     }
   };
 
-  const handlePayment = async (data: any) => {
-    setActionLoading(true);
-    try {
-      const updated = await invoiceService.recordPayment(id, data);
-      setInvoice(updated);
-      toast({ title: 'Payment recorded', status: 'success' });
-    } catch (err: any) {
-      toast({ title: err.message || 'Error', status: 'error' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   if (loading) return <Box p={6}><Spinner /></Box>;
   if (!invoice) return <Box p={6}><Text>Invoice not found.</Text></Box>;
 
@@ -177,13 +176,15 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
           <Badge colorScheme={statusColor[invoice.status]} fontSize="sm">{invoice.status}</Badge>
         </HStack>
         <HStack flexWrap="wrap" gap={2}>
+          {canWrite && (invoice.status === 'draft' || invoice.status === 'sent') && (
+            <Button size="sm" variant="outline" colorScheme="purple" onClick={handleMarkPrinted} isLoading={actionLoading}>
+              Mark as Printed
+            </Button>
+          )}
           {canWrite && (invoice.status === 'printed' || invoice.status === 'sent') && (
             <Button size="sm" variant="outline" colorScheme="purple" onClick={handleRevertToDraft} isLoading={actionLoading}>
               Revert to Draft
             </Button>
-          )}
-          {canWrite && invoice.status !== 'printed' && invoice.status !== 'paid' && invoice.status !== 'void' && (
-            <Button size="sm" colorScheme="green" onClick={openPayment} isLoading={actionLoading}>Record Payment</Button>
           )}
           {canWrite && (
             <Button size="sm" colorScheme="blue" onClick={handleSend} isLoading={actionLoading}>Send Email</Button>
@@ -337,14 +338,6 @@ export default function InvoiceDetailClient({ id }: { id: string }) {
           )}
         </TabPanels>
       </Tabs>
-
-      <PaymentModal
-        isOpen={paymentOpen}
-        onClose={closePayment}
-        onSubmit={handlePayment}
-        isLoading={actionLoading}
-        maxAmount={invoice.outstanding}
-      />
     </Box>
   );
 }

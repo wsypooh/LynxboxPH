@@ -233,31 +233,31 @@ export function InvoiceForm({
         ) : vals.water?.mode === 'metered' ? (
           <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
             <FormControl>
-              <FormLabel>Present Reading (m³)</FormLabel>
+              <FormLabel minH="2.5rem">Present Reading (m³)</FormLabel>
               <NumberInput min={0} value={vals.water.presentReading ?? 0} onChange={(_, v) => setValue('water.presentReading', v)}>
                 <NumberInputField />
               </NumberInput>
             </FormControl>
             <FormControl>
-              <FormLabel>Previous Reading (m³)</FormLabel>
+              <FormLabel minH="2.5rem">Previous Reading (m³)</FormLabel>
               <NumberInput min={0} value={vals.water.previousReading ?? 0} onChange={(_, v) => setValue('water.previousReading', v)}>
                 <NumberInputField />
               </NumberInput>
             </FormControl>
             <FormControl>
-              <FormLabel>Consumption (m³)</FormLabel>
+              <FormLabel minH="2.5rem">Consumption (m³)</FormLabel>
               <NumberInput isReadOnly value={Math.max(0, (vals.water.presentReading ?? 0) - (vals.water.previousReading ?? 0))}>
                 <NumberInputField bg="gray.50" />
               </NumberInput>
             </FormControl>
             <FormControl>
-              <FormLabel>Rate (₱/m³)</FormLabel>
+              <FormLabel minH="2.5rem">Rate (₱/m³)</FormLabel>
               <NumberInput min={0} value={vals.water.rate ?? 0} onChange={(_, v) => setValue('water.rate', v)}>
                 <NumberInputField />
               </NumberInput>
             </FormControl>
             <FormControl>
-              <FormLabel>Amount (₱)</FormLabel>
+              <FormLabel minH="2.5rem">Amount (₱)</FormLabel>
               <NumberInput min={0} value={vals.water.amount} onChange={(_, v) => setValue('water.amount', v)}>
                 <NumberInputField />
               </NumberInput>
@@ -280,31 +280,31 @@ export function InvoiceForm({
           </Box>
         ) : (<Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
           <FormControl>
-            <FormLabel>Present Reading (kWh)</FormLabel>
+            <FormLabel minH="2.5rem">Present Reading (kWh)</FormLabel>
             <NumberInput min={0} value={vals.electricity.presentReading} onChange={(_, v) => setValue('electricity.presentReading', v)}>
               <NumberInputField />
             </NumberInput>
           </FormControl>
           <FormControl>
-            <FormLabel>Previous Reading (kWh)</FormLabel>
+            <FormLabel minH="2.5rem">Previous Reading (kWh)</FormLabel>
             <NumberInput min={0} value={vals.electricity.previousReading} onChange={(_, v) => setValue('electricity.previousReading', v)}>
               <NumberInputField />
             </NumberInput>
           </FormControl>
           <FormControl>
-            <FormLabel>Consumption (kWh)</FormLabel>
+            <FormLabel minH="2.5rem">Consumption (kWh)</FormLabel>
             <NumberInput isReadOnly value={Math.max(0, (vals.electricity.presentReading || 0) - (vals.electricity.previousReading || 0))}>
               <NumberInputField bg="gray.50" />
             </NumberInput>
           </FormControl>
           <FormControl>
-            <FormLabel>Rate (₱/kWh)</FormLabel>
+            <FormLabel minH="2.5rem">Rate (₱/kWh)</FormLabel>
             <NumberInput min={0} value={vals.electricity.rate} onChange={(_, v) => setValue('electricity.rate', v)}>
               <NumberInputField />
             </NumberInput>
           </FormControl>
           <FormControl>
-            <FormLabel>Amount (₱)</FormLabel>
+            <FormLabel minH="2.5rem">Amount (₱)</FormLabel>
             <NumberInput min={0} value={vals.electricity.amount} isReadOnly>
               <NumberInputField bg="gray.50" />
             </NumberInput>
