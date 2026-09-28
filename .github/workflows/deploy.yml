@@ -1,0 +1,125 @@
+name: Deploy to AWS
+
+# Manual-only. Deploys infra (Terraform), the Lambda API, and/or the Next.js
+# frontend to dev or prod using the same scripts you already run locally
+# from infra/scripts/. See the "environment" input below for which
+# GitHub Environment secrets get used.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      target:
+        description: "What to deploy"
+        required: true
+        type: choice
+        options:
+          - all
+          - infra
+          - lambda
+          - frontend
+        default: all
+      auto_approve_infra:
+        description: "Auto-approve the Terraform apply (only applies when target is infra/all; uncheck for a plan-only dry run on prod)"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.target }} -> ${{ inputs.environment }}
+    runs-on: windows-latest
+    # Uses the GitHub Environment matching the chosen input, so each of
+    # dev/prod can have its own AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+    # secrets and (for prod) required reviewers configured in repo settings.
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        run: |
+          "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $env:GITHUB_ENV
+          "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $env:GITHUB_ENV
+          "AWS_DEFAULT_REGION=ap-southeast-1" >> $env:GITHUB_ENV
+          "AWS_REGION=ap-southeast-1" >> $env:GITHUB_ENV
+
+      # deploy-lambda.ps1 / deploy-frontend.ps1 assume the infra/ Terraform
+      # state is already initialized and on the right workspace (true on a
+      # dev machine that already ran deploy-infra.ps1 once). A fresh CI
+      # checkout has neither, so do it explicitly regardless of which
+      # target was picked. deploy-infra.ps1 also does this itself, so this
+      # is harmless/idempotent when target is infra or all.
+      - name: Terraform init & select workspace
+        working-directory: infra
+        run: |
+          terraform init -reconfigure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          terraform workspace select ${{ inputs.environment }} 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            terraform workspace new ${{ inputs.environment }}
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Deploy infrastructure (Terraform)
+        if: ${{ inputs.target == 'infra' || inputs.target == 'all' }}
+        run: |
+          .\infra\scripts\deploy-infra.ps1 `
+            -Environment ${{ inputs.environment }} `
+            -AwsAccessKey $env:AWS_ACCESS_KEY_ID `
+            -AwsSecretKey $env:AWS_SECRET_ACCESS_KEY `
+            -AutoApprove:$${{ inputs.auto_approve_infra }}
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # devDependencies (typescript etc.) aren't installed by
+      # deploy-lambda.ps1 itself -- it only runs `npm run build`.
+      - name: Install API dependencies
+        if: ${{ inputs.target == 'lambda' || inputs.target == 'all' }}
+        working-directory: api
+        run: npm ci
+
+      # deploy-lambda.ps1 shells out to a hardcoded 7-Zip path; make sure
+      # it's actually there instead of failing deep into the script.
+      - name: Ensure 7-Zip is available
+        if: ${{ inputs.target == 'lambda' || inputs.target == 'all' }}
+        run: |
+          $sevenZip = "C:\Program Files\7-Zip\7z.exe"
+          if (-not (Test-Path $sevenZip)) {
+            choco install 7zip -y --no-progress
+          }
+
+      - name: Deploy Lambda (API)
+        if: ${{ inputs.target == 'lambda' || inputs.target == 'all' }}
+        run: |
+          .\infra\scripts\deploy-lambda.ps1 `
+            -Environment ${{ inputs.environment }} `
+            -AwsAccessKey $env:AWS_ACCESS_KEY_ID `
+            -AwsSecretKey $env:AWS_SECRET_ACCESS_KEY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Deploy frontend (Next.js)
+        if: ${{ inputs.target == 'frontend' || inputs.target == 'all' }}
+        run: |
+          .\infra\scripts\deploy-frontend.ps1 `
+            -Environment ${{ inputs.environment }} `
+            -AwsAccessKey $env:AWS_ACCESS_KEY_ID `
+            -AwsSecretKey $env:AWS_SECRET_ACCESS_KEY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
