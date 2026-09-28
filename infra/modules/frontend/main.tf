@@ -116,13 +116,16 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
   security_headers_config {
     content_security_policy {
       override = true
-      # style-src needs 'unsafe-inline': Chakra/Emotion's runtime-injected
-      # <style> tags don't support a CSP nonce without a server. The GA
-      # bootstrap script is loaded from /gtag-init.js (a static file, not
-      # inline), so script-src doesn't need 'unsafe-inline'.
+      # script-src/style-src need 'unsafe-inline': Next.js's own App Router static
+      # export embeds RSC hydration payloads as inline <script>self.__next_f.push(...)
+      # tags (content differs every build, so hashing them isn't practical, and this
+      # static export has no server to mint a per-request nonce) -- the GA bootstrap
+      # script was moved to /gtag-init.js, but that alone wasn't enough to drop
+      # 'unsafe-inline'; blocking it left the page blank since React can't hydrate.
+      # Chakra/Emotion's runtime-injected <style> tags have the same nonce limitation.
       content_security_policy = join("; ", [
         "default-src 'self'",
-        "script-src 'self' https://www.googletagmanager.com",
+        "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https://*.s3.${var.aws_region}.amazonaws.com https://*.s3.amazonaws.com",
         "font-src 'self' data:",
