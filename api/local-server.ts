@@ -415,8 +415,12 @@ async function handlePropertyRequest(req: express.Request, res: express.Response
   }
 }
 
-// Start the server
-app.listen(port, () => {
+// Bind to localhost only: createApiGatewayEvent above trusts a request's JWT payload
+// without verifying its signature (an accepted local-dev convenience so a real pasted-in
+// Cognito token just works without JWKS verification friction) -- on 0.0.0.0, that would
+// let anyone else on the network forge a token (e.g. cognito:groups: ["platform-admin"])
+// and fully impersonate any user, not just the developer at this machine.
+app.listen(port, '127.0.0.1', () => {
   console.log(`Server is running at http://localhost:${port}`);
   console.log(`API available at http://localhost:${port}/api/properties`);
 });

@@ -73,7 +73,11 @@ export class TenantHandler {
     const tenant = await TenantRepository.findById(id);
     if (!tenant || tenant.ownerId !== actor.accountId || tenant.deletedAt) return ApiResponse.notFound('Tenant not found');
     const body = JSON.parse(event.body || '{}');
-    const updated = await TenantRepository.update(id, body);
+    // Same reasoning as BuildingHandler.updateBuilding: the repo's update() only strips
+    // key/meta fields, not domain ones, so ownerId/buildingId/tenantCode must be stripped
+    // here or a client could redirect this tenant to a different owner/building.
+    const { id: _id, ownerId, buildingId, tenantCode, createdAt, ...validUpdates } = body;
+    const updated = await TenantRepository.update(id, validUpdates);
     return ApiResponse.success({ tenant: updated });
   }
 

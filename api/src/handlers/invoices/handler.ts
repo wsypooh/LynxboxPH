@@ -292,8 +292,12 @@ export class InvoiceHandler {
       statusHistory.push({ from: invoice.status, to: status, changedAt: new Date().toISOString(), changedBy: getUserDisplayName(event) });
     }
 
+    // Same reasoning as BuildingHandler.updateBuilding: the repo's update() only strips
+    // key/meta fields, not domain ones, so ownerId/tenantId/buildingId/invoiceNumber must be
+    // stripped here or a client could redirect this invoice to a different owner/tenant/building.
+    const { id: _id, ownerId, tenantId, buildingId, invoiceNumber, createdAt, ...validBody } = body;
     const updated = (await InvoiceRepository.update(id, {
-      ...body, subtotal, currentChargesTotal, totalDue, outstanding, status, statusHistory,
+      ...validBody, subtotal, currentChargesTotal, totalDue, outstanding, status, statusHistory,
     }))!;
     return ApiResponse.success({ invoice: await InvoiceHandler.enrichInvoice(updated) });
   }

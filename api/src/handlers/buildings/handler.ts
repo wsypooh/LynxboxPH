@@ -66,7 +66,11 @@ export class BuildingHandler {
     const building = await BuildingRepository.findById(id);
     if (!building || building.ownerId !== actor.accountId || building.deletedAt) return ApiResponse.notFound('Building not found');
     const body = JSON.parse(event.body || '{}');
-    const updated = await BuildingRepository.update(id, body);
+    // ownerId/id/createdAt are not blocked by the repo's own update() filter (it only
+    // strips key/meta fields, not domain ones) -- without stripping them here too, a
+    // client could reassign a building's ownerId to another account via a normal edit.
+    const { id: _id, ownerId, createdAt, ...validUpdates } = body;
+    const updated = await BuildingRepository.update(id, validUpdates);
     return ApiResponse.success({ building: updated });
   }
 

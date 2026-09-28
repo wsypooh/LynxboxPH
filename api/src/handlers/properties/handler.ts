@@ -209,8 +209,17 @@ export class PropertyHandler {
         return ApiResponse.error('Property ID is required', 400);
       }
 
+      const actor = await resolveActor(event);
+      if (!actor) {
+        return ApiResponse.unauthorized('User authentication required');
+      }
+
       const property = await PropertyRepository.findById(id);
       if (!property || property.deletedAt) {
+        return ApiResponse.notFound('Property not found');
+      }
+
+      if (property.ownerId !== actor.accountId) {
         return ApiResponse.notFound('Property not found');
       }
 
@@ -294,8 +303,12 @@ export class PropertyHandler {
         }
       }
 
-      // Remove fields that shouldn't be updated
-      const { id: _, ownerId, createdAt, propertyNumber, removeImages, renew, ...validUpdates } = updates;
+      // Remove fields that shouldn't be updated. expiresAt/listingSuspended/viewCount are
+      // server-computed (plan limits, payment status, view tracking) -- letting a client set
+      // them directly would let an owner extend their own listing's visibility window past
+      // what their plan allows, or clear a payment-related suspension, just by including the
+      // field in an otherwise-normal update body.
+      const { id: _, ownerId, createdAt, propertyNumber, removeImages, renew, expiresAt, listingSuspended, viewCount, ...validUpdates } = updates;
       validUpdates.images = finalImages;
 
       // Same "visibility clock only runs while actually live" rule createProperty follows —

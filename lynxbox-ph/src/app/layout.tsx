@@ -96,14 +96,8 @@ export default function RootLayout({
               src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
               strategy="afterInteractive"
             />
-            <Script id="google-analytics" strategy="afterInteractive">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${GA_ID}');
-              `}
-            </Script>
+            {/* External file, not inline, so the CSP's script-src doesn't need 'unsafe-inline' */}
+            <Script src="/gtag-init.js" strategy="afterInteractive" />
           </>
         )}
       </head>

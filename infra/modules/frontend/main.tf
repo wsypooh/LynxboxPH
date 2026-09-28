@@ -116,12 +116,13 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
   security_headers_config {
     content_security_policy {
       override = true
-      # script-src/style-src need 'unsafe-inline': the inline GA snippet in
-      # layout.tsx, and Chakra/Emotion's runtime-injected <style> tags,
-      # respectively -- neither supports a CSP nonce without a server.
+      # style-src needs 'unsafe-inline': Chakra/Emotion's runtime-injected
+      # <style> tags don't support a CSP nonce without a server. The GA
+      # bootstrap script is loaded from /gtag-init.js (a static file, not
+      # inline), so script-src doesn't need 'unsafe-inline'.
       content_security_policy = join("; ", [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
+        "script-src 'self' https://www.googletagmanager.com",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https://*.s3.${var.aws_region}.amazonaws.com https://*.s3.amazonaws.com",
         "font-src 'self' data:",

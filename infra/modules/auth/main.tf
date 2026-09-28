@@ -98,8 +98,10 @@ resource "aws_cognito_user_pool_client" "main" {
     refresh_token = "days"
   }
 
-  # OAuth configuration
-  allowed_oauth_flows                  = ["code", "implicit"]
+  # OAuth configuration. "implicit" dropped -- this app signs in directly via Amplify's SRP
+  # flow, never Hosted-UI/OAuth redirects, so there's no legitimate use for the
+  # token-in-URL-fragment flow; "code" is kept in case Hosted-UI is wired up later.
+  allowed_oauth_flows                  = ["code"]
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_scopes                 = ["email", "openid", "profile", "aws.cognito.signin.user.admin"]
   
@@ -154,6 +156,12 @@ resource "aws_iam_role" "authenticated" {
 }
 
 # IAM Policy for Authenticated Users
+# mobileanalytics:PutEvents (Amplify Analytics) and cognito-sync:* (legacy AWS service) are
+# dropped -- confirmed unused anywhere in the frontend (only Amplify's Auth module is
+# configured, no Analytics/Storage SDK calls). cognito-identity:* is real, load-bearing
+# plumbing (every sign-in exchanges the user's token for temp AWS credentials through it),
+# so it's kept, just scoped to this environment's own identity pool instead of every
+# identity pool in the account.
 resource "aws_iam_role_policy" "authenticated" {
   name = "${var.project_name}-cognito-authenticated-policy-${var.environment}"
   role = aws_iam_role.authenticated.id
@@ -164,11 +172,9 @@ resource "aws_iam_role_policy" "authenticated" {
       {
         Effect = "Allow"
         Action = [
-          "mobileanalytics:PutEvents",
-          "cognito-sync:*",
           "cognito-identity:*"
         ]
-        Resource = ["*"]
+        Resource = [aws_cognito_identity_pool.main.arn]
       }
     ]
   })

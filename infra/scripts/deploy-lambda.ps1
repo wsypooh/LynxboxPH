@@ -97,18 +97,25 @@ try {
     } else {
         Write-Host "WARNING: Lambda role ARN not found in Terraform outputs" -ForegroundColor Yellow
         Write-Host "Creating Lambda execution role..." -ForegroundColor Cyan
-        $LambdaRoleArn = New-LambdaExecutionRole -Environment $Environment -Region $AwsRegion
+        $LambdaRoleArn = New-LambdaExecutionRole -Environment $Environment -Region $AwsRegion -TableName $DynamoDbTable
     }
 } catch {
     Write-Host "WARNING: Lambda role ARN not found in Terraform outputs" -ForegroundColor Yellow
     Write-Host "Creating Lambda execution role..." -ForegroundColor Cyan
-    $LambdaRoleArn = New-LambdaExecutionRole -Environment $Environment -Region $AwsRegion
+    $LambdaRoleArn = New-LambdaExecutionRole -Environment $Environment -Region $AwsRegion -TableName $DynamoDbTable
 }
 
-# Function to create Lambda execution role if it doesn't exist
+# Function to create Lambda execution role if it doesn't exist.
+# Fallback path only -- normal deploys use the Terraform-managed role (already scoped to
+# the real table ARN, see infra/modules/database/main.tf), this only ever runs if that
+# role's ARN can't be found in Terraform outputs (e.g. deploy-lambda.ps1 run before
+# deploy-infra.ps1 has ever applied).
 function New-LambdaExecutionRole {
-    $Environment = $args[0]
-    $Region = $args[1]
+    param(
+        [Parameter(Mandatory=$true)][string]$Environment,
+        [Parameter(Mandatory=$true)][string]$Region,
+        [Parameter(Mandatory=$true)][string]$TableName
+    )
     $RoleName = "lynxbox-lambda-role-$Environment"
     
     Write-Host "Creating Lambda execution role: $RoleName" -ForegroundColor Cyan
@@ -146,7 +153,10 @@ function New-LambdaExecutionRole {
     ExecOrFail "aws iam attach-role-policy --role-name '$RoleName' --policy-arn 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'" "Failed to attach basic execution role"
     Write-Host "✓ Attached AWSLambdaBasicExecutionRole policy" -ForegroundColor Green
     
-    # Attach DynamoDB access policy
+    # Attach DynamoDB access policy, scoped to this environment's own table (+ its GSIs)
+    # instead of every table in the account.
+    $accountId = (ExecOrFail "aws sts get-caller-identity --query Account --output text" "Failed to get AWS account ID").Trim()
+    $tableArn = "arn:aws:dynamodb:${Region}:${accountId}:table/$TableName"
     $dynamoDbPolicy = @{
         Version = "2012-10-17"
         Statement = @(
@@ -154,13 +164,13 @@ function New-LambdaExecutionRole {
                 Effect = "Allow"
                 Action = @(
                     "dynamodb:Query",
-                    "dynamodb:Scan", 
+                    "dynamodb:Scan",
                     "dynamodb:GetItem",
                     "dynamodb:PutItem",
                     "dynamodb:UpdateItem",
                     "dynamodb:DeleteItem"
                 )
-                Resource = "*"
+                Resource = @($tableArn, "$tableArn/index/*")
             }
         )
     } | ConvertTo-Json -Depth 3 -Compress
