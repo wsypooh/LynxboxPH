@@ -270,12 +270,18 @@ export class PropertyHandler {
         return ApiResponse.forbidden('"unlisted" cannot be set directly — it is assigned automatically when a plan downgrade exceeds your active listing limit.');
       }
 
-      // Handle image removal and replacement
+      // Handle image removal and replacement. removeImages is client-supplied, so it must be
+      // restricted to keys actually under this property's own S3 prefix -- otherwise a client
+      // could pass any other property's (or any other entity's) image key and have it deleted
+      // via this property's own update call, a cross-tenant S3 object deletion.
       if (updates.removeImages && Array.isArray(updates.removeImages)) {
+        const ownKeys = updates.removeImages.filter((key: unknown) =>
+          typeof key === 'string' && key.startsWith(`properties/${id}/`)
+        );
         console.log(`=== IMAGE DELETION TRIGGERED ===`);
         console.log(`Property ID: ${id}`);
-        console.log(`Images to remove:`, updates.removeImages);
-        await this.removePropertyImages(id, updates.removeImages);
+        console.log(`Images to remove:`, ownKeys);
+        await this.removePropertyImages(id, ownKeys);
         console.log(`=== IMAGE DELETION COMPLETED ===`);
       }
 
@@ -308,7 +314,10 @@ export class PropertyHandler {
       // them directly would let an owner extend their own listing's visibility window past
       // what their plan allows, or clear a payment-related suspension, just by including the
       // field in an otherwise-normal update body.
-      const { id: _, ownerId, createdAt, propertyNumber, removeImages, renew, expiresAt, listingSuspended, viewCount, ...validUpdates } = updates;
+      // deletedAt stripped too: this route only requires canWrite, so leaving it through
+      // would let a manager/staff member soft-delete/resurrect a property without the
+      // owner-only canDestroy permission deleteProperty enforces.
+      const { id: _, ownerId, createdAt, propertyNumber, removeImages, renew, expiresAt, listingSuspended, viewCount, deletedAt, ...validUpdates } = updates;
       validUpdates.images = finalImages;
 
       // Same "visibility clock only runs while actually live" rule createProperty follows —

@@ -63,22 +63,13 @@ export class PropertyRepository {
     const propertyNumber = await this.getNextPropertyNumber();
     const property = createProperty(propertyData, propertyNumber);
 
-    // Convert to a plain object with string index signature
-    const dynamoItem: Record<string, any> = {
-      ...property,
-      // Ensure all required fields are properly typed for DynamoDB
-      PK: property.PK,
-      SK: property.SK,
-      GSI1PK: property.GSI1PK,
-      GSI1SK: property.GSI1SK,
-      entityType: property.entityType,
-      id: property.id,
-      viewCount: property.viewCount,
-      createdAt: property.createdAt,
-      updatedAt: property.updatedAt,
-      // Add all other properties
-      ...propertyData
-    };
+    // `property` (from the createProperty() factory) already has every legitimate field for
+    // this record -- it must NOT be followed by a raw `...propertyData` spread. propertyData
+    // is the caller's input, never stripped of PK/SK/GSI1PK/GSI1SK/entityType/id/createdAt/
+    // updatedAt/viewCount, so re-spreading it here would let a client override any of those
+    // with an arbitrary value (e.g. a forged GSI1PK desyncing this record from its real
+    // ownerId) despite the explicit safe values set just above.
+    const dynamoItem: Record<string, any> = { ...property };
 
     // Remove any undefined values
     Object.keys(dynamoItem).forEach((key: string) => {
@@ -136,7 +127,7 @@ export class PropertyRepository {
 
     // Build update expression dynamically
     Object.entries(updates).forEach(([key, value]) => {
-      if (value !== undefined && !['PK', 'SK', 'GSI1PK', 'GSI1SK', 'entityType', 'createdAt'].includes(key)) {
+      if (value !== undefined && !['PK', 'SK', 'GSI1PK', 'GSI1SK', 'entityType', 'createdAt', 'id', 'ownerId'].includes(key)) {
         const attrName = `#${key}`;
         const attrValue = `:${key}`;
         

@@ -96,6 +96,19 @@ export class DocumentHandler {
     const owns = await verifyParentOwnership(parentType, parentId, userId);
     if (!owns) return ApiResponse.notFound('Parent not found');
 
+    // s3Key is client-supplied -- without this check, a client could reference any other
+    // user's already-uploaded object (any key they can guess/observe) here, creating a
+    // Document record they own that points at someone else's file. Since getViewUrl/
+    // deleteDocument only check this record's own ownerId (which would legitimately be
+    // them), that would let them read or delete a cross-tenant S3 object through their own
+    // document's normal view/delete endpoints.
+    const expectedPrefix = parentType === 'BUILDING'
+      ? `buildings/${parentId}/documents/`
+      : `tenants/${parentId}/documents/`;
+    if (!s3Key.startsWith(expectedPrefix)) {
+      return ApiResponse.forbidden('Document key does not belong to this parent');
+    }
+
     const existing = await DocumentRepository.listByOwner(userId);
 
     // Flat anti-abuse guardrail, independent of plan — blocks someone uploading thousands

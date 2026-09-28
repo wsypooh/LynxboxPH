@@ -76,7 +76,10 @@ export class TenantHandler {
     // Same reasoning as BuildingHandler.updateBuilding: the repo's update() only strips
     // key/meta fields, not domain ones, so ownerId/buildingId/tenantCode must be stripped
     // here or a client could redirect this tenant to a different owner/building.
-    const { id: _id, ownerId, buildingId, tenantCode, createdAt, ...validUpdates } = body;
+    // deletedAt stripped for the same reason as BuildingHandler.updateBuilding: this route
+    // only requires canWrite, so leaving it through would let a manager/staff member
+    // soft-delete/resurrect a tenant without the owner-only canDestroy permission.
+    const { id: _id, ownerId, buildingId, tenantCode, createdAt, deletedAt, ...validUpdates } = body;
     const updated = await TenantRepository.update(id, validUpdates);
     return ApiResponse.success({ tenant: updated });
   }

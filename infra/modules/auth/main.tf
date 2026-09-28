@@ -158,10 +158,11 @@ resource "aws_iam_role" "authenticated" {
 # IAM Policy for Authenticated Users
 # mobileanalytics:PutEvents (Amplify Analytics) and cognito-sync:* (legacy AWS service) are
 # dropped -- confirmed unused anywhere in the frontend (only Amplify's Auth module is
-# configured, no Analytics/Storage SDK calls). cognito-identity:* is real, load-bearing
-# plumbing (every sign-in exchanges the user's token for temp AWS credentials through it),
-# so it's kept, just scoped to this environment's own identity pool instead of every
-# identity pool in the account.
+# configured, no Analytics/Storage SDK calls). cognito-identity:* was scoped to this
+# environment's own identity pool, but the action itself was still a wildcard -- that
+# includes administrative actions (DeleteIdentityPool, SetIdentityPoolRoles, etc.), letting
+# any signed-in user administer their own pool via the ordinary authenticated role every
+# session assumes. Narrowed to only the self-service, non-administrative actions.
 resource "aws_iam_role_policy" "authenticated" {
   name = "${var.project_name}-cognito-authenticated-policy-${var.environment}"
   role = aws_iam_role.authenticated.id
@@ -172,7 +173,9 @@ resource "aws_iam_role_policy" "authenticated" {
       {
         Effect = "Allow"
         Action = [
-          "cognito-identity:*"
+          "cognito-identity:GetCredentialsForIdentity",
+          "cognito-identity:GetId",
+          "cognito-identity:GetOpenIdToken"
         ]
         Resource = [aws_cognito_identity_pool.main.arn]
       }
@@ -187,9 +190,12 @@ resource "aws_cognito_identity_pool" "main" {
   allow_classic_flow               = false
 
   cognito_identity_providers {
-    client_id               = aws_cognito_user_pool_client.main.id
-    provider_name           = aws_cognito_user_pool.main.endpoint
-    server_side_token_check = false
+    client_id     = aws_cognito_user_pool_client.main.id
+    provider_name = aws_cognito_user_pool.main.endpoint
+    # true: a revoked/signed-out User Pool token can no longer be exchanged for fresh AWS
+    # credentials here, closing the gap where a revoked session stays usable until the
+    # token's own expiry. Costs one extra Cognito call per credentials exchange.
+    server_side_token_check = true
   }
 
   tags = var.common_tags

@@ -36,7 +36,7 @@ export class TenantRepository {
     const values: Record<string, any> = {};
 
     Object.entries(updates).forEach(([key, value]) => {
-      if (value !== undefined && !['PK', 'SK', 'GSI1PK', 'GSI1SK', 'entityType', 'createdAt', 'id'].includes(key)) {
+      if (value !== undefined && !['PK', 'SK', 'GSI1PK', 'GSI1SK', 'entityType', 'createdAt', 'id', 'ownerId'].includes(key)) {
         expressions.push(`#${key} = :${key}`);
         names[`#${key}`] = key;
         values[`:${key}`] = value;

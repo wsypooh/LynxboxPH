@@ -69,7 +69,11 @@ export class BuildingHandler {
     // ownerId/id/createdAt are not blocked by the repo's own update() filter (it only
     // strips key/meta fields, not domain ones) -- without stripping them here too, a
     // client could reassign a building's ownerId to another account via a normal edit.
-    const { id: _id, ownerId, createdAt, ...validUpdates } = body;
+    // deletedAt is stripped too: this route only requires canWrite, not canDestroy, so
+    // without this a manager/staff member (who can write but not destroy) could soft-delete
+    // or resurrect a building directly through a normal edit, bypassing the owner-only
+    // restriction the dedicated DELETE endpoint enforces via canDestroy.
+    const { id: _id, ownerId, createdAt, deletedAt, ...validUpdates } = body;
     const updated = await BuildingRepository.update(id, validUpdates);
     return ApiResponse.success({ building: updated });
   }

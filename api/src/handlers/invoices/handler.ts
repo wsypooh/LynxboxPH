@@ -295,7 +295,12 @@ export class InvoiceHandler {
     // Same reasoning as BuildingHandler.updateBuilding: the repo's update() only strips
     // key/meta fields, not domain ones, so ownerId/tenantId/buildingId/invoiceNumber must be
     // stripped here or a client could redirect this invoice to a different owner/tenant/building.
-    const { id: _id, ownerId, tenantId, buildingId, invoiceNumber, createdAt, ...validBody } = body;
+    // amountPaid is stripped too -- it must only ever move through recordPayment's FIFO
+    // ledger logic, not a direct client-set value here. deletedAt is stripped for the same
+    // reason as updateBuilding/updateTenant: this route only requires canWrite, so leaving
+    // it through would let a manager/staff member soft-delete/resurrect an invoice without
+    // the owner-only canDestroy permission (voidInvoice/deleteInvoice both gate on it).
+    const { id: _id, ownerId, tenantId, buildingId, invoiceNumber, createdAt, amountPaid, deletedAt, ...validBody } = body;
     const updated = (await InvoiceRepository.update(id, {
       ...validBody, subtotal, currentChargesTotal, totalDue, outstanding, status, statusHistory,
     }))!;
