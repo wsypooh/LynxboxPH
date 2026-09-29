@@ -50,7 +50,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.exec
 
 const propertySchema = z.object({
   title: z.string().min(1, 'Title is required').max(100, 'Title must be less than 100 characters'),
-  description: z.string().min(1, 'Description is required').max(1000, 'Description must be less than 1000 characters'),
+  description: z.string().min(1, 'Description is required').max(2000, 'Description must be less than 2000 characters'),
   type: z.enum(['office', 'retail', 'warehouse', 'industrial', 'land'] as const),
   price: z.number().min(0, 'Price must be a positive number'),
   currency: z.string().default('PHP'),
@@ -405,14 +405,14 @@ export function PropertyForm({
                       {...register('description')}
                       placeholder="Describe your property"
                       rows={4}
-                      maxLength={1000}
+                      maxLength={2000}
                     />
                     <Flex justify="space-between" mt={1}>
                       <Text color="red.500" fontSize="sm">
                         {errors.description?.message}
                       </Text>
-                      <Text fontSize="xs" color={descriptionLength > 1000 ? 'red.500' : 'gray.500'}>
-                        {descriptionLength}/1000
+                      <Text fontSize="xs" color={descriptionLength > 2000 ? 'red.500' : 'gray.500'}>
+                        {descriptionLength}/2000
                       </Text>
                     </Flex>
                   </FormControl>

@@ -18,7 +18,7 @@ export interface PaymentMethodDetails {
 export const PAYMENT_METHOD_DETAILS: Record<PaymentMethod, PaymentMethodDetails> = {
   gcash: {
     qrImage: '/payment-qr/gcash-qr.png',
-    accountName: 'Willie Jr Sy',
+    accountName: 'Lynxbox PH',
     accountNumber: '09088109279',
   },
   maya: {
@@ -28,7 +28,7 @@ export const PAYMENT_METHOD_DETAILS: Record<PaymentMethod, PaymentMethodDetails>
   },
   bank_transfer: {
     qrImage: '/payment-qr/bank-transfer-qr.png',
-    accountName: 'Willie Sy',
+    accountName: 'Lynxbox PH',
     accountNumber: '1094 5350 8078',
     bankName: 'Unionbank',
   },

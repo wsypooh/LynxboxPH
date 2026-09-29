@@ -17,13 +17,13 @@ import { PlanGatedButton } from '@/components/PlanGatedButton';
 
 const FILTERS_KEY = 'invoices-filters-v1';
 
-function loadStoredFilters(): { month: string; status: string; building: string; lessee: string } {
+function loadStoredFilters(): { month: string; status: string; building: string; lessee: string; waived: string } {
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   try {
-    return { month: defaultMonth, status: '', building: '', lessee: '', ...JSON.parse(localStorage.getItem(FILTERS_KEY) ?? '{}') };
+    return { month: defaultMonth, status: '', building: '', lessee: '', waived: '', ...JSON.parse(localStorage.getItem(FILTERS_KEY) ?? '{}') };
   } catch {
-    return { month: defaultMonth, status: '', building: '', lessee: '' };
+    return { month: defaultMonth, status: '', building: '', lessee: '', waived: '' };
   }
 }
 
@@ -36,6 +36,7 @@ export default function InvoicesPage() {
   const [filterStatus, setFilterStatus] = useState(() => loadStoredFilters().status);
   const [filterBuilding, setFilterBuilding] = useState(() => loadStoredFilters().building);
   const [filterLessee, setFilterLessee] = useState(() => loadStoredFilters().lessee);
+  const [filterWaived, setFilterWaived] = useState(() => loadStoredFilters().waived);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -73,10 +74,10 @@ export default function InvoicesPage() {
   useEffect(() => {
     try {
       localStorage.setItem(FILTERS_KEY, JSON.stringify({
-        month: filterMonth, status: filterStatus, building: filterBuilding, lessee: filterLessee,
+        month: filterMonth, status: filterStatus, building: filterBuilding, lessee: filterLessee, waived: filterWaived,
       }));
     } catch {}
-  }, [filterMonth, filterStatus, filterBuilding, filterLessee]);
+  }, [filterMonth, filterStatus, filterBuilding, filterLessee, filterWaived]);
 
   const filtered = useMemo(() => {
     let result = filterBuilding ? invoices.filter(inv => inv.buildingId === filterBuilding) : invoices;
@@ -87,8 +88,10 @@ export default function InvoicesPage() {
         inv.tenantCode?.toLowerCase().includes(q)
       );
     }
+    if (filterWaived === 'waived') result = result.filter(inv => inv.waived);
+    else if (filterWaived === 'not-waived') result = result.filter(inv => !inv.waived);
     return result;
-  }, [invoices, filterBuilding, filterLessee]);
+  }, [invoices, filterBuilding, filterLessee, filterWaived]);
 
   const selectedInvoices = useMemo(() =>
     filtered.filter(inv => selectedIds.has(inv.id)),
@@ -227,6 +230,14 @@ export default function InvoicesPage() {
             <option value="sent">Sent</option>
             <option value="partial">Partial</option>
             <option value="paid">Paid</option>
+          </Select>
+          <Select
+            size="sm" value={filterWaived}
+            onChange={e => { setFilterWaived(e.target.value); setSelectedIds(new Set()); }}
+            placeholder="All Invoices" w="160px"
+          >
+            <option value="waived">Payment Waived</option>
+            <option value="not-waived">Not Waived</option>
           </Select>
 
           {selectedIds.size > 0 && (
