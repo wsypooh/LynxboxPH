@@ -41,6 +41,7 @@ import { PropertyInput, PropertyType, PropertyStatus, Property, propertyService 
 import { validateImageFile } from '@/lib/utils';
 import { PH_PROVINCES, getCitiesForProvince } from '@/data/philippineLocations';
 import { CloseIcon, AddIcon } from '@chakra-ui/icons';
+import { FiMove } from 'react-icons/fi';
 import { useAuth } from '@/features/auth/AuthContext';
 import { getCurrentUserId } from '@/lib/auth';
 import { SecureImage } from '@/components/SecureImage';
@@ -92,6 +93,22 @@ type PropertyFormData = z.infer<typeof propertySchema>;
 type ImageItem =
   | { kind: 'existing'; key: string }
   | { kind: 'new'; file: File; previewUrl: string };
+
+function moveArrayItem<T>(arr: T[], from: number, to: number): T[] {
+  const copy = [...arr];
+  const [item] = copy.splice(from, 1);
+  copy.splice(to, 0, item);
+  return copy;
+}
+
+// Keeps `defaultImageIndex` pointing at the same image after a drag-and-drop reorder,
+// rather than staying pinned to whatever position it used to be (which would silently
+// re-point "default" at a different photo).
+function moveIndexAfterReorder(index: number, from: number, to: number): number {
+  if (index === from) return to;
+  if (from < to) return index > from && index <= to ? index - 1 : index;
+  return index >= to && index < from ? index + 1 : index;
+}
 
 interface PropertyFormProps {
   onSuccess?: (property: Property) => void;
@@ -244,6 +261,37 @@ export function PropertyForm({
 
   const handleDefaultImageSelect = useCallback((index: number) => {
     setDefaultImageIndex(index);
+  }, []);
+
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const reorderImages = useCallback((from: number, to: number) => {
+    if (from === to) return;
+    setImages(prev => moveArrayItem(prev, from, to));
+    setDefaultImageIndex(prev => (prev === undefined ? prev : moveIndexAfterReorder(prev, from, to)));
+  }, []);
+
+  const handleImageDragStart = useCallback((index: number) => (e: React.DragEvent) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleImageDragOver = useCallback((index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (dragOverIndex !== index) setDragOverIndex(index);
+  }, [dragOverIndex]);
+
+  const handleImageDrop = useCallback((index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (dragIndex !== null) reorderImages(dragIndex, index);
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }, [dragIndex, reorderImages]);
+
+  const handleImageDragEnd = useCallback(() => {
+    setDragIndex(null);
+    setDragOverIndex(null);
   }, []);
 
   // Load existing images when editing
@@ -707,21 +755,45 @@ export function PropertyForm({
                         </FormLabel>
                         <Text fontSize="xs" color="gray.600" mb={2}>
                           Choose which image will be shown as the primary image for your property.
+                          Drag an image to reorder the gallery.
                         </Text>
                       </FormControl>
                       <Grid templateColumns="repeat(auto-fill, minmax(150px, 1fr))" gap={4}>
                         {images.map((item, index) => {
                           return (
-                            <Box key={index} position="relative">
+                            <Box
+                              key={index}
+                              position="relative"
+                              draggable
+                              onDragStart={handleImageDragStart(index)}
+                              onDragOver={handleImageDragOver(index)}
+                              onDrop={handleImageDrop(index)}
+                              onDragEnd={handleImageDragEnd}
+                              opacity={dragIndex === index ? 0.4 : 1}
+                              cursor="grab"
+                            >
                               <Box
                                 position="relative"
                                 borderWidth={defaultImageIndex === index ? "3px" : "1px"}
                                 borderColor={defaultImageIndex === index ? "blue.500" : "gray.200"}
+                                boxShadow={dragOverIndex === index && dragIndex !== null && dragIndex !== index ? '0 0 0 2px var(--chakra-colors-teal-400)' : undefined}
                                 borderRadius="md"
                                 overflow="hidden"
-                                cursor="pointer"
                                 onClick={() => handleDefaultImageSelect(index)}
                               >
+                                <Box
+                                  position="absolute"
+                                  top={1}
+                                  right={1}
+                                  bg="rgba(0,0,0,0.5)"
+                                  color="white"
+                                  borderRadius="full"
+                                  p={1}
+                                  zIndex={1}
+                                  pointerEvents="none"
+                                >
+                                  <FiMove size={12} />
+                                </Box>
                                 {item.kind === 'existing' ? (
                                   <SecureImage
                                     propertyId={activePropertyId}
