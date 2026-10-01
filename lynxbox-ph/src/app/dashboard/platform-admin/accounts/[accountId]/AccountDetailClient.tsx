@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
 import {
   Box, Heading, Text, Spinner, useToast, SimpleGrid, Card, CardHeader, CardBody,
   Table, Thead, Tbody, Tr, Th, Td, Badge, HStack, Select, Button, Input,
@@ -22,13 +21,21 @@ function formatCurrency(amount: number): string {
   return (amount ?? 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
 }
 
+// Static export only ever pre-renders one placeholder page (accountId: '_'); CloudFront
+// rewrites the request to that placeholder's file on a direct/fresh load but never changes
+// what the browser's address bar shows. Next's client router also hydrates useParams() from
+// that same frozen build-time value rather than the live URL (to avoid a hydration mismatch
+// on first paint), so neither the server-passed prop nor useParams() carry the real id here
+// -- confirmed against a real hard-refreshed load, not just in theory. Reading
+// window.location.pathname directly is the only thing that reflects the real current URL.
+function resolveAccountIdFromLocation(fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  const match = window.location.pathname.match(/\/dashboard\/platform-admin\/accounts\/([^/]+)\/?$/);
+  return match?.[1] || fallback;
+}
+
 export default function AccountDetailClient({ accountId: staticAccountId }: { accountId: string }) {
-  // Static export only ever pre-renders one placeholder page (accountId: '_') -- the
-  // server-rendered `staticAccountId` prop is frozen at that build-time value forever.
-  // useParams() re-derives the real id from the browser's actual current URL once this
-  // client component hydrates, which is what must be used for the real fetch below.
-  const routeParams = useParams<{ accountId?: string }>();
-  const accountId = routeParams?.accountId || staticAccountId;
+  const [accountId] = useState(() => resolveAccountIdFromLocation(staticAccountId));
   const [detail, setDetail] = useState<AccountDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<Plan>('free');
