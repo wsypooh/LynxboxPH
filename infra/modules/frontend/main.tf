@@ -83,8 +83,24 @@ resource "aws_s3_bucket_policy" "frontend_oai_read" {
   })
 }
 
-# CloudFront Function: rewrite extensionless URLs to .html
-# Next.js static export produces /foo.html — this lets visitors use /foo.
+# CloudFront Function: rewrite extensionless URLs to .html, and rewrite internal
+# dashboard dynamic-id routes back to their single pre-rendered "_" placeholder.
+#
+# This repo's static-export convention (CLAUDE.md's "Static export" section) only ever
+# pre-renders one placeholder param per dynamic dashboard route (e.g.
+# dashboard/tenants/[id] -> only dashboard/tenants/_.html exists in S3) and relies on
+# client-side JS to read the real id from the URL at runtime. That only works for
+# in-app client-side navigation, which never hits the network for the new path. A
+# direct/fresh load of a real id (bookmark, shared link, refresh, pasted URL) asks S3
+# for a file that was never generated, gets a 403 (private OAI bucket), and without
+# this rewrite falls through to the custom_error_response below -- which silently
+# serves the unrelated /realtor.html with a 200, not an error. Confirmed in production
+# 2026-10-01 on /dashboard/platform-admin/accounts/{id}, /dashboard/tenants/{id}, and
+# /dashboard/invoices/{id} all alike.
+#
+# NOT used for the public /properties/[id] page -- that one pre-renders real property
+# ids (not a single placeholder) for SEO/link-preview reasons, a separate, bigger
+# problem tracked on its own (see docs/Property-Listing-Plan.md).
 resource "aws_cloudfront_function" "url_rewrite" {
   provider = aws.us_east_1
   name     = "${var.project_name}-${var.environment}-url-rewrite"
@@ -94,7 +110,35 @@ resource "aws_cloudfront_function" "url_rewrite" {
   code = <<-JS
     async function handler(event) {
       const request = event.request;
-      const uri = request.uri;
+      let uri = request.uri;
+
+      // Each entry's prefix only ever has one real pre-rendered param, "_" -- every
+      // literal sibling route under the same parent path must be listed in
+      // exceptions so it isn't misrewritten.
+      const DYNAMIC_ID_ROUTES = [
+        { prefix: '/dashboard/tenants/', exceptions: ['detail'] },
+        { prefix: '/dashboard/invoices/', exceptions: ['detail', 'new'] },
+        { prefix: '/dashboard/platform-admin/accounts/', exceptions: [] },
+      ];
+
+      for (let i = 0; i < DYNAMIC_ID_ROUTES.length; i++) {
+        const route = DYNAMIC_ID_ROUTES[i];
+        if (uri.indexOf(route.prefix) === 0) {
+          const segment = uri.slice(route.prefix.length).replace(/\/$/, '');
+          // Only rewrite a single trailing id segment -- not a deeper sub-path, not
+          // something that already looks like a file, and not a known real page.
+          if (
+            segment.length > 0 &&
+            segment.indexOf('/') === -1 &&
+            segment.indexOf('.') === -1 &&
+            route.exceptions.indexOf(segment) === -1
+          ) {
+            uri = route.prefix + '_';
+            request.uri = uri;
+          }
+          break;
+        }
+      }
 
       if (uri.endsWith('/')) {
         request.uri = uri + 'index.html';
