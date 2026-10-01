@@ -27,7 +27,7 @@ export default function ConfirmSignupPage() {
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [isConfirmed, setIsConfirmed] = useState(false);
-  
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const toast = useToast();
@@ -43,6 +43,28 @@ export default function ConfirmSignupPage() {
       router.push('/auth/signup');
     }
   }, [searchParams, router]);
+
+  // Internal "new signup" notification — reuses the same public, unauthenticated
+  // /api/signup endpoint the marketing lead forms (e.g. /business-address) already post
+  // to, which already emails ZEPTOMAIL_INTERNAL_EMAIL via sendInternalNotification().
+  // Fire-and-forget: never blocks or surfaces an error on the signup flow itself.
+  const notifyInternalOfSignup = async (confirmedEmail: string) => {
+    try {
+      const name = searchParams.get('name');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://rw11kscwd5.execute-api.ap-southeast-1.amazonaws.com/dev';
+      await fetch(`${apiUrl}/api/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name ? decodeURIComponent(name) : confirmedEmail,
+          email: confirmedEmail,
+          source: 'account-signup',
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to send internal signup notification:', err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +83,7 @@ export default function ConfirmSignupPage() {
       });
       
       setIsConfirmed(true);
+      notifyInternalOfSignup(email);
 
       toast({
         title: 'Email verified!',

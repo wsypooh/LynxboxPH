@@ -113,6 +113,18 @@ export class BillingHandler {
     }
 
     const updated = await AccountRepository.startTrial(actor.accountId, plan, billingCycle);
+
+    try {
+      await mailer.sendNewTrialStartedAdminNotification({
+        accountId: actor.accountId,
+        accountEmail: actor.email || null,
+        plan,
+        billingCycle,
+      });
+    } catch (err) {
+      console.error('Failed to send new-trial-started admin notification:', err);
+    }
+
     return ApiResponse.success({ account: updated });
   }
 

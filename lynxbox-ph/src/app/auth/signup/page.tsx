@@ -86,7 +86,7 @@ export default function SignUpPage() {
       const plan = searchParams.get('plan');
       const cycle = searchParams.get('cycle');
       const planParams = plan ? `&plan=${plan}&cycle=${cycle || 'monthly'}` : '';
-      router.push(`/auth/confirm-signup?email=${encodeURIComponent(data.email)}${planParams}`);
+      router.push(`/auth/confirm-signup?email=${encodeURIComponent(data.email)}&name=${encodeURIComponent(data.name)}${planParams}`);
     } catch (err: any) {
       console.error('Error signing up:', err);
       setError(err.message || 'An error occurred during sign up');

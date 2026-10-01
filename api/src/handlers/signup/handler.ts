@@ -81,9 +81,12 @@ export class SignupHandler {
 
       const zeptoMailService = new ZeptoMailService();
 
-      // Send welcome email only when email is provided and source is not a property listing
-      const isPropertyListing = data.source === 'one-regis-upper-penthouse';
-      if (data.email && !isPropertyListing) {
+      // Send the "waiting list" welcome email only for marketing-lead sources — a real
+      // account signup (source: 'account-signup') already gets Cognito's own verification
+      // email and shouldn't also be told they're on an early-access waiting list.
+      const WAITLIST_WELCOME_EXCLUDED_SOURCES = ['one-regis-upper-penthouse', 'account-signup'];
+      const skipWelcomeEmail = WAITLIST_WELCOME_EXCLUDED_SOURCES.includes(data.source || '');
+      if (data.email && !skipWelcomeEmail) {
         try {
           await zeptoMailService.sendWelcomeEmail(data.email, data.name, data.source);
           console.log(`Welcome email sent successfully to ${data.email}`);

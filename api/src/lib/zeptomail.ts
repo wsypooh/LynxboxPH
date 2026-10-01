@@ -594,4 +594,30 @@ Helping Small Commercial Landlords Go Digital`;
       html,
     });
   }
+
+  async sendNewTrialStartedAdminNotification(data: {
+    accountId: string;
+    accountEmail: string | null;
+    plan: string;
+    billingCycle: string;
+  }): Promise<void> {
+    const apiKey = process.env.ZEPTOMAIL_API_KEY;
+    if (!apiKey) return;
+
+    const html = this.wrapSimpleEmail(
+      'New free trial started',
+      `<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+         <tr><td style="padding: 8px; font-weight: 600;">Account</td><td style="padding: 8px;">${data.accountEmail || data.accountId}</td></tr>
+         <tr><td style="padding: 8px; font-weight: 600;">Plan</td><td style="padding: 8px;">${data.plan} (${data.billingCycle})</td></tr>
+       </table>
+       <a class="button" href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/platform-admin/accounts/${data.accountId}">View Account</a>`
+    );
+
+    await this.transporter.sendMail({
+      from: `"Lynxbox PH" <${process.env.ZEPTOMAIL_SENDER_EMAIL || 'noreply@lynxbox.ph'}>`,
+      to: process.env.ZEPTOMAIL_INTERNAL_EMAIL || 'wsypooh@gmail.com',
+      subject: `New trial started — ${data.accountEmail || data.accountId}`,
+      html,
+    });
+  }
 }
