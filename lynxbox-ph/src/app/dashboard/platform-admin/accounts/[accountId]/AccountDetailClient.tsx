@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import {
   Box, Heading, Text, Spinner, useToast, SimpleGrid, Card, CardHeader, CardBody,
   Table, Thead, Tbody, Tr, Th, Td, Badge, HStack, Select, Button, Input,
@@ -21,7 +22,13 @@ function formatCurrency(amount: number): string {
   return (amount ?? 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
 }
 
-export default function AccountDetailClient({ accountId }: { accountId: string }) {
+export default function AccountDetailClient({ accountId: staticAccountId }: { accountId: string }) {
+  // Static export only ever pre-renders one placeholder page (accountId: '_') -- the
+  // server-rendered `staticAccountId` prop is frozen at that build-time value forever.
+  // useParams() re-derives the real id from the browser's actual current URL once this
+  // client component hydrates, which is what must be used for the real fetch below.
+  const routeParams = useParams<{ accountId?: string }>();
+  const accountId = routeParams?.accountId || staticAccountId;
   const [detail, setDetail] = useState<AccountDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<Plan>('free');
