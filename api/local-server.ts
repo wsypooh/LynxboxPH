@@ -207,6 +207,10 @@ app.all('/api/public/properties/:id/contact', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
 
+app.all('/api/public/properties/:id/track-contact', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+
 app.all('/api/public/listings/:id/images/view-url', async (req, res) => {
   await handlePropertyRequest(req, res);
 });

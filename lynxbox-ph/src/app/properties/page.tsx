@@ -378,7 +378,6 @@ export default function PropertiesPage() {
                   <option value="price-desc">Price: High to Low</option>
                   <option value="area-asc">Area: Small to Large</option>
                   <option value="area-desc">Area: Large to Small</option>
-                  <option value="views-desc">Most Viewed</option>
                 </Select>
               </HStack>
 

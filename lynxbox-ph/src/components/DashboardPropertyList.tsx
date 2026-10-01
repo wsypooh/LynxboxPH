@@ -1102,6 +1102,12 @@ export function DashboardPropertyList({
                         {property.viewCount !== undefined && (
                           <Text>👁️ {property.viewCount.toLocaleString()} views</Text>
                         )}
+                        {property.callCount !== undefined && (
+                          <Text>📞 {property.callCount.toLocaleString()} calls</Text>
+                        )}
+                        {property.emailCount !== undefined && (
+                          <Text>✉️ {property.emailCount.toLocaleString()} emails</Text>
+                        )}
                       </HStack>
 
                       <Spacer />
@@ -1246,6 +1252,8 @@ export function DashboardPropertyList({
                           {getSortIcon('views')}
                         </Button>
                       </Th>
+                      <Th minW="60px">Calls</Th>
+                      <Th minW="60px">Emails</Th>
                       <Th minW="80px">Actions</Th>
                     </Tr>
                   </Thead>
@@ -1298,6 +1306,16 @@ export function DashboardPropertyList({
                         <Td>
                           <Text fontSize="xs">
                             {property.viewCount?.toLocaleString() || 0}
+                          </Text>
+                        </Td>
+                        <Td>
+                          <Text fontSize="xs">
+                            {property.callCount?.toLocaleString() || 0}
+                          </Text>
+                        </Td>
+                        <Td>
+                          <Text fontSize="xs">
+                            {property.emailCount?.toLocaleString() || 0}
                           </Text>
                         </Td>
                         <Td>

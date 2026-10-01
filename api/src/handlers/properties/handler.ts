@@ -8,10 +8,10 @@ import { ddbDocClient } from '../../lib/dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { S3Service } from '../../lib/s3';
 import { watermarkConfig, getWatermarkOptions } from '../../config/watermark';
-import { canDestroy, canWrite, resolveActor } from '../../lib/auth';
+import { canDestroy, canWrite, resolveActor, getHeader } from '../../lib/auth';
 import { PLAN_LIMITS, SEARCH_PLACEMENT_RANK } from '../../lib/planLimits';
 import { AccountRepository } from '../../repositories/accountRepository';
-import { maskContactInfo } from '../../lib/contactMasking';
+import { sanitizePublicProperty, isLikelyBot } from '../../lib/contactMasking';
 
 export class PropertyHandler {
   static async createProperty(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -126,13 +126,17 @@ export class PropertyHandler {
         return ApiResponse.error('Property not available', 404);
       }
 
-      // Increment view count for public views
-      await PropertyRepository.incrementViewCount(id);
+      // Increment view count for public views, skipping obvious bots/crawlers/link-preview
+      // fetchers so the count stays a rough signal of real visitors rather than scraper noise.
+      const userAgent = getHeader(event, 'User-Agent');
+      if (!isLikelyBot(userAgent)) {
+        await PropertyRepository.incrementViewCount(id);
+      }
 
-      // Real phone/email are never sent to unauthenticated callers — only a masked form,
-      // to keep the public list/search/detail responses from being scraped in bulk. The
-      // real values are fetched one at a time via getPublicContactInfo below, on demand.
-      return ApiResponse.success({ ...property, contactInfo: maskContactInfo(property.contactInfo) });
+      // viewCount/callCount/emailCount are owner/platform-admin-only — never sent to
+      // unauthenticated callers, same reasoning as masking phone/email. Real phone/email are
+      // fetched one at a time via getPublicContactInfo below, on demand.
+      return ApiResponse.success(sanitizePublicProperty(property));
 
     } catch (error) {
       console.error('Error fetching public property:', error);
@@ -166,6 +170,36 @@ export class PropertyHandler {
     }
   }
 
+  // Fired explicitly by the frontend when a visitor actually uses the revealed phone/email
+  // (tapping Call/Email), not when the number is merely revealed — getPublicContactInfo's
+  // result is cached client-side (ensureContactRevealed), so a click on the second button
+  // after the first doesn't call that endpoint again and can't be counted from there.
+  static async trackContactClick(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const id = event.pathParameters?.id;
+      if (!id) {
+        return ApiResponse.error('Property ID is required', 400);
+      }
+
+      const body = event.body ? JSON.parse(event.body) : {};
+      if (body.type !== 'call' && body.type !== 'email') {
+        return ApiResponse.error("type must be 'call' or 'email'", 400);
+      }
+
+      const property = await PropertyRepository.findById(id);
+      if (!property || property.deletedAt || property.status !== 'available' || !isListingCurrentlyVisible(property)) {
+        return ApiResponse.notFound('Property not found');
+      }
+
+      await PropertyRepository.incrementContactCount(id, body.type);
+      return ApiResponse.success({ tracked: true });
+
+    } catch (error) {
+      console.error('Error tracking contact click:', error);
+      return ApiResponse.error('Failed to track contact click', 500);
+    }
+  }
+
   static async listPublicProperties(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const params = event.queryStringParameters || {};
@@ -188,7 +222,7 @@ export class PropertyHandler {
       }
 
       const sortedItems = sortBy ? result.items : await PropertyHandler.sortByPlacement(result.items);
-      const items = sortedItems.map(item => ({ ...item, contactInfo: maskContactInfo(item.contactInfo) }));
+      const items = sortedItems.map(item => sanitizePublicProperty(item));
       const response: any = { items };
       if (result.lastEvaluatedKey) {
         response.lastKey = encodeURIComponent(JSON.stringify(result.lastEvaluatedKey));
@@ -309,15 +343,16 @@ export class PropertyHandler {
         }
       }
 
-      // Remove fields that shouldn't be updated. expiresAt/listingSuspended/viewCount are
-      // server-computed (plan limits, payment status, view tracking) -- letting a client set
-      // them directly would let an owner extend their own listing's visibility window past
-      // what their plan allows, or clear a payment-related suspension, just by including the
-      // field in an otherwise-normal update body.
+      // Remove fields that shouldn't be updated. expiresAt/listingSuspended/viewCount/
+      // callCount/emailCount are server-computed (plan limits, payment status, engagement
+      // tracking) -- letting a client set them directly would let an owner extend their own
+      // listing's visibility window past what their plan allows, clear a payment-related
+      // suspension, or fabricate engagement numbers, just by including the field in an
+      // otherwise-normal update body.
       // deletedAt stripped too: this route only requires canWrite, so leaving it through
       // would let a manager/staff member soft-delete/resurrect a property without the
       // owner-only canDestroy permission deleteProperty enforces.
-      const { id: _, ownerId, createdAt, propertyNumber, removeImages, renew, expiresAt, listingSuspended, viewCount, deletedAt, ...validUpdates } = updates;
+      const { id: _, ownerId, createdAt, propertyNumber, removeImages, renew, expiresAt, listingSuspended, viewCount, callCount, emailCount, deletedAt, ...validUpdates } = updates;
       validUpdates.images = finalImages;
 
       // Same "visibility clock only runs while actually live" rule createProperty follows —
@@ -602,7 +637,7 @@ export class PropertyHandler {
       // Use unified filter method for public search
       const result = await PropertyRepository.filter(filters);
       const sortedItems = filters.sortBy ? result.items : await PropertyHandler.sortByPlacement(result.items);
-      const items = sortedItems.map(item => ({ ...item, contactInfo: maskContactInfo(item.contactInfo) }));
+      const items = sortedItems.map(item => sanitizePublicProperty(item));
 
       return ApiResponse.success({
         items,
@@ -886,6 +921,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } else if (httpMethod === 'GET' && path.includes('/api/public/properties/') && path.includes('/contact')) {
       // Matches /api/public/properties/{id}/contact - MUST come before generic /api/public/properties/{id}
       return PropertyHandler.getPublicContactInfo(event);
+    } else if (httpMethod === 'POST' && path.includes('/api/public/properties/') && path.includes('/track-contact')) {
+      // Matches /api/public/properties/{id}/track-contact - MUST come before generic /api/public/properties/{id}
+      return PropertyHandler.trackContactClick(event);
     } else if (httpMethod === 'GET' && path.includes('/api/public/properties') && event.pathParameters?.id) {
       // Matches /api/public/properties/{id} - check for path parameter
       return PropertyHandler.getPublicProperty(event);

@@ -1,5 +1,6 @@
 export interface Property {
   id: string
+  propertyNumber?: string
   title: string
   description: string
   type: PropertyType
@@ -30,6 +31,8 @@ export interface Property {
   createdAt: string
   updatedAt: string
   viewCount: number
+  callCount?: number
+  emailCount?: number
   contactInfo: {
     name: string
     phone: string

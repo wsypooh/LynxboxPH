@@ -46,6 +46,8 @@ export interface Property {
   status: PropertyStatus;
   ownerId: string;
   viewCount?: number;
+  callCount?: number;
+  emailCount?: number;
   contactInfo: PropertyContactInfo;
   createdAt: string;
   updatedAt: string;
@@ -222,6 +224,21 @@ class PropertyService {
       `/api/public/properties/${id}/contact`, {}, false // No auth required
     );
     return response.data;
+  }
+
+  // getPublicPropertyContact's result is cached client-side (ensureContactRevealed), so it
+  // only ever hits the API once even if both Call and Email are clicked — this fires on every
+  // actual click instead, which is what view/call/email counts are meant to measure.
+  // Fire-and-forget: a tracking failure should never block or surface an error to the visitor.
+  async trackContactClick(id: string, type: 'call' | 'email'): Promise<void> {
+    try {
+      await this.request(`/api/public/properties/${id}/track-contact`, {
+        method: 'POST',
+        body: JSON.stringify({ type }),
+      }, false); // No auth required
+    } catch (error) {
+      console.error('Failed to track contact click:', error);
+    }
   }
 
   async getProperty(id: string): Promise<Property> {

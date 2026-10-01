@@ -68,6 +68,10 @@ functions:
           method: get
           cors: true
       - http:
+          path: /api/public/properties/{id}/track-contact
+          method: post
+          cors: true
+      - http:
           path: /api/properties
           method: get
           cors: true

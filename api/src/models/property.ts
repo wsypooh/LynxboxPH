@@ -43,6 +43,8 @@ export interface Property extends BaseEntity {
   status: string;
   ownerId: string;
   viewCount?: number;  // Make this optional
+  callCount?: number;  // Times a visitor revealed and used the phone number to call
+  emailCount?: number; // Times a visitor revealed and used the email address
   contactInfo: PropertyContactInfo;
   deletedAt?: string;
   // Set at creation from the owner's plan (docs/Pricing-Strategy-Plan.md) — null means it never expires.
@@ -55,7 +57,7 @@ export interface Property extends BaseEntity {
 }
 
 // Type for creating a new property (excludes auto-generated fields, but allows optional id)
-export type PropertyInput = Omit<Property, keyof BaseEntity | 'viewCount' | 'propertyNumber' | 'PK' | 'SK' | 'GSI1PK' | 'GSI1SK' | 'entityType' | 'createdAt' | 'updatedAt'> & { id?: string };
+export type PropertyInput = Omit<Property, keyof BaseEntity | 'viewCount' | 'callCount' | 'emailCount' | 'propertyNumber' | 'PK' | 'SK' | 'GSI1PK' | 'GSI1SK' | 'entityType' | 'createdAt' | 'updatedAt'> & { id?: string };
 
 export function createProperty(data: PropertyInput, propertyNumber: string): Property {
   console.log('=== CREATE PROPERTY MODEL === data.id:', data.id);
@@ -74,6 +76,8 @@ export function createProperty(data: PropertyInput, propertyNumber: string): Pro
     id,
     propertyNumber,
     viewCount: 0,  // Default value
+    callCount: 0,
+    emailCount: 0,
     createdAt: now,
     updatedAt: now,
     // Required fields from input

@@ -52,7 +52,7 @@ function getSub(event: APIGatewayProxyEvent): string | null {
 }
 
 // API Gateway header casing isn't guaranteed to match what the client sent.
-function getHeader(event: APIGatewayProxyEvent, name: string): string | undefined {
+export function getHeader(event: APIGatewayProxyEvent, name: string): string | undefined {
   const headers = event.headers || {};
   const lower = name.toLowerCase();
   const key = Object.keys(headers).find(k => k.toLowerCase() === lower);

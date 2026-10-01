@@ -177,6 +177,27 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
         </Card>
       </SimpleGrid>
 
+      <Heading size="md" mb={3}>Properties</Heading>
+      <Box overflowX="auto" mb={8}>
+        <Table variant="simple">
+          <Thead>
+            <Tr><Th>Property #</Th><Th>Title</Th><Th>Status</Th><Th isNumeric>Views</Th><Th isNumeric>Calls</Th><Th isNumeric>Emails</Th></Tr>
+          </Thead>
+          <Tbody>
+            {detail.properties.map(p => (
+              <Tr key={p.id}>
+                <Td>{p.propertyNumber}</Td>
+                <Td>{p.title}</Td>
+                <Td><Badge>{p.status}</Badge></Td>
+                <Td isNumeric>{(p.viewCount || 0).toLocaleString()}</Td>
+                <Td isNumeric>{(p.callCount || 0).toLocaleString()}</Td>
+                <Td isNumeric>{(p.emailCount || 0).toLocaleString()}</Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </Box>
+
       <Heading size="md" mb={3}>Tenants</Heading>
       <Box overflowX="auto" mb={8}>
         <Table variant="simple">

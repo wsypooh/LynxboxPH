@@ -116,6 +116,8 @@ export class PropertyRepository {
       createdAt: Item.createdAt,
       updatedAt: Item.updatedAt,
       viewCount: Item.viewCount || 0,
+      callCount: Item.callCount || 0,
+      emailCount: Item.emailCount || 0,
     } as Property;
   }
 
@@ -619,6 +621,27 @@ export class PropertyRepository {
     } catch (error) {
       console.error('Error incrementing view count:', error);
       // Don't throw error - view count increment shouldn't break the main flow
+    }
+  }
+
+  static async incrementContactCount(id: string, type: 'call' | 'email'): Promise<void> {
+    const field = type === 'call' ? 'callCount' : 'emailCount';
+    try {
+      await ddbDocClient.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: createPropertyKeys(id),
+        UpdateExpression: 'ADD #field :inc',
+        ExpressionAttributeNames: {
+          '#field': field
+        },
+        ExpressionAttributeValues: {
+          ':inc': 1
+        },
+        ReturnValues: 'NONE'
+      }));
+    } catch (error) {
+      console.error('Error incrementing contact count:', error);
+      // Don't throw error - contact count increment shouldn't break the main flow
     }
   }
 

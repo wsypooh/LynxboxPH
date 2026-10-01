@@ -15,7 +15,6 @@ import {
   CardBody,
   Icon,
   Flex,
-  Spacer,
   Divider,
   Alert,
   AlertIcon,
@@ -27,7 +26,6 @@ import {
   MapPin,
   Square,
   Car,
-  Eye,
   Phone,
   Mail,
   Wifi,
@@ -141,6 +139,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
   const handleEmail = async () => {
     const contact = await ensureContactRevealed()
     if (contact?.email && property?.title) {
+      if (property?.id) propertyService.trackContactClick(property.id, 'email')
       window.open(`mailto:${contact.email}?subject=Inquiry about ${property.title}`, '_self')
     }
   }
@@ -148,6 +147,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
   const handleContact = async () => {
     const contact = await ensureContactRevealed()
     if (contact?.phone) {
+      if (property?.id) propertyService.trackContactClick(property.id, 'call')
       window.open(`tel:${contact.phone}`, '_self')
     }
   }
@@ -243,11 +243,6 @@ export default function PropertyDetailClient({ id }: { id: string }) {
                   <Badge colorScheme={getStatusColor(property?.status || '')} textTransform="capitalize">
                     {property?.status || 'N/A'}
                   </Badge>
-                  <Spacer />
-                  <HStack spacing={2} color="gray.500" fontSize="sm">
-                    <Icon as={Eye} boxSize={4} />
-                    <Text>{property?.viewCount} views</Text>
-                  </HStack>
                 </HStack>
 
                 <Heading size="xl" mb={2}>

@@ -417,6 +417,16 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
                     <Text>Views</Text>
                     <Text>{property.viewCount || 0}</Text>
                   </HStack>
+
+                  <HStack justify="space-between">
+                    <Text>Calls</Text>
+                    <Text>{property.callCount || 0}</Text>
+                  </HStack>
+
+                  <HStack justify="space-between">
+                    <Text>Emails</Text>
+                    <Text>{property.emailCount || 0}</Text>
+                  </HStack>
                 </VStack>
               </VStack>
             </CardBody>

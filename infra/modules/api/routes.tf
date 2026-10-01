@@ -117,6 +117,14 @@ resource "aws_apigatewayv2_route" "get_public_contact_info" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Fired when a visitor actually taps Call/Email (not on mere reveal) — view/call/email
+# counts are owner/platform-admin-only, never sent back in any public response.
+resource "aws_apigatewayv2_route" "track_contact_click" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /api/public/properties/{id}/track-contact"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 resource "aws_apigatewayv2_route" "search_public_properties" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /api/public/search"

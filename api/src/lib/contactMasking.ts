@@ -41,3 +41,26 @@ export function maskContactInfo<T extends { phone?: string; email?: string }>(co
     ...(contactInfo.email ? { email: maskEmail(contactInfo.email) } : {}),
   };
 }
+
+// Engagement counters (viewCount/callCount/emailCount) are owner/platform-admin-only —
+// never sent to unauthenticated callers, same reasoning as masking phone/email above.
+// Use this at every public list/search/detail response in place of a raw `{ ...item }` spread.
+export function sanitizePublicProperty<T extends {
+  contactInfo: { phone?: string; email?: string };
+  viewCount?: number;
+  callCount?: number;
+  emailCount?: number;
+}>(item: T): Omit<T, 'viewCount' | 'callCount' | 'emailCount'> {
+  const { viewCount, callCount, emailCount, ...rest } = item;
+  return { ...rest, contactInfo: maskContactInfo(item.contactInfo) };
+}
+
+// No bot-filtering precedent exists elsewhere in this codebase — this is a pragmatic,
+// best-effort reduction of the most common crawler/link-preview noise on the public view
+// counter, not a real anti-scraping measure (a determined scraper can still spoof UA).
+const BOT_USER_AGENT_PATTERN = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegrambot|discordbot|linkedinbot|pinterest|embedly|quora|outbrain|w3c_validator|headlesschrome|preview/i;
+
+export function isLikelyBot(userAgent?: string | null): boolean {
+  if (!userAgent) return false;
+  return BOT_USER_AGENT_PATTERN.test(userAgent);
+}

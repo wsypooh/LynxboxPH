@@ -15,7 +15,7 @@ import {
   Flex,
   Spacer,
 } from '@chakra-ui/react'
-import { MapPin, Square, Car, Eye, Phone, Mail } from 'lucide-react'
+import { MapPin, Square, Car, Phone, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { Property } from '@/services/propertyService'
 import { SecureImage } from '@/components/SecureImage'
@@ -124,10 +124,6 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
             <HStack spacing={1}>
               <Icon as={Car} boxSize={4} />
               <Text>{property.features.parking} parking</Text>
-            </HStack>
-            <HStack spacing={1}>
-              <Icon as={Eye} boxSize={4} />
-              <Text>{property.viewCount} views</Text>
             </HStack>
           </HStack>
 
