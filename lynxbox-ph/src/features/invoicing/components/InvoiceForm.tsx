@@ -23,6 +23,7 @@ const schema = z.object({
     amount: z.number().min(0),
   }),
   electricity: z.object({
+    mode: z.enum(['metered', 'direct']),
     presentReading: z.number().min(0),
     previousReading: z.number().min(0),
     rate: z.number().min(0),
@@ -73,6 +74,14 @@ export function InvoiceForm({
   previousElectricityReading,
   previousWaterReading,
 }: Props) {
+  // `defaultValues.electricity.mode` can be missing on an invoice last saved before this field
+  // existed on the form (see the note on the schema's `electricity.mode` below) -- fall back to
+  // the tenant's current setting so re-saving through this form heals it instead of leaving it
+  // (or re-wiping it) undefined.
+  const initialElectricityMode = defaultValues?.electricity?.mode
+    ?? tenants.find(t => t.id === defaultValues?.tenantId)?.electricityMode
+    ?? 'metered';
+
   const { register, handleSubmit, setValue, watch, control } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: draftData || {
@@ -82,7 +91,9 @@ export function InvoiceForm({
       vat: defaultValues?.vat ?? 0,
       withholdingTax: Math.abs(defaultValues?.withholdingTax ?? 0),
       water: defaultValues?.water || { mode: 'fixed', amount: 0 },
-      electricity: defaultValues?.electricity || { presentReading: 0, previousReading: 0, rate: 0, amount: 0 },
+      electricity: defaultValues?.electricity
+        ? { ...defaultValues.electricity, mode: initialElectricityMode }
+        : { mode: 'metered', presentReading: 0, previousReading: 0, rate: 0, amount: 0 },
       guard: defaultValues?.guard ?? 0,
       otherCharges: defaultValues?.otherCharges ?? [],
       discount: defaultValues?.discount ?? 0,
@@ -110,6 +121,7 @@ export function InvoiceForm({
       setValue('withholdingTax', selectedTenant.withholdingTaxEnabled ? Math.round(selectedTenant.defaultRent * wtRate * 100) / 100 : 0);
       setValue('guard', selectedTenant.defaultGuard ?? 0);
       setValue('water.mode', selectedTenant.waterMode);
+      setValue('electricity.mode', selectedTenant.electricityMode ?? 'metered');
       if (selectedTenant.waterMode === 'fixed') {
         setValue('water.amount', selectedTenant.defaultFixedWater ?? selectedBuilding?.defaultFixedWaterAmount ?? 0);
       }

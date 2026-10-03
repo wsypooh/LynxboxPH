@@ -79,9 +79,16 @@ export function InvoiceBulkReadingsModal({ isOpen, onClose, invoices, onUpdated 
   const toast = useToast();
 
   // Only a draft can be edited (updateInvoice itself enforces this -- handler.ts:269), and only
-  // a metered charge (electricity or water) has a reading to enter at all.
+  // a metered charge (electricity or water) has a reading to enter at all. Electricity only has
+  // two modes ('metered' | 'direct'), and InvoiceForm.tsx's edit form has no mode field in its
+  // submitted payload for electricity at all -- since updateInvoice replaces the whole charge
+  // object rather than merging, any invoice ever saved through that form has electricity.mode
+  // silently wiped to undefined even though its readings are still real metered data. So "not
+  // explicitly direct" is the correct test here, not an exact 'metered' match (water keeps the
+  // exact match since it genuinely has a third 'fixed' mode, and its mode IS in InvoiceForm's
+  // submitted payload).
   const editableRows = invoices.filter(inv =>
-    inv.status === 'draft' && (inv.electricity?.mode === 'metered' || inv.water?.mode === 'metered')
+    inv.status === 'draft' && (inv.electricity?.mode !== 'direct' || inv.water?.mode === 'metered')
   );
   const excludedCount = invoices.length - editableRows.length;
   const anyWaterMetered = editableRows.some(inv => inv.water?.mode === 'metered');
@@ -103,7 +110,7 @@ export function InvoiceBulkReadingsModal({ isOpen, onClose, invoices, onUpdated 
       const r = readings[inv.id];
       const payload: Record<string, any> = {};
 
-      if (inv.electricity?.mode === 'metered' && isValidNum(r?.elec)) {
+      if (inv.electricity?.mode !== 'direct' && isValidNum(r?.elec)) {
         const presentReading = Number(r!.elec);
         const previousReading = inv.electricity.previousReading ?? 0;
         const rate = inv.electricity.rate ?? 0;
@@ -202,7 +209,7 @@ export function InvoiceBulkReadingsModal({ isOpen, onClose, invoices, onUpdated 
                         <Td fontFamily="mono" fontSize="xs">{inv.tenantCode}</Td>
                         <Td>{inv.lesseeName}</Td>
                         <MeterCells
-                          metered={inv.electricity?.mode === 'metered'}
+                          metered={inv.electricity?.mode !== 'direct'}
                           previousReading={inv.electricity?.previousReading ?? 0}
                           rate={inv.electricity?.rate ?? 0}
                           value={readings[inv.id]?.elec}
