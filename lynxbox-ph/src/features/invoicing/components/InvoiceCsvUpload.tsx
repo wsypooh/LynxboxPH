@@ -47,6 +47,10 @@ function parseNum(val: string): number {
   return parseFloat((val || '').replace(/,/g, '')) || 0;
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 function normalizeBillingMonth(val: string): string {
   if (!val) return val;
   // Already YYYY-MM
@@ -89,17 +93,48 @@ interface ParsedRow {
   rowNum: number;
   data: Record<string, string>;
   errors: string[];
-  isDuplicate?: boolean;
+  action: 'create' | 'update' | 'skip';
+  invoiceId?: string;
+  existingStatus?: string;
   tenantId?: string;
   lesseeName?: string;
   payload?: Record<string, any>;
+}
+
+// Merges a CSV-supplied reading onto the existing invoice's electricity charge and recomputes
+// `amount` client-side -- unlike createInvoice, updateInvoice does NOT derive amount from
+// readings itself (handler.ts:283 uses `elec.amount` as given), so sending a reading-only
+// payload through updateInvoice would silently zero out the charge.
+function buildElectricityUpdate(data: Record<string, string>, existing: Invoice['electricity']) {
+  const presentReading  = data.electricityPresentReading  !== '' ? parseNum(data.electricityPresentReading)  : existing?.presentReading  ?? 0;
+  const previousReading = data.electricityPreviousReading !== '' ? parseNum(data.electricityPreviousReading) : existing?.previousReading ?? 0;
+  const rate            = data.electricityRate            !== '' ? parseNum(data.electricityRate)            : existing?.rate            ?? 0;
+  return {
+    mode: existing?.mode ?? 'metered',
+    presentReading, previousReading, rate,
+    amount: round2(Math.max(0, (presentReading - previousReading) * rate)),
+  };
+}
+
+function buildWaterUpdate(data: Record<string, string>, existing: Invoice['water']) {
+  if (existing?.mode === 'fixed') {
+    return { ...existing, ...(data.waterAmount !== '' ? { amount: parseNum(data.waterAmount) } : {}) };
+  }
+  const presentReading  = data.waterPresentReading  !== '' ? parseNum(data.waterPresentReading)  : existing?.presentReading  ?? 0;
+  const previousReading = data.waterPreviousReading !== '' ? parseNum(data.waterPreviousReading) : existing?.previousReading ?? 0;
+  const rate            = existing?.rate ?? 0;
+  return {
+    mode: existing?.mode ?? 'metered',
+    presentReading, previousReading, rate,
+    amount: round2(Math.max(0, (presentReading - previousReading) * rate)),
+  };
 }
 
 function validateRow(
   data: Record<string, string>,
   tenants: Tenant[],
   rowNum: number,
-  existingKeys: Set<string>,
+  existingByKey: Map<string, Invoice>,
 ): ParsedRow {
   const errors: string[] = [];
 
@@ -119,10 +154,13 @@ function validateRow(
   if (data.status && !validStatuses.includes(data.status))
     errors.push(`status must be one of: ${validStatuses.join(', ')}`);
 
-  const isDuplicate = !!(tenant && month && existingKeys.has(`${tenant.id}:${month}`));
+  const existing = tenant && month ? existingByKey.get(`${tenant.id}:${month}`) : undefined;
+  // Only a draft can have its charges edited (updateInvoice itself enforces this too --
+  // see handler.ts:269 -- so a matched non-draft invoice is left alone, not partially applied).
+  const action: ParsedRow['action'] = !tenant ? 'create' : !existing ? 'create' : existing.status === 'draft' ? 'update' : 'skip';
 
   let payload: Record<string, any> | undefined;
-  if (errors.length === 0 && tenant && !isDuplicate) {
+  if (errors.length === 0 && tenant && action === 'create') {
     const hasElecReading = data.electricityPresentReading || data.electricityPreviousReading;
     const hasWaterReading = data.waterPresentReading || data.waterPreviousReading;
 
@@ -151,9 +189,27 @@ function validateRow(
         },
       } : {}),
     };
+  } else if (errors.length === 0 && tenant && action === 'update' && existing) {
+    const hasElecReading = data.electricityPresentReading || data.electricityPreviousReading;
+    const hasWaterReading = data.waterPresentReading || data.waterPreviousReading;
+    const touchesElec = hasElecReading || data.electricityRate;
+    const touchesWater = (hasWaterReading || data.waterAmount) && existing.water?.mode !== 'direct';
+
+    payload = {
+      ...(data.rent         ? { rent: parseNum(data.rent) } : {}),
+      ...(data.guard        ? { guard: parseNum(data.guard) } : {}),
+      ...(data.discount     ? { discount: parseNum(data.discount) } : {}),
+      ...(data.status       ? { status: data.status } : {}),
+      ...(touchesElec && existing.electricity?.mode !== 'direct' ? { electricity: buildElectricityUpdate(data, existing.electricity) } : {}),
+      ...(touchesWater ? { water: buildWaterUpdate(data, existing.water) } : {}),
+    };
   }
 
-  return { rowNum, data, errors, isDuplicate, tenantId: tenant?.id, lesseeName: tenant?.lesseeName, payload };
+  return {
+    rowNum, data, errors, action,
+    invoiceId: existing?.id, existingStatus: existing?.status,
+    tenantId: tenant?.id, lesseeName: tenant?.lesseeName, payload,
+  };
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -181,9 +237,10 @@ export function InvoiceCsvUpload({ isOpen, onClose, tenants, invoices, onImporte
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Build a set of existing tenantId:billingMonth for duplicate detection
-    const existingKeys = new Set(
-      invoices.map(inv => `${inv.tenantId}:${inv.billingMonth}`)
+    // Map of tenantId:billingMonth -> existing invoice, so a matching draft can be updated
+    // instead of just flagged as a duplicate and skipped.
+    const existingByKey = new Map(
+      invoices.map(inv => [`${inv.tenantId}:${inv.billingMonth}`, inv] as const)
     );
     const text = await readCsvFile(file);
     const parsed = parseCSV(text);
@@ -195,37 +252,49 @@ export function InvoiceCsvUpload({ isOpen, onClose, tenants, invoices, onImporte
     const result = parsed.slice(1).map((cols, i) => {
       const data: Record<string, string> = {};
       headers.forEach((h, j) => { data[h] = cols[j] ?? ''; });
-      return validateRow(data, tenants, i + 2, existingKeys);
+      return validateRow(data, tenants, i + 2, existingByKey);
     });
     setRows(result);
   };
 
-  const errorRows     = rows.filter(r => r.errors.length > 0);
-  const duplicateRows = rows.filter(r => r.errors.length === 0 && r.isDuplicate);
-  const validRows     = rows.filter(r => r.errors.length === 0 && !r.isDuplicate);
+  const errorRows  = rows.filter(r => r.errors.length > 0);
+  const skipRows   = rows.filter(r => r.errors.length === 0 && r.action === 'skip');
+  const createRows = rows.filter(r => r.errors.length === 0 && r.action === 'create');
+  const updateRows = rows.filter(r => r.errors.length === 0 && r.action === 'update');
+  const applyRows  = [...createRows, ...updateRows];
 
   const handleImport = async () => {
     setImporting(true);
     setProgress(0);
-    let successCount = 0;
+    let createdCount = 0;
+    let updatedCount = 0;
     let failCount = 0;
-    for (let i = 0; i < validRows.length; i++) {
+    for (let i = 0; i < applyRows.length; i++) {
+      const row = applyRows[i];
       try {
-        await invoiceService.createInvoice(validRows[i].payload!);
-        successCount++;
+        if (row.action === 'update') {
+          await invoiceService.updateInvoice(row.invoiceId!, row.payload!);
+          updatedCount++;
+        } else {
+          await invoiceService.createInvoice(row.payload!);
+          createdCount++;
+        }
       } catch {
         failCount++;
       }
-      setProgress(Math.round(((i + 1) / validRows.length) * 100));
+      setProgress(Math.round(((i + 1) / applyRows.length) * 100));
     }
     setImporting(false);
     toast({
-      title: `Created ${successCount} invoice${successCount !== 1 ? 's' : ''}` +
-        (duplicateRows.length > 0 ? `, ${duplicateRows.length} duplicate${duplicateRows.length !== 1 ? 's' : ''} skipped` : '') +
-        (failCount > 0 ? `, ${failCount} failed` : ''),
+      title: [
+        createdCount > 0 ? `${createdCount} created` : '',
+        updatedCount > 0 ? `${updatedCount} updated` : '',
+        skipRows.length > 0 ? `${skipRows.length} skipped (not draft)` : '',
+        failCount > 0 ? `${failCount} failed` : '',
+      ].filter(Boolean).join(', ') || 'No invoices processed',
       status: failCount > 0 ? 'warning' : 'success',
     });
-    if (successCount > 0) {
+    if (createdCount > 0 || updatedCount > 0) {
       onImported();
       handleClose();
     }
@@ -253,6 +322,10 @@ export function InvoiceCsvUpload({ isOpen, onClose, tenants, invoices, onImporte
                 All other fields are optional — rent, electricity readings, water amount, guard, and discount
                 default to each tenant&apos;s configured values if left blank.
                 Electricity and water are only included in the payload if you provide at least one reading or amount.
+                If a row matches an existing <strong>draft</strong> invoice for that lessee + month, it updates
+                that invoice (e.g. filling in a present reading) instead of creating a new one — handy for exporting
+                a rolled-over month, filling in meter readings, and re-uploading the same file.
+                A row matching an invoice that&apos;s no longer a draft is left untouched.
               </Text>
               <Button size="sm" variant="outline" onClick={downloadTemplate}>
                 Download Template CSV
@@ -267,20 +340,23 @@ export function InvoiceCsvUpload({ isOpen, onClose, tenants, invoices, onImporte
             {rows.length > 0 && (
               <>
                 <HStack>
-                  <Badge colorScheme="green" px={2} py={1}>{validRows.length} to create</Badge>
-                  {duplicateRows.length > 0 && (
-                    <Badge colorScheme="yellow" px={2} py={1}>{duplicateRows.length} duplicate{duplicateRows.length !== 1 ? 's' : ''} (skipped)</Badge>
+                  <Badge colorScheme="green" px={2} py={1}>{createRows.length} to create</Badge>
+                  {updateRows.length > 0 && (
+                    <Badge colorScheme="blue" px={2} py={1}>{updateRows.length} to update</Badge>
+                  )}
+                  {skipRows.length > 0 && (
+                    <Badge colorScheme="yellow" px={2} py={1}>{skipRows.length} skipped (not draft)</Badge>
                   )}
                   {errorRows.length > 0 && (
                     <Badge colorScheme="red" px={2} py={1}>{errorRows.length} with errors (skipped)</Badge>
                   )}
                 </HStack>
 
-                {duplicateRows.length > 0 && (
+                {skipRows.length > 0 && (
                   <Alert status="info" fontSize="sm">
                     <AlertIcon />
-                    Duplicate rows (same lessee + billing month already in system) will be skipped.
-                    To update an existing invoice, edit it directly.
+                    These rows match an existing invoice that&apos;s no longer a draft (sent/partial/paid/printed),
+                    so they&apos;re left untouched. Edit those directly if they need changes.
                   </Alert>
                 )}
                 {errorRows.length > 0 && (
@@ -306,7 +382,7 @@ export function InvoiceCsvUpload({ isOpen, onClose, tenants, invoices, onImporte
                     <Tbody>
                       {rows.map(row => (
                         <Tr key={row.rowNum}
-                          bg={row.errors.length > 0 ? 'red.50' : row.isDuplicate ? 'yellow.50' : undefined}>
+                          bg={row.errors.length > 0 ? 'red.50' : row.action === 'skip' ? 'yellow.50' : row.action === 'update' ? 'blue.50' : undefined}>
                           <Td>{row.rowNum}</Td>
                           <Td fontFamily="mono" fontSize="xs">{row.data.lesseeNo || '—'}</Td>
                           <Td>{row.lesseeName || '—'}</Td>
@@ -316,8 +392,10 @@ export function InvoiceCsvUpload({ isOpen, onClose, tenants, invoices, onImporte
                           <Td>
                             {row.errors.length > 0
                               ? <Badge colorScheme="red">Error</Badge>
-                              : row.isDuplicate
-                              ? <Badge colorScheme="yellow">Duplicate</Badge>
+                              : row.action === 'skip'
+                              ? <Badge colorScheme="yellow">Skipped ({row.existingStatus})</Badge>
+                              : row.action === 'update'
+                              ? <Badge colorScheme="blue">Update</Badge>
                               : <Badge colorScheme="green">Create</Badge>}
                           </Td>
                         </Tr>
@@ -350,11 +428,12 @@ export function InvoiceCsvUpload({ isOpen, onClose, tenants, invoices, onImporte
         <ModalFooter>
           <HStack>
             <Button variant="ghost" onClick={handleClose} isDisabled={importing}>Cancel</Button>
-            {(validRows.length > 0 || duplicateRows.length > 0) && (
-              <Button colorScheme="blue" onClick={handleImport} isLoading={importing} isDisabled={validRows.length === 0}>
-                {validRows.length > 0
-                  ? `Create ${validRows.length} Invoice${validRows.length !== 1 ? 's' : ''}`
-                  : 'Nothing to Create'}
+            {rows.length > 0 && (
+              <Button colorScheme="blue" onClick={handleImport} isLoading={importing} isDisabled={applyRows.length === 0}>
+                {applyRows.length > 0
+                  ? `Apply ${applyRows.length} Row${applyRows.length !== 1 ? 's' : ''}` +
+                    (createRows.length > 0 && updateRows.length > 0 ? ` (${createRows.length} create, ${updateRows.length} update)` : '')
+                  : 'Nothing to Apply'}
               </Button>
             )}
           </HStack>

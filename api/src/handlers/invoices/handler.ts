@@ -105,8 +105,38 @@ export class InvoiceHandler {
       invoices = await InvoiceRepository.listByOwner(userId, ids);
     }
     if (billingMonth) invoices = invoices.filter(i => i.billingMonth === billingMonth);
+    // Derived before the status filter below, so filtering by paid/partial actually matches
+    // reality instead of the stale stored field -- see derivePaymentFields.
+    invoices = await Promise.all(invoices.map(async inv => ({ ...inv, ...(await InvoiceHandler.derivePaymentFields(inv)) })));
     if (status) invoices = invoices.filter(i => i.status === status);
     return ApiResponse.success({ invoices });
+  }
+
+  // The tenant-level FIFO ledger flow (LedgerRepository.recordPaymentWithFIFO, behind every
+  // current "Record Payment" action) only ever writes to ChargeEntry/PaymentEntry -- it never
+  // touches the Invoice record itself. The stored invoice.status/amountPaid/outstanding are
+  // only ever set by the old per-invoice recordPayment() (no longer called from the UI, see
+  // docs/Ledger-Plan.md #12) and by updateInvoice's own recompute (which reads that same
+  // never-updated amountPaid) -- so without this, an invoice paid off via the tenant ledger
+  // stayed "sent"/"printed" forever and the Paid/Outstanding columns never moved.
+  //
+  // Reducing this to just the invoice's own linked charge's principalOutstanding is exact, not
+  // an approximation: recordPaymentWithFIFO always settles strictly-older charges before this
+  // one (oldest-first), so by the time this invoice's own charge has absorbed any payment,
+  // everything that fed into its `previousBalance` snapshot must already be fully settled.
+  // That means `outstanding` for the whole invoice (previousBalance + currentChargesTotal) and
+  // `outstanding` for just this invoice's own charge are the same number.
+  private static async derivePaymentFields(invoice: Invoice): Promise<Pick<Invoice, 'status' | 'amountPaid' | 'outstanding'>> {
+    if (invoice.status === 'draft' || invoice.status === 'void') {
+      return { status: invoice.status, amountPaid: invoice.amountPaid, outstanding: invoice.outstanding };
+    }
+    const charge = await LedgerRepository.findChargeByInvoiceId(invoice.tenantId, invoice.id);
+    if (!charge) return { status: invoice.status, amountPaid: invoice.amountPaid, outstanding: invoice.outstanding };
+
+    const outstanding = Math.max(0, round2(charge.principalOutstanding));
+    const amountPaid = round2(invoice.totalDue - outstanding);
+    const status = outstanding <= 0 ? 'paid' : amountPaid > 0 ? 'partial' : invoice.status;
+    return { status, amountPaid, outstanding };
   }
 
   private static async getPaymentsReceivedSinceLastInvoice(tenantId: string) {
@@ -143,6 +173,20 @@ export class InvoiceHandler {
 
     const tenant = await TenantRepository.findById(tenantId);
     if (!tenant || tenant.ownerId !== userId) return ApiResponse.notFound('Tenant not found');
+
+    // A tenant can only have one non-void invoice per billing month. Nothing else in this
+    // stack enforces that -- the CSV importer's duplicate check (InvoiceCsvUpload.tsx) is
+    // frontend-only, and "Rollover to Next Month" (bulk and single) calls this same endpoint
+    // with zero guard of its own -- so re-running a rollover against an already-rolled-over
+    // tenant silently created a second invoice for the same tenant+month before this check.
+    const tenantInvoices = await InvoiceRepository.listByTenant(tenantId);
+    const duplicate = tenantInvoices.find(inv => inv.billingMonth === billingMonth && inv.status !== 'void');
+    if (duplicate) {
+      return ApiResponse.error(
+        `An invoice already exists for this tenant for ${getBillingLabel(billingMonth)} (${duplicate.invoiceNumber}). Edit that invoice, or void it first.`,
+        409
+      );
+    }
 
     const building = await BuildingRepository.findById(tenant.buildingId);
     if (!building) return ApiResponse.notFound('Building not found');
@@ -232,10 +276,11 @@ export class InvoiceHandler {
   }
 
   private static async enrichInvoice(invoice: Invoice) {
-    const [building, tenant, ledgerPayments] = await Promise.all([
+    const [building, tenant, ledgerPayments, derived] = await Promise.all([
       BuildingRepository.findById(invoice.buildingId),
       TenantRepository.findById(invoice.tenantId),
       LedgerRepository.listPaymentsForInvoice(invoice.tenantId, invoice.id),
+      InvoiceHandler.derivePaymentFields(invoice),
     ]);
     return {
       ...invoice,
@@ -246,6 +291,7 @@ export class InvoiceHandler {
       lesseeName: tenant?.lesseeName ?? invoice.lesseeName,
       tenantCode: tenant?.tenantCode ?? invoice.tenantCode,
       ledgerPayments,
+      ...derived,
     };
   }
 

@@ -305,28 +305,31 @@ POST   /api/invoices/batch-pdf     downloadBatchPdf      (body: { ids: string[] 
 **`createInvoice` flow:**
 1. Extract `userId`, parse body. Require `tenantId` + `billingMonth`.
 2. Fetch tenant, verify `tenant.ownerId === userId`.
-3. Fetch building via `tenant.buildingId`.
-4. Denormalize building + tenant fields into invoice.
-5. Auto-populate `rent`, `vat`, `withholdingTax` from tenant defaults (withholdingTax stored positive; `guard` pre-filled from `tenant.defaultGuard`).
-6. Auto-populate `electricity.rate` from building's `currentElectricityRate`.
-7. Call `getUnpaidByTenant(tenantId)` → build `previousBalanceHistory` with `penalty = outstanding * (tenant.penaltyEnabled ? building.penaltyRate : 0)`, sum as `previousBalance`.
-8. Compute all totals: `subtotal = rent + vat - withholdingTax`. Set `status = 'draft'`. Save.
+3. **(Added 2026-10-03 — real bug fix, see `docs/Ledger-Plan.md` #14)** Reject with a 409 if a non-void invoice already exists for this `tenantId` + `billingMonth`. Before this, nothing anywhere enforced one-invoice-per-tenant-per-month — "Rollover to Next Month" (bulk and single-invoice) and even plain manual creation could all silently produce a duplicate invoice for the same tenant/month, since this is the one shared function every create path funnels through.
+4. Fetch building via `tenant.buildingId`.
+5. Denormalize building + tenant fields into invoice.
+6. Auto-populate `rent`, `vat`, `withholdingTax` from tenant defaults (withholdingTax stored positive; `guard` pre-filled from `tenant.defaultGuard`).
+7. Auto-populate `electricity.rate` from building's `currentElectricityRate`.
+8. Call `getUnpaidByTenant(tenantId)` → build `previousBalanceHistory` with `penalty = outstanding * (tenant.penaltyEnabled ? building.penaltyRate : 0)`, sum as `previousBalance`.
+9. Compute all totals: `subtotal = rent + vat - withholdingTax`. Set `status = 'draft'`. Save.
 
 **`rolloverInvoice` flow:**
 1. Fetch source invoice.
 2. Compute next `billingMonth` (increment by 1 month).
 3. Copy all charge fields from source (rent, rates, water settings, guard, otherCharges).
-4. Reset meter readings to 0 (present = previous = 0).
+4. **Reset `presentReading` to 0 (electricity, and water when metered); carry the source invoice's own `presentReading` forward as the new `previousReading`** — corrected 2026-10-04, this doc previously said both reset to 0, which doesn't match `handler.ts`'s actual implementation and would have meant every rollover started back at a 0 previous reading.
 5. Re-fetch building for current electricity rate (may have changed month-to-month).
 6. Re-compute `previousBalanceHistory` + `previousBalance` from current unpaid invoices.
 7. Return the draft `InvoiceInput` — **do not save yet**. Return as 200 with the pre-filled data so the frontend opens the invoice form pre-filled.
 
-**`recordPayment` flow:**
+**`recordPayment` flow (superseded — see `docs/Ledger-Plan.md` #12 and #14):**
 1. Fetch invoice, verify ownership.
 2. Append `{ date, amount, note }` to `payments[]`.
 3. Recompute: `amountPaid = sum(payments[].amount)`, `outstanding = totalDue - amountPaid`.
 4. Update `status`: `'paid'` if `outstanding <= 0`, `'partial'` if `amountPaid > 0`.
 5. Save update.
+
+This describes the *original* per-invoice payment design. As of 2026-09-28 the UI no longer calls this endpoint at all — every payment goes through the tenant-level ledger (FIFO) instead, which never touches these fields on the `Invoice` record. `status`/`amountPaid`/`outstanding` are instead derived fresh from the invoice's linked `ChargeEntry` on every read (`InvoiceHandler.derivePaymentFields`, added 2026-10-04) rather than stored/updated here — see `docs/Ledger-Plan.md` #14 for why that was necessary (this flow's old write path was the only thing ever keeping those fields current, and it stopped being called).
 
 **`sendInvoice` + `downloadInvoicePdf`:**
 Shared PDF generation function:

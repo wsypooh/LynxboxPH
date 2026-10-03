@@ -95,7 +95,7 @@ function exportCsv(invoices: Invoice[]) {
   const fixedHeaders = [
     'lesseeNo', 'billingMonth', 'rent', 'guard', 'discount', 'status',
     'electricityPresentReading', 'electricityPreviousReading', 'electricityRate',
-    'waterAmount',
+    'waterPresentReading', 'waterPreviousReading', 'waterAmount',
     // read-only / informational
     'invoiceNumber', 'lesseeName', 'buildingName', 'billingLabel',
     'vat', 'withholdingTax', 'totalDue', 'amountPaid', 'outstanding',
@@ -103,6 +103,8 @@ function exportCsv(invoices: Invoice[]) {
   const rows = invoices.map(inv => [
     inv.tenantCode, inv.billingMonth, inv.rent ?? 0, inv.guard ?? 0, inv.discount ?? 0, inv.status,
     inv.electricity?.presentReading ?? 0, inv.electricity?.previousReading ?? 0, inv.electricity?.rate ?? 0,
+    inv.water?.mode === 'metered' ? inv.water?.presentReading ?? 0 : '',
+    inv.water?.mode === 'metered' ? inv.water?.previousReading ?? 0 : '',
     inv.water?.amount ?? 0,
     inv.invoiceNumber, inv.lesseeName, inv.buildingName, inv.billingLabel,
     inv.vat ?? 0, -Math.abs(inv.withholdingTax ?? 0), inv.totalDue, inv.amountPaid, inv.outstanding,

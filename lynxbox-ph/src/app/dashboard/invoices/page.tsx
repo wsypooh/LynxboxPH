@@ -10,8 +10,10 @@ import { buildingService } from '@/services/buildingService';
 import { tenantService } from '@/services/tenantService';
 import { InvoiceList } from '@/features/invoicing/components/InvoiceList';
 import { InvoiceCsvUpload } from '@/features/invoicing/components/InvoiceCsvUpload';
+import { InvoiceBulkReadingsModal } from '@/features/invoicing/components/InvoiceBulkReadingsModal';
 import { Invoice, Building, Tenant } from '@/features/invoicing/types';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAccount } from '@/features/account/AccountContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { PlanGatedButton } from '@/components/PlanGatedButton';
 
@@ -32,6 +34,7 @@ export default function InvoicesPage() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [readingsOpen, setReadingsOpen] = useState(false);
   const [filterMonth, setFilterMonth] = useState(() => loadStoredFilters().month);
   const [filterStatus, setFilterStatus] = useState(() => loadStoredFilters().status);
   const [filterBuilding, setFilterBuilding] = useState(() => loadStoredFilters().building);
@@ -43,10 +46,12 @@ export default function InvoicesPage() {
   const toast = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { canDestroy } = useAccount();
   const planLimits = usePlanLimits();
   const dataImportEnabled = planLimits?.dataImportEnabled ?? true;
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const tenantId = searchParams.get('tenantId') || undefined;
       const filters: Record<string, string> = {};
@@ -155,18 +160,110 @@ export default function InvoicesPage() {
     setBulkLoading(true);
     let succeeded = 0;
     let failed = 0;
+    let skipped = 0;
     try {
       for (const inv of selectedInvoices) {
         try {
           const draft = await invoiceService.rolloverInvoice(inv.id);
           await invoiceService.createInvoice(draft);
           succeeded++;
+        } catch (err: any) {
+          // createInvoice (handler.ts) now rejects a tenant+billingMonth that already has a
+          // non-void invoice -- e.g. this tenant was already rolled over in an earlier run.
+          // Surface that as a skip, not a failure, so re-running rollover on an overlapping
+          // selection doesn't read as broken.
+          if (err?.message?.includes('already exists')) skipped++;
+          else failed++;
+        }
+      }
+      toast({
+        title: `${succeeded} invoice(s) rolled over` +
+          (skipped > 0 ? `, ${skipped} skipped (already rolled over)` : '') +
+          (failed > 0 ? `, ${failed} failed` : ''),
+        status: failed > 0 ? 'warning' : 'success',
+      });
+      if (succeeded > 0) {
+        // Rollover never modifies the source invoice -- the new ones land in next month's
+        // bucket, invisible under the current filter. Advance the filter instead of re-fetching
+        // this month's (provably unchanged) data; the useEffect on filterMonth reloads for us.
+        const [year, month] = filterMonth.split('-').map(Number);
+        const next = new Date(year, month, 1);
+        setFilterMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
+      } else {
+        await loadData();
+      }
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    // Backend only allows deleting drafts (handler.ts's deleteInvoice) -- anything else must be
+    // voided instead to preserve its invoice number/audit trail -- so non-draft rows in the
+    // selection are left alone rather than erroring out the whole batch.
+    const eligible = selectedInvoices.filter(inv => inv.status === 'draft');
+    const skipped = selectedInvoices.length - eligible.length;
+    if (eligible.length === 0) {
+      toast({ title: 'None of the selected invoices can be deleted — only drafts can be deleted; void the others instead.', status: 'warning' });
+      return;
+    }
+    if (!confirm(
+      `Delete ${eligible.length} invoice(s)? This cannot be undone.` +
+      (skipped > 0 ? ` ${skipped} non-draft invoice(s) in your selection will be left as-is.` : '')
+    )) return;
+    setBulkLoading(true);
+    let succeeded = 0;
+    let failed = 0;
+    try {
+      for (const inv of eligible) {
+        try {
+          await invoiceService.deleteInvoice(inv.id);
+          succeeded++;
         } catch {
           failed++;
         }
       }
       toast({
-        title: `${succeeded} invoice(s) rolled over${failed > 0 ? `, ${failed} failed` : ''}`,
+        title: `${succeeded} invoice(s) deleted` +
+          (skipped > 0 ? `, ${skipped} skipped (not draft)` : '') +
+          (failed > 0 ? `, ${failed} failed` : ''),
+        status: failed > 0 ? 'warning' : 'success',
+      });
+      await loadData();
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleVoidSelected = async () => {
+    // Mirrors the per-row icon logic in InvoiceList.tsx: draft invoices are deleted, not voided,
+    // and an already-void invoice has nothing left to do.
+    const eligible = selectedInvoices.filter(inv => inv.status !== 'draft' && inv.status !== 'void');
+    const skipped = selectedInvoices.length - eligible.length;
+    if (eligible.length === 0) {
+      toast({ title: 'None of the selected invoices can be voided — drafts should be deleted instead, and void invoices are already void.', status: 'warning' });
+      return;
+    }
+    if (!confirm(
+      `Void ${eligible.length} invoice(s)? They'll be excluded from balances but kept on record.` +
+      (skipped > 0 ? ` ${skipped} invoice(s) in your selection (draft or already void) will be left as-is.` : '')
+    )) return;
+    setBulkLoading(true);
+    let succeeded = 0;
+    let failed = 0;
+    try {
+      for (const inv of eligible) {
+        try {
+          await invoiceService.voidInvoice(inv.id);
+          succeeded++;
+        } catch {
+          failed++;
+        }
+      }
+      toast({
+        title: `${succeeded} invoice(s) voided` +
+          (skipped > 0 ? `, ${skipped} skipped` : '') +
+          (failed > 0 ? `, ${failed} failed` : ''),
         status: failed > 0 ? 'warning' : 'success',
       });
       await loadData();
@@ -230,6 +327,8 @@ export default function InvoicesPage() {
             <option value="sent">Sent</option>
             <option value="partial">Partial</option>
             <option value="paid">Paid</option>
+            <option value="printed">Printed</option>
+            <option value="void">Void</option>
           </Select>
           <Select
             size="sm" value={filterWaived}
@@ -259,6 +358,20 @@ export default function InvoicesPage() {
                 <MenuItem onClick={handleRolloverSelected}>
                   Rollover to Next Month ({selectedIds.size})
                 </MenuItem>
+                <MenuItem onClick={() => setReadingsOpen(true)}>
+                  Enter Meter Readings ({selectedIds.size})
+                </MenuItem>
+                {canDestroy && (
+                  <>
+                    <MenuDivider />
+                    <MenuItem onClick={handleVoidSelected} color="red.500">
+                      Void ({selectedIds.size})
+                    </MenuItem>
+                    <MenuItem onClick={handleDeleteSelected} color="red.500">
+                      Delete ({selectedIds.size})
+                    </MenuItem>
+                  </>
+                )}
               </MenuList>
             </Menu>
           )}
@@ -286,8 +399,18 @@ export default function InvoicesPage() {
         onImported={loadData}
       />
 
+      <InvoiceBulkReadingsModal
+        isOpen={readingsOpen}
+        onClose={() => setReadingsOpen(false)}
+        invoices={selectedInvoices}
+        onUpdated={loadData}
+      />
+
       {loading ? (
-        <Spinner />
+        <HStack py={10} justify="center" color="gray.500">
+          <Spinner size="md" />
+          <Text>Loading invoices…</Text>
+        </HStack>
       ) : (
         <InvoiceList
           invoices={filtered}

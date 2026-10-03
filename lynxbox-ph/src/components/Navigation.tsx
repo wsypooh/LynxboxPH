@@ -82,7 +82,7 @@ export function Navigation() {
               <>
                 <Link href={route('/dashboard/profile')}>
                   <Button variant="solid" bg="white" color="primary.600" size="sm" _hover={{ bg: 'gray.100' }}>
-                    My Account
+                    Profile
                   </Button>
                 </Link>
                 <Button
@@ -164,7 +164,7 @@ export function Navigation() {
               <>
                 <Link href={route('/dashboard/profile')} onClick={onToggle}>
                   <Button w="full" justifyContent="flex-start" variant="ghost" color="white">
-                    My Account
+                    Profile
                   </Button>
                 </Link>
                 <Button 
