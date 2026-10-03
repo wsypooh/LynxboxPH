@@ -11,7 +11,8 @@
     "dev": "ts-node-dev --respawn --transpile-only local-server.ts",
     "cron:daily": "ts-node --transpile-only src/scripts/runDailySubscriptionCheck.ts",
     "usage:backfill": "ts-node --transpile-only src/scripts/backfillInvoiceUsageCounters.ts",
-    "properties:backfill-numbers": "ts-node --transpile-only src/scripts/backfillPropertyNumbers.ts"
+    "properties:backfill-numbers": "ts-node --transpile-only src/scripts/backfillPropertyNumbers.ts",
+    "ledger:backfill-rounding": "ts-node --transpile-only src/scripts/backfillLedgerRounding.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.1137.0",

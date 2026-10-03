@@ -4,6 +4,7 @@ import {
   createChargeEntry, createPaymentEntry,
 } from '../models/ledgerEntry';
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { round2 } from '../lib/money';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE || 'lynxbox-ph-dev';
 // Fallback only — every real call site should pass the tenant's own Building.penaltyRate
@@ -286,23 +287,23 @@ export class LedgerRepository {
     const outstanding = charges.filter(c => c.principalOutstanding > 0);
     const currentBillingMonth = data.paymentDate.slice(0, 7);
 
-    let remaining = data.totalAmount;
+    let remaining = round2(data.totalAmount);
     const appliedTo: AppliedTo[] = [];
     const mutations: { id: string; principalOutstanding: number; penaltyPaid: number }[] = [];
 
     for (const entry of outstanding) {
       if (remaining <= 0) break;
       const penaltyApplied = penaltyEnabled ? Math.min(remaining, pendingPenalty(entry, currentBillingMonth, penaltyRate)) : 0;
-      remaining -= penaltyApplied;
+      remaining = round2(remaining - penaltyApplied);
       const principalApplied = Math.min(remaining, entry.principalOutstanding);
-      remaining -= principalApplied;
+      remaining = round2(remaining - principalApplied);
 
       if (penaltyApplied > 0 || principalApplied > 0) {
         appliedTo.push({ chargeEntryId: entry.id, penaltyApplied, principalApplied });
         mutations.push({
           id: entry.id,
-          principalOutstanding: entry.principalOutstanding - principalApplied,
-          penaltyPaid: entry.penaltyPaid + penaltyApplied,
+          principalOutstanding: round2(entry.principalOutstanding - principalApplied),
+          penaltyPaid: round2(entry.penaltyPaid + penaltyApplied),
         });
       }
     }
