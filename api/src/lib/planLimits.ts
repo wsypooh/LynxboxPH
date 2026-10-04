@@ -41,17 +41,17 @@ export const DOCUMENT_COUNT_ABUSE_GUARD = 500;
 // docs/Pricing-Strategy-Plan.md — the only place these numbers are registered.
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
-    maxProperties: 2, maxPhotosPerListing: 3, listingDurationDays: 7, searchPlacement: 'standard',
+    maxProperties: 5, maxPhotosPerListing: 3, listingDurationDays: 7, searchPlacement: 'standard',
     maxInvoicesPerMonth: 10, maxSeats: 1, maxDocumentBytes: 250 * MB, csvImportEnabled: false,
     dataImportEnabled: false, dataExportEnabled: false,
   },
   starter: {
-    maxProperties: 5, maxPhotosPerListing: 10, listingDurationDays: 30, searchPlacement: 'standard',
-    maxInvoicesPerMonth: 50, maxSeats: 3, maxDocumentBytes: 1 * GB, csvImportEnabled: false,
+    maxProperties: 25, maxPhotosPerListing: 10, listingDurationDays: 30, searchPlacement: 'standard',
+    maxInvoicesPerMonth: 50, maxSeats: 3, maxDocumentBytes: 1 * GB, csvImportEnabled: true,
     dataImportEnabled: true, dataExportEnabled: true,
   },
   growth: {
-    maxProperties: 15, maxPhotosPerListing: 10, listingDurationDays: 60, searchPlacement: 'priority',
+    maxProperties: 100, maxPhotosPerListing: 10, listingDurationDays: 60, searchPlacement: 'priority',
     maxInvoicesPerMonth: 200, maxSeats: 10, maxDocumentBytes: 5 * GB, csvImportEnabled: true,
     dataImportEnabled: true, dataExportEnabled: true,
   },

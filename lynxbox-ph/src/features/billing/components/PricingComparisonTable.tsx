@@ -18,7 +18,7 @@ export const PRICING_TIERS = [
     slug: 'free' as Plan,
     popular: false,
     rows: [
-      ['Active property listings', '2'],
+      ['Active property listings', '5'],
       ['Photos per listing', '3'],
       ['Listing visibility duration', '7 days'],
       ['Public search placement', 'Standard'],
@@ -38,7 +38,7 @@ export const PRICING_TIERS = [
     slug: 'starter' as Plan,
     popular: false,
     rows: [
-      ['Active property listings', '5'],
+      ['Active property listings', '25'],
       ['Photos per listing', '10'],
       ['Listing visibility duration', '30 days'],
       ['Public search placement', 'Standard'],
@@ -47,7 +47,7 @@ export const PRICING_TIERS = [
       ['Document storage', '1GB'],
       ['CSV import (tenants, ledger history, invoices)', '✓'],
       ['Export (tenants, invoices to CSV)', '✓'],
-      ['Bulk property import (CSV + photos)', '–'],
+      ['Bulk property import (CSV + photos)', '✓'],
       ['Batch ZIP invoice download', '✓'],
       ['PDF branding', 'Unbranded'],
       ['Support', 'Email'],
@@ -58,7 +58,7 @@ export const PRICING_TIERS = [
     slug: 'growth' as Plan,
     popular: true,
     rows: [
-      ['Active property listings', '15'],
+      ['Active property listings', '100'],
       ['Photos per listing', '10'],
       ['Listing visibility duration', '60 days'],
       ['Public search placement', 'Priority'],
