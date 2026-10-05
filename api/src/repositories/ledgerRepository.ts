@@ -39,13 +39,18 @@ export function pendingPenalty(
   currentBillingMonth: string,
   penaltyRate: number = DEFAULT_PENALTY_RATE,
 ): number {
-  // Frozen historical penalty from a CSV import (docs/Ledger-Plan.md #9) — trust the old
-  // system's own accrued amount rather than recomputing simple interest from billingMonth,
-  // and never let it grow further. penaltyPaid still draws it down as it's collected.
-  if (entry.importedPenalty != null) {
-    return Math.max(0, Math.round((entry.importedPenalty - entry.penaltyPaid) * 100) / 100);
+  // An owner's explicit override (set via a draft invoice's Previous Balance Detail table,
+  // docs/Ledger-Plan.md #5/#27) is the only thing that actually caps this -- an owner adjusting
+  // or waiving a specific charge's penalty means exactly that, until they change it again.
+  if (entry.penaltyOverride != null) {
+    return Math.max(0, Math.round((entry.penaltyOverride - entry.penaltyPaid) * 100) / 100);
   }
 
+  // `importedPenalty` (a CSV import's historical baseline) used to cap this the same way and
+  // never grow further -- real bug, fixed 2026-10-06: an imported charge's penalty could never
+  // grow past whatever was true the moment it was imported, even months later with real principal
+  // still unpaid. It's purely informational now; a charge still accrues normally from its own
+  // billingMonth whether or not it was CSV-imported.
   const overdue = monthsOverdue(entry.billingMonth, currentBillingMonth);
   const raw = Math.max(0, entry.principalOutstanding * penaltyRate * overdue - entry.penaltyPaid);
   return Math.round(raw * 100) / 100;

@@ -192,9 +192,13 @@ export interface ChargeEntry {
   principalOutstanding: number;
   penaltyPaid: number;
   pendingPenalty?: number;
-  // Frozen historical penalty from a CSV import — see docs/Ledger-Plan.md #9. When set,
-  // `pendingPenalty` above is this minus `penaltyPaid`, not a formula-computed amount.
+  // Historical penalty from a CSV import — see docs/Ledger-Plan.md #9. Purely informational;
+  // it no longer caps `pendingPenalty` above (a charge still accrues normally after import).
   importedPenalty?: number;
+  // An owner's explicit override from a draft invoice's Previous Balance Detail table
+  // (docs/Ledger-Plan.md #5/#27). Unlike importedPenalty, this DOES cap `pendingPenalty` above —
+  // when set, it's this minus `penaltyPaid`, not a formula-computed amount.
+  penaltyOverride?: number;
   // Tenant.paymentWaived was on when this charge was created (principalOutstanding starts
   // at 0) — purely a display flag, so the ledger view can show "Waived" instead of looking
   // like it was paid with no payment record.

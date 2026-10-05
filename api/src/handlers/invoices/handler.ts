@@ -396,11 +396,12 @@ export class InvoiceHandler {
     // it never touched the real ChargeEntry, so the Ledger view's Charges table (and any later
     // invoice still carrying that charge into its own previousBalance) kept showing the original,
     // un-overridden live-computed penalty. Freeze a genuine override onto the ChargeEntry via
-    // `importedPenalty`, the exact same frozen-penalty mechanism a historical CSV import already
-    // uses, so it's picked up everywhere pendingPenalty() is read from now on. Compared against
-    // what was already stored on *this invoice* before the edit (not today's live value) -- the
-    // form always submits the full array on every save, so comparing against a live recompute
-    // would misread ordinary penalty growth between two unrelated edits as an intentional override.
+    // `penaltyOverride` -- a separate field from `importedPenalty` (a CSV import's historical
+    // baseline, which no longer caps anything, see pendingPenalty()) specifically so this override
+    // keeps sticking regardless of that. Compared against what was already stored on *this
+    // invoice* before the edit (not today's live value) -- the form always submits the full array
+    // on every save, so comparing against a live recompute would misread ordinary penalty growth
+    // between two unrelated edits as an intentional override.
     if (Array.isArray(body.previousBalanceHistory)) {
       const oldHistory = invoice.previousBalanceHistory ?? [];
       const overridden = body.previousBalanceHistory.filter((entry: any) => {
@@ -411,7 +412,7 @@ export class InvoiceHandler {
         const tenantCharges = await LedgerRepository.listChargesByTenant(invoice.tenantId);
         await Promise.all(overridden.map((entry: any) => {
           const charge = tenantCharges.find(c => c.billingMonth === entry.billingMonth);
-          return charge ? LedgerRepository.updateChargeEntry(charge.id, { importedPenalty: entry.penalty }) : null;
+          return charge ? LedgerRepository.updateChargeEntry(charge.id, { penaltyOverride: entry.penalty }) : null;
         }));
       }
     }

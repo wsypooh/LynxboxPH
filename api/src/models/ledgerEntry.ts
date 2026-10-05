@@ -18,13 +18,22 @@ export interface ChargeEntry extends BaseEntity {
   principalAmount: number;
   principalOutstanding: number;
   penaltyPaid: number;
-  // A fixed penalty amount carried over from a historical-balance CSV import (docs/Ledger-Plan.md
-  // "Added beyond the original plan" #9) — when set, LedgerRepository.pendingPenalty() returns
-  // this (minus penaltyPaid) instead of computing simple interest from billingMonth, since the
-  // old system's own record of accrued penalty is more accurate than reapplying this system's
-  // rate retroactively over however long the charge was already overdue before migration. Frozen
-  // by design: it never grows further, unlike a normal charge's formula-computed penalty.
+  // A historical penalty amount carried over from a historical-balance CSV import
+  // (docs/Ledger-Plan.md "Added beyond the original plan" #9) — the old system's own record of
+  // what had already accrued as of the import, more accurate than reapplying this system's rate
+  // retroactively over however long the charge was already overdue before migration. Purely
+  // informational now: it no longer caps pendingPenalty() (docs/Ledger-Plan.md) — a charge still
+  // accrues normally (simple interest from billingMonth) after import, it just starts from this
+  // baseline in spirit rather than from zero. Real incident, 2026-10-06: freezing this permanently
+  // meant an imported charge's penalty could never grow past whatever was true the moment it was
+  // imported, even months later with real principal still unpaid.
   importedPenalty?: number;
+  // An owner's explicit penalty override, entered on a draft invoice's Previous Balance Detail
+  // table (docs/Ledger-Plan.md #5, #27) and frozen onto the charge so it sticks beyond that one
+  // invoice. Unlike importedPenalty, this DOES cap pendingPenalty() — an owner adjusting/waiving
+  // a specific charge's penalty is deliberately meant to override the formula until someone
+  // changes it again, not just offer a historical starting point.
+  penaltyOverride?: number;
   // Tenant.paymentWaived was on when this charge was created — principalOutstanding is 0
   // from the start (see createChargeEntry below), so this never accrues penalty or shows up
   // as owed in any rollover; kept here purely so the ledger view can label it "Waived"
