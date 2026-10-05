@@ -20,6 +20,13 @@ function isValidNum(s: string | undefined): boolean {
   return !!s && s.trim() !== '' && !isNaN(Number(s));
 }
 
+// createInvoice/rollover both default a metered charge's presentReading to 0 until someone
+// actually enters a reading for it -- so a nonzero value here means this invoice already has
+// a real saved reading, and the field should show it instead of starting blank.
+function savedReadingValue(presentReading: number | undefined): string | undefined {
+  return presentReading ? String(presentReading) : undefined;
+}
+
 interface RowReadings {
   elec?: string;
   water?: string;
@@ -61,7 +68,12 @@ function MeterCells({
     <>
       <Td isNumeric>
         <NumberInput size="sm" w="110px" ml="auto" value={value ?? ''} onChange={onChange}>
-          <NumberInputField placeholder={String(previousReading)} textAlign="right" />
+          <NumberInputField
+            placeholder={String(previousReading)}
+            textAlign="right"
+            fontWeight={valid ? 'semibold' : 'normal'}
+            color={valid ? 'gray.900' : undefined}
+          />
         </NumberInput>
         {belowPrevious && <Text fontSize="xs" color="orange.500">below previous</Text>}
       </Td>
@@ -216,7 +228,7 @@ export function InvoiceBulkReadingsModal({ isOpen, onClose, invoices, onUpdated 
                           metered={inv.electricity?.mode !== 'direct'}
                           previousReading={inv.electricity?.previousReading ?? 0}
                           rate={inv.electricity?.rate ?? 0}
-                          value={readings[inv.id]?.elec}
+                          value={readings[inv.id]?.elec ?? savedReadingValue(inv.electricity?.presentReading)}
                           onChange={v => setElec(inv.id, v)}
                         />
                         {anyWaterMetered && (
@@ -224,7 +236,7 @@ export function InvoiceBulkReadingsModal({ isOpen, onClose, invoices, onUpdated 
                             metered={inv.water?.mode === 'metered'}
                             previousReading={inv.water?.previousReading ?? 0}
                             rate={inv.water?.rate ?? 0}
-                            value={readings[inv.id]?.water}
+                            value={readings[inv.id]?.water ?? savedReadingValue(inv.water?.presentReading)}
                             onChange={v => setWater(inv.id, v)}
                           />
                         )}
