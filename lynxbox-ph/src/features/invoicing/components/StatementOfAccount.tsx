@@ -185,16 +185,6 @@ export function StatementOfAccount({ invoice }: Props) {
               ? <Badge colorScheme="orange" fontSize="sm" px={2} py={1}>Waived — No Payment Required</Badge>
               : <Text>₱{fmt(invoice.totalDue)}</Text>}
           </HStack>
-          {!invoice.waived && invoice.amountPaid > 0 && (
-            <>
-              <HStack justify="space-between" fontSize="sm" color="green.600">
-                <Text>Amount Paid</Text><Text>{fmt(invoice.amountPaid)}</Text>
-              </HStack>
-              <HStack justify="space-between" fontWeight="bold" color={invoice.outstanding <= 0 ? 'green.600' : 'red.600'}>
-                <Text>Balance Outstanding</Text><Text>PHP {fmt(invoice.outstanding)}</Text>
-              </HStack>
-            </>
-          )}
         </Box>
 
         <Button mt={4} colorScheme="blue" size="sm" className="no-print" isLoading={downloading} onClick={handleDownload}>

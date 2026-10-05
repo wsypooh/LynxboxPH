@@ -196,10 +196,6 @@ export class PdfService {
         ? { label: 'TOTAL DUE', text: 'Waived — No Payment Required', bold: true }
         : { label: 'TOTAL DUE', amount: invoice.totalDue, bold: true, currency: true },
     ];
-    if (!invoice.waived && invoice.amountPaid > 0) {
-      totalRows.push({ label: 'Amount Paid', amount: invoice.amountPaid });
-      totalRows.push({ label: 'Balance Outstanding', amount: invoice.outstanding, bold: true, currency: true });
-    }
 
     totalRows.forEach((row) => {
       doc.rect(col1, y, doc.page.width - 100, 18).fill(row.bold ? '#dde4ee' : '#f9f9f9');
