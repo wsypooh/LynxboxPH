@@ -383,8 +383,8 @@ export function InvoiceForm({
             <Heading size="sm">Previous Balance Detail</Heading>
             <Text fontSize="xs" color="gray.500">
               Penalty is auto-computed from the ledger but can be overridden below before this draft is sent —
-              e.g. to waive or adjust a penalty for a specific charge. This only changes what&apos;s billed on
-              this invoice; it doesn&apos;t change the ledger&apos;s own penalty formula going forward.
+              e.g. to waive or adjust a penalty for a specific charge. Saving a changed value freezes it onto
+              that charge in the ledger too, so it carries forward to the Charges table and any future invoice.
             </Text>
             <Box overflowX="auto">
               <Table size="sm">

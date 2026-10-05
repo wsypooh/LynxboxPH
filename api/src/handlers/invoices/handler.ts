@@ -391,6 +391,31 @@ export class InvoiceHandler {
       }
     }
 
+    // A manual penalty override on this draft's Previous Balance Detail table (InvoiceForm.tsx)
+    // used to only ever change what's billed on *this* invoice's own previousBalanceHistory --
+    // it never touched the real ChargeEntry, so the Ledger view's Charges table (and any later
+    // invoice still carrying that charge into its own previousBalance) kept showing the original,
+    // un-overridden live-computed penalty. Freeze a genuine override onto the ChargeEntry via
+    // `importedPenalty`, the exact same frozen-penalty mechanism a historical CSV import already
+    // uses, so it's picked up everywhere pendingPenalty() is read from now on. Compared against
+    // what was already stored on *this invoice* before the edit (not today's live value) -- the
+    // form always submits the full array on every save, so comparing against a live recompute
+    // would misread ordinary penalty growth between two unrelated edits as an intentional override.
+    if (Array.isArray(body.previousBalanceHistory)) {
+      const oldHistory = invoice.previousBalanceHistory ?? [];
+      const overridden = body.previousBalanceHistory.filter((entry: any) => {
+        const before = oldHistory.find(h => h.billingMonth === entry.billingMonth);
+        return before && round2(before.penalty) !== round2(entry.penalty);
+      });
+      if (overridden.length > 0) {
+        const tenantCharges = await LedgerRepository.listChargesByTenant(invoice.tenantId);
+        await Promise.all(overridden.map((entry: any) => {
+          const charge = tenantCharges.find(c => c.billingMonth === entry.billingMonth);
+          return charge ? LedgerRepository.updateChargeEntry(charge.id, { importedPenalty: entry.penalty }) : null;
+        }));
+      }
+    }
+
     return ApiResponse.success({ invoice: await InvoiceHandler.enrichInvoice(updated) });
   }
 
