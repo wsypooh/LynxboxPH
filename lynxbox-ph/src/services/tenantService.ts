@@ -84,9 +84,8 @@ class TenantService {
     return res.invoices ?? [];
   }
 
-  async getLedger(id: string, asOf?: string): Promise<LedgerSummary> {
-    const qs = asOf ? `?asOf=${asOf}` : '';
-    return this.request<LedgerSummary>(`/api/tenants/${id}/ledger${qs}`);
+  async getLedger(id: string): Promise<LedgerSummary> {
+    return this.request<LedgerSummary>(`/api/tenants/${id}/ledger`);
   }
 
   async recordLedgerPayment(

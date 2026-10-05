@@ -84,11 +84,26 @@ export class LedgerHandler {
     const building = await BuildingRepository.findById(tenant.buildingId);
     const penaltyRate = building?.penaltyRate ?? DEFAULT_PENALTY_RATE;
     const penaltyEnabled = tenant.penaltyEnabled ?? true;
-    const asOf = event.queryStringParameters?.asOf;
-    const currentBillingMonth = asOf && /^\d{4}-\d{2}$/.test(asOf) ? asOf : new Date().toISOString().slice(0, 7);
 
-    const [charges, payments, { previousBalance, previousBalanceHistory }] = await Promise.all([
+    // Penalty must only ever reflect what's already been generated into a real invoice, never a
+    // live "as of today" projection -- otherwise this headline keeps changing day to day for a
+    // charge nobody has invoiced yet, and disagrees with the Invoices list (InvoiceHandler.
+    // derivePaymentFields derives its own Outstanding/Paid from this same frozen-at-generation
+    // basis). The tenant's own most recent non-deleted invoice's billingMonth is the latest point
+    // anything has actually been generated to -- a charge newer than that (or with no invoice at
+    // all yet) correctly shows zero computed penalty until the next invoice formalizes it. Real
+    // incident, 2026-10-05: a tenant with zero recorded payments showed a nonzero Paid/Outstanding
+    // mismatch between this page and the Invoices list purely from this kind of live projection.
+    const [invoices, charges] = await Promise.all([
+      InvoiceRepository.listByTenant(tenantId),
       LedgerRepository.listChargesByTenant(tenantId),
+    ]);
+    const latestInvoiceMonth = invoices
+      .filter(i => !i.deletedAt)
+      .reduce((max, inv) => (inv.billingMonth > max ? inv.billingMonth : max), '');
+    const currentBillingMonth = latestInvoiceMonth || charges[charges.length - 1]?.billingMonth || new Date().toISOString().slice(0, 7);
+
+    const [payments, { previousBalance, previousBalanceHistory }] = await Promise.all([
       LedgerRepository.listPaymentsByTenant(tenantId),
       LedgerRepository.getLedgerSummary(tenantId, currentBillingMonth, penaltyEnabled, penaltyRate),
     ]);

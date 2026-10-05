@@ -42,8 +42,6 @@ export function LedgerView({ tenantId, penaltyEnabled = true, reloadToken }: Pro
   const [charges, setCharges] = useState<ChargeEntry[]>([]);
   const [payments, setPayments] = useState<PaymentLedgerEntry[]>([]);
   const [previousBalance, setPreviousBalance] = useState(0);
-  const [asOf, setAsOf] = useState('');
-  const [asOfInput, setAsOfInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [editingPayment, setEditingPayment] = useState<PaymentLedgerEntry | null>(null);
   const [editMethod, setEditMethod] = useState('');
@@ -54,11 +52,10 @@ export function LedgerView({ tenantId, penaltyEnabled = true, reloadToken }: Pro
   const load = async () => {
     setLoading(true);
     try {
-      const summary = await tenantService.getLedger(tenantId, asOfInput || undefined);
+      const summary = await tenantService.getLedger(tenantId);
       setCharges(summary.charges);
       setPayments(summary.payments);
       setPreviousBalance(summary.previousBalance);
-      setAsOf(summary.asOf);
     } catch (err: any) {
       toast({ title: 'Failed to load ledger', status: 'error' });
     } finally {
@@ -69,7 +66,7 @@ export function LedgerView({ tenantId, penaltyEnabled = true, reloadToken }: Pro
   useEffect(() => {
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, reloadToken, asOfInput]);
+  }, [tenantId, reloadToken]);
 
   const openEdit = (p: PaymentLedgerEntry) => {
     setEditingPayment(p);
@@ -119,16 +116,6 @@ export function LedgerView({ tenantId, penaltyEnabled = true, reloadToken }: Pro
           <Badge colorScheme={previousBalance > 0 ? 'red' : 'green'} fontSize="sm" px={2} py={1}>
             ₱{previousBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
           </Badge>
-        </HStack>
-        <HStack>
-          <Text fontSize="xs" color="gray.500">Penalty calculated as of {asOf}</Text>
-          <Input
-            type="month" size="xs" w="130px" value={asOfInput}
-            onChange={e => setAsOfInput(e.target.value)}
-          />
-          {asOfInput && (
-            <Button size="xs" variant="ghost" onClick={() => setAsOfInput('')}>Reset to today</Button>
-          )}
         </HStack>
       </HStack>
 

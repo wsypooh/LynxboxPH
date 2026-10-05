@@ -3,7 +3,7 @@ import { InvoiceRepository } from '../../repositories/invoiceRepository';
 import { Invoice } from '../../models/invoice';
 import { TenantRepository } from '../../repositories/tenantRepository';
 import { BuildingRepository } from '../../repositories/buildingRepository';
-import { LedgerRepository } from '../../repositories/ledgerRepository';
+import { LedgerRepository, pendingPenalty, DEFAULT_PENALTY_RATE } from '../../repositories/ledgerRepository';
 import { PdfService } from '../../lib/pdf';
 import { ZeptoMailService } from '../../lib/zeptomail';
 import { ApiResponse } from '../../lib/apiResponse';
@@ -142,10 +142,24 @@ export class InvoiceHandler {
     // untouched previous balance as if it had been collected. Summing every charge through this
     // invoice's own billing month (inclusive) gives the real, live unpaid total instead, and
     // matches `totalDue` itself (currentChargesTotal + previousBalance, both cumulative).
+    //
+    // Penalty must be included here too -- `totalDue` already has it baked in via
+    // LedgerRepository.getLedgerSummary's previousBalance (sum of outstanding + penalty per
+    // charge), so a principal-only sum here under-counts the live total by exactly the accrued
+    // penalty, which then gets misread as an "amount paid" that was never actually collected
+    // (real incident, 2026-10-05 -- a tenant with zero recorded payments showed a nonzero Paid
+    // and a PARTIAL status purely from unpaid penalty). Penalty is computed as of this invoice's
+    // own billingMonth, not today's real month -- the same reference point getLedgerSummary used
+    // when it froze totalDue/previousBalance at creation -- so an untouched invoice always comes
+    // back to exactly zero amountPaid, however much real time has since passed.
+    const tenant = await TenantRepository.findById(invoice.tenantId);
+    const building = tenant ? await BuildingRepository.findById(tenant.buildingId) : null;
+    const penaltyEnabled = tenant?.penaltyEnabled ?? true;
+    const penaltyRate = building?.penaltyRate ?? DEFAULT_PENALTY_RATE;
     const outstanding = Math.max(0, round2(
       charges
         .filter(c => c.billingMonth <= invoice.billingMonth)
-        .reduce((sum, c) => sum + c.principalOutstanding, 0)
+        .reduce((sum, c) => sum + c.principalOutstanding + (penaltyEnabled ? pendingPenalty(c, invoice.billingMonth, penaltyRate) : 0), 0)
     ));
     const amountPaid = round2(invoice.totalDue - outstanding);
     const status = outstanding <= 0 ? 'paid' : amountPaid > 0 ? 'partial' : invoice.status;
