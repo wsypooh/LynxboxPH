@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Box, Table, Thead, Tbody, Tr, Th, Td, Text, Divider, HStack, Button, Badge } from '@chakra-ui/react';
 import { Invoice } from '@/features/invoicing/types';
 import { invoiceService } from '@/services/invoiceService';
+import { formatBillingMonth } from '@/lib/utils';
 
 interface Props {
   invoice: Invoice;
@@ -161,7 +162,7 @@ export function StatementOfAccount({ invoice }: Props) {
                 <Tbody>
                   {invoice.previousBalanceHistory.map((e, i) => (
                     <Tr key={i}>
-                      <Td>{e.invoiceNumber}</Td><Td>{e.billingLabel}</Td>
+                      <Td>{e.invoiceNumber}</Td><Td>{formatBillingMonth(e.billingMonth)}</Td>
                       <Td isNumeric>{fmt(e.outstanding)}</Td>
                       <Td isNumeric>{fmt(e.penalty)}</Td>
                     </Tr>

@@ -1,6 +1,17 @@
 import PDFDocument = require('pdfkit');
 import { Invoice } from '../models/invoice';
 
+// previousBalanceHistory entries carry their own billingLabel field, but
+// LedgerRepository.getLedgerSummary populates it from the charge's full description
+// (e.g. "Invoice INV-2026-10-0057 — October 2026") rather than just the period -- far too
+// long for the Previous Balance table's Period column and already baked into existing
+// invoices' stored snapshots. Deriving the label fresh from billingMonth here fixes display
+// for old and new invoices alike without needing a backfill.
+function formatBillingLabel(billingMonth: string): string {
+  const [year, month] = billingMonth.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleString('en-PH', { month: 'long', year: 'numeric' });
+}
+
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Cash',
   check: 'Check',
@@ -170,7 +181,7 @@ export class PdfService {
         doc.rect(col1, y, doc.page.width - 100, 14).fill(bg);
         doc.fill('#333333').fontSize(8).font('Helvetica')
           .text(entry.invoiceNumber, pcols[0] + 3, y + 2, { width: 85 })
-          .text(entry.billingLabel, pcols[1], y + 2, { width: 145 })
+          .text(formatBillingLabel(entry.billingMonth), pcols[1], y + 2, { width: 95 })
           .text(formatAmount(entry.outstanding), pcols[2], y + 2, { align: 'right', width: 65 })
           .text(formatAmount(entry.penalty), pcols[3], y + 2, { align: 'right', width: 75 });
         y += 14;

@@ -27,6 +27,16 @@ export function formatExpiryDate(expiresAt: string | null | undefined): string {
   return isPropertyExpired(expiresAt) ? `Expired ${formatted}` : `Expires ${formatted}`;
 }
 
+// LedgerRepository.getLedgerSummary's previousBalanceHistory entries carry their own
+// billingLabel field, but it used to be populated from the charge's full description
+// (e.g. "Invoice INV-2026-10-0057 — October 2026") instead of just the period -- already
+// baked into existing invoices' stored snapshots. Deriving the label fresh from billingMonth
+// here fixes display for old and new invoices alike without needing a backfill.
+export function formatBillingMonth(billingMonth: string): string {
+  const [year, month] = billingMonth.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleString('en-PH', { month: 'long', year: 'numeric' });
+}
+
 export function formatFloor(floor: number): string {
   if (floor === 0) return 'Ground';
 

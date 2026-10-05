@@ -22,6 +22,11 @@ export interface PreviousBalanceEntry {
   penalty: number;
 }
 
+function formatBillingLabel(billingMonth: string): string {
+  const [year, month] = billingMonth.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleString('en-PH', { month: 'long', year: 'numeric' });
+}
+
 function monthsOverdue(billingMonth: string, currentBillingMonth: string): number {
   const [chargeYear, chargeMonth] = billingMonth.split('-').map(Number);
   const [currentYear, currentMonth] = currentBillingMonth.split('-').map(Number);
@@ -293,7 +298,7 @@ export class LedgerRepository {
     const previousBalanceHistory: PreviousBalanceEntry[] = outstanding.map(entry => ({
       invoiceNumber: entry.invoiceNumber || '',
       billingMonth: entry.billingMonth,
-      billingLabel: entry.description,
+      billingLabel: formatBillingLabel(entry.billingMonth),
       amountDue: entry.principalAmount,
       amountPaid: entry.principalAmount - entry.principalOutstanding,
       outstanding: entry.principalOutstanding,

@@ -528,6 +528,12 @@ export class InvoiceHandler {
     const owned = invoices.filter(inv => inv && inv.ownerId === userId) as Invoice[];
     if (owned.length === 0) return ApiResponse.notFound('No matching invoices found');
 
+    // Merged PDF reads top-to-bottom as one document, so order it by unit (not by whatever
+    // order the invoices were selected in) -- matches InvoiceBulkReadingsModal.tsx's sort.
+    owned.sort((a, b) =>
+      `${a.floor} ${a.roomNumber}`.localeCompare(`${b.floor} ${b.roomNumber}`, undefined, { numeric: true, sensitivity: 'base' })
+    );
+
     const enriched = await Promise.all(owned.map(inv => InvoiceHandler.enrichInvoice(inv)));
     const pdfBuffers = await Promise.all(enriched.map(inv => PdfService.generateInvoicePdf(inv, plan === 'free')));
 
