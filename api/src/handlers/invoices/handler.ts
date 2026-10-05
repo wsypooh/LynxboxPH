@@ -120,20 +120,33 @@ export class InvoiceHandler {
   // never-updated amountPaid) -- so without this, an invoice paid off via the tenant ledger
   // stayed "sent"/"printed" forever and the Paid/Outstanding columns never moved.
   //
-  // Reducing this to just the invoice's own linked charge's principalOutstanding is exact, not
-  // an approximation: recordPaymentWithFIFO always settles strictly-older charges before this
-  // one (oldest-first), so by the time this invoice's own charge has absorbed any payment,
-  // everything that fed into its `previousBalance` snapshot must already be fully settled.
-  // That means `outstanding` for the whole invoice (previousBalance + currentChargesTotal) and
-  // `outstanding` for just this invoice's own charge are the same number.
+  // `outstanding` sums every ChargeEntry through this invoice's own billing month (inclusive),
+  // not just its own linked charge -- see the comment inside derivePaymentFields for why reducing
+  // this to only the invoice's own charge (the original, 2026-10-04 version of this fix) was
+  // itself a bug once a tenant has older charges that were never paid down at all (e.g. right
+  // after a historical-balance CSV import, before any real ledger payment exists).
   private static async derivePaymentFields(invoice: Invoice): Promise<Pick<Invoice, 'status' | 'amountPaid' | 'outstanding'>> {
     if (invoice.status === 'draft' || invoice.status === 'void') {
       return { status: invoice.status, amountPaid: invoice.amountPaid, outstanding: invoice.outstanding };
     }
-    const charge = await LedgerRepository.findChargeByInvoiceId(invoice.tenantId, invoice.id);
+    const charges = await LedgerRepository.listChargesByTenant(invoice.tenantId);
+    const charge = charges.find(c => c.invoiceId === invoice.id);
     if (!charge) return { status: invoice.status, amountPaid: invoice.amountPaid, outstanding: invoice.outstanding };
 
-    const outstanding = Math.max(0, round2(charge.principalOutstanding));
+    // Used to be just this invoice's own linked charge's principalOutstanding, on the assumption
+    // that FIFO (oldest-first) guarantees every older charge is already fully settled by the time
+    // this one has absorbed any payment -- true once a payment has actually reached it, but not
+    // before (e.g. right after a historical-balance CSV import, before any real ledger payment
+    // exists at all). In that gap, older unpaid charges were invisible here, and
+    // `totalDue - outstanding` (meant to be "amount actually paid") silently counted that
+    // untouched previous balance as if it had been collected. Summing every charge through this
+    // invoice's own billing month (inclusive) gives the real, live unpaid total instead, and
+    // matches `totalDue` itself (currentChargesTotal + previousBalance, both cumulative).
+    const outstanding = Math.max(0, round2(
+      charges
+        .filter(c => c.billingMonth <= invoice.billingMonth)
+        .reduce((sum, c) => sum + c.principalOutstanding, 0)
+    ));
     const amountPaid = round2(invoice.totalDue - outstanding);
     const status = outstanding <= 0 ? 'paid' : amountPaid > 0 ? 'partial' : invoice.status;
     return { status, amountPaid, outstanding };
