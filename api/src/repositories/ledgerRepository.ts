@@ -5,6 +5,7 @@ import {
 } from '../models/ledgerEntry';
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { round2 } from '../lib/money';
+import { InvoiceRepository } from './invoiceRepository';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE || 'lynxbox-ph-dev';
 // Fallback only — every real call site should pass the tenant's own Building.penaltyRate
@@ -48,6 +49,22 @@ export function pendingPenalty(
   const overdue = monthsOverdue(entry.billingMonth, currentBillingMonth);
   const raw = Math.max(0, entry.principalOutstanding * penaltyRate * overdue - entry.penaltyPaid);
   return Math.round(raw * 100) / 100;
+}
+
+// Penalty must only ever reflect what's already been generated into a real invoice, never a
+// live "as of today"/"as of the payment date" projection -- otherwise the same charge can show a
+// different penalty depending on which screen computed it (docs/Ledger-Plan.md #26, #28). The
+// tenant's own most recent non-deleted invoice's billingMonth is the latest point anything has
+// actually been generated to; a charge newer than that (or a tenant with no invoice at all yet)
+// correctly gets zero computed penalty until the next invoice formalizes it. Shared by
+// LedgerHandler.getLedger (the Ledger view's headline/Charges table) and
+// recordPaymentWithFIFO (what a payment actually collects), so both always agree.
+export async function getPenaltyReferenceMonth(tenantId: string, charges?: ChargeEntry[]): Promise<string> {
+  const invoices = (await InvoiceRepository.listByTenant(tenantId)).filter(i => !i.deletedAt);
+  const latestInvoiceMonth = invoices.reduce((max, inv) => (inv.billingMonth > max ? inv.billingMonth : max), '');
+  if (latestInvoiceMonth) return latestInvoiceMonth;
+  const allCharges = charges ?? await LedgerRepository.listChargesByTenant(tenantId);
+  return allCharges[allCharges.length - 1]?.billingMonth || new Date().toISOString().slice(0, 7);
 }
 
 export class LedgerRepository {
@@ -321,7 +338,13 @@ export class LedgerRepository {
   ): Promise<PaymentEntry> {
     const charges = await this.listChargesByTenant(data.tenantId);
     const outstanding = charges.filter(c => c.principalOutstanding > 0);
-    const currentBillingMonth = data.paymentDate.slice(0, 7);
+    // Not the entered paymentDate's own month -- that let a backdated/late-recorded payment
+    // retroactively assess penalty using whatever the building/tenant's *current* penalty
+    // settings happen to be today, which can silently differ from what the Ledger view showed
+    // right before the payment was recorded (real incident, docs/Ledger-Plan.md #28). Using the
+    // same reference `getLedger()` uses keeps what's actually collected consistent with what was
+    // on screen.
+    const currentBillingMonth = await getPenaltyReferenceMonth(data.tenantId, charges);
 
     let remaining = round2(data.totalAmount);
     const appliedTo: AppliedTo[] = [];
