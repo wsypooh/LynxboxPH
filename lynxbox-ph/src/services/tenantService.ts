@@ -100,6 +100,25 @@ class TenantService {
     return res.paymentEntry;
   }
 
+  async editLedgerPayment(
+    id: string,
+    paymentId: string,
+    data: { paymentMethod?: string; note?: string }
+  ): Promise<PaymentLedgerEntry> {
+    const res = await this.request<{ paymentEntry: PaymentLedgerEntry }>(`/api/tenants/${id}/payments/${paymentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return res.paymentEntry;
+  }
+
+  async voidLedgerPayment(id: string, paymentId: string): Promise<PaymentLedgerEntry> {
+    const res = await this.request<{ paymentEntry: PaymentLedgerEntry }>(`/api/tenants/${id}/payments/${paymentId}/void`, {
+      method: 'POST',
+    });
+    return res.paymentEntry;
+  }
+
   async createLedgerCharge(data: LedgerChargeInput): Promise<ChargeEntry> {
     const res = await this.request<{ chargeEntry: ChargeEntry }>('/api/ledger/charges', {
       method: 'POST',

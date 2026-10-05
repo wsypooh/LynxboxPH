@@ -255,6 +255,12 @@ app.all('/api/tenants/:id/ledger/reset', async (req, res) => {
 app.all('/api/tenants/:id/payments', async (req, res) => {
   await handlePropertyRequest(req, res);
 });
+app.all('/api/tenants/:id/payments/:paymentId', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
+app.all('/api/tenants/:id/payments/:paymentId/void', async (req, res) => {
+  await handlePropertyRequest(req, res);
+});
 
 // Documents routes
 app.all('/api/documents', async (req, res) => {

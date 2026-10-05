@@ -121,6 +121,14 @@ export class LedgerRepository {
     return charges.find(c => c.invoiceId === invoiceId) ?? null;
   }
 
+  static async findPaymentById(id: string): Promise<PaymentEntry | null> {
+    const { Item } = await ddbDocClient.send(new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `LEDGER_ENTRY#${id}`, SK: `LEDGER_ENTRY#${id}` },
+    }));
+    return Item ? (Item as PaymentEntry) : null;
+  }
+
   static async updatePaymentEntry(id: string, updates: Partial<PaymentEntry>): Promise<PaymentEntry | null> {
     const now = new Date().toISOString();
     const expressions: string[] = [];
@@ -155,6 +163,29 @@ export class LedgerRepository {
   static async deletePaymentEntry(id: string): Promise<boolean> {
     const updated = await this.updatePaymentEntry(id, { deletedAt: new Date().toISOString() });
     return !!updated;
+  }
+
+  // Unlike deletePaymentEntry (a bare soft-delete, only safe for resetTenantLedger's full wipe
+  // where the charges are being deleted too), this reverses the payment's own FIFO allocation
+  // before removing it -- restoring principalOutstanding/penaltyPaid on every charge in its
+  // appliedTo -- so a wrong-amount payment can actually be corrected instead of leaving the
+  // charges paid down by money that no longer has a record. Order-independent: each payment's
+  // appliedTo was computed from whatever was outstanding at the moment IT was recorded, so
+  // reversing it doesn't depend on whether other payments happened before or after.
+  static async voidPaymentEntry(id: string): Promise<PaymentEntry | null> {
+    const payment = await this.findPaymentById(id);
+    if (!payment || payment.deletedAt) return null;
+
+    await Promise.all(payment.appliedTo.map(async a => {
+      const charge = await this.findChargeById(a.chargeEntryId);
+      if (!charge) return;
+      await this.updateChargeEntry(charge.id, {
+        principalOutstanding: Math.min(charge.principalAmount, round2(charge.principalOutstanding + a.principalApplied)),
+        penaltyPaid: Math.max(0, round2(charge.penaltyPaid - a.penaltyApplied)),
+      });
+    }));
+
+    return this.updatePaymentEntry(id, { deletedAt: new Date().toISOString() });
   }
 
   static async listPaymentsForInvoice(tenantId: string, invoiceId: string): Promise<Array<{

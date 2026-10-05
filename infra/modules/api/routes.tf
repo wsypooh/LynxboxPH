@@ -405,6 +405,22 @@ resource "aws_apigatewayv2_route" "tenant_payment" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "tenant_payment_edit" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /api/tenants/{id}/payments/{paymentId}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "tenant_payment_void" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /api/tenants/{id}/payments/{paymentId}/void"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # Document Routes
 resource "aws_apigatewayv2_route" "document_upload_url" {
   api_id             = aws_apigatewayv2_api.main.id

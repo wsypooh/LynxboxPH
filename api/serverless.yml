@@ -260,6 +260,20 @@ functions:
           authorizer:
             name: ApiGatewayAuthorizer
             type: request
+      - http:
+          path: /api/tenants/{id}/payments/{paymentId}
+          method: put
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
+      - http:
+          path: /api/tenants/{id}/payments/{paymentId}/void
+          method: post
+          cors: true
+          authorizer:
+            name: ApiGatewayAuthorizer
+            type: request
 
       # Documents
       - http:
