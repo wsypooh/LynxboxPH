@@ -101,13 +101,19 @@ export class PdfService {
 
       invoice.paymentsReceived.forEach((p, i) => {
         const bg = i % 2 === 0 ? '#ffffff' : lightGray;
-        doc.rect(col1, y, doc.page.width - 100, 14).fill(bg);
+        // Note is freeform text and can wrap to multiple lines (long text, or a literal
+        // newline) -- a fixed 14px row drew the next row's background/text right over a
+        // wrapped second line. Measure it first and grow the row to fit instead.
+        doc.fontSize(8).font('Helvetica');
+        const noteHeight = doc.heightOfString(p.note || '—', { width: 145 });
+        const rowHeight = Math.max(14, noteHeight + 6);
+        doc.rect(col1, y, doc.page.width - 100, rowHeight).fill(bg);
         doc.fill('#333333').fontSize(8).font('Helvetica')
           .text(p.paymentDate, rcols[0] + 3, y + 2, { width: 85 })
           .text(PAYMENT_METHOD_LABELS[p.paymentMethod] || '—', rcols[1], y + 2, { width: 95 })
           .text(p.note || '—', rcols[2], y + 2, { width: 145 })
           .text(formatAmount(p.totalAmount), rcols[3], y + 2, { align: 'right', width: 75 });
-        y += 14;
+        y += rowHeight;
       });
       y += 10;
     }
