@@ -148,18 +148,39 @@ export class InvoiceHandler {
     // charge), so a principal-only sum here under-counts the live total by exactly the accrued
     // penalty, which then gets misread as an "amount paid" that was never actually collected
     // (real incident, 2026-10-05 -- a tenant with zero recorded payments showed a nonzero Paid
-    // and a PARTIAL status purely from unpaid penalty). Penalty is computed as of this invoice's
-    // own billingMonth, not today's real month -- the same reference point getLedgerSummary used
-    // when it froze totalDue/previousBalance at creation -- so an untouched invoice always comes
-    // back to exactly zero amountPaid, however much real time has since passed.
+    // and a PARTIAL status purely from unpaid penalty).
+    //
+    // For any OLDER charge already reflected in this invoice's own frozen previousBalanceHistory,
+    // don't trust a fresh pendingPenalty() recompute on its own -- that's evaluated with *today's*
+    // building/tenant penalty settings, which can silently differ from whatever was in effect when
+    // this invoice's totalDue was frozen at creation (real incident, 2026-10-06: a tenant/building's
+    // penaltyEnabled/penaltyRate got turned on *after* several invoices already existed, making a
+    // live recompute exceed totalDue and show a *negative* Paid, even with zero real payments).
+    // Pinning the reference month (the earlier 2026-10-05 fix) only protects against the clock
+    // moving forward -- it does nothing for settings themselves changing. Taking the smaller of
+    // {what was frozen into this invoice, what the live formula says now} fixes both known failure
+    // modes with no extra stored data: if settings changed, frozen < live, so frozen wins (matches
+    // totalDue exactly, as intended); if a payment has since reduced this charge's penalty, live <
+    // frozen (penaltyPaid pulls it down), so live wins and the payment is reflected. The invoice's
+    // own linked charge was never part of any previousBalanceHistory snapshot (it's brand new),
+    // so it has nothing to compare against and always uses the live formula directly.
     const tenant = await TenantRepository.findById(invoice.tenantId);
     const building = tenant ? await BuildingRepository.findById(tenant.buildingId) : null;
     const penaltyEnabled = tenant?.penaltyEnabled ?? true;
     const penaltyRate = building?.penaltyRate ?? DEFAULT_PENALTY_RATE;
+    const frozenPenaltyByMonth = new Map(
+      (invoice.previousBalanceHistory ?? []).map(h => [h.billingMonth, h.penalty])
+    );
     const outstanding = Math.max(0, round2(
       charges
         .filter(c => c.billingMonth <= invoice.billingMonth)
-        .reduce((sum, c) => sum + c.principalOutstanding + (penaltyEnabled ? pendingPenalty(c, invoice.billingMonth, penaltyRate) : 0), 0)
+        .reduce((sum, c) => {
+          if (!penaltyEnabled) return sum + c.principalOutstanding;
+          const live = pendingPenalty(c, invoice.billingMonth, penaltyRate);
+          const frozen = frozenPenaltyByMonth.get(c.billingMonth);
+          const penalty = frozen !== undefined ? Math.min(frozen, live) : live;
+          return sum + c.principalOutstanding + penalty;
+        }, 0)
     ));
     const amountPaid = round2(invoice.totalDue - outstanding);
     const status = outstanding <= 0 ? 'paid' : amountPaid > 0 ? 'partial' : invoice.status;
