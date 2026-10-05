@@ -42,6 +42,11 @@ const OPTIONAL: ColDef[] = [
     num: () => 0,
   },
   {
+    key: 'unit', label: 'Unit', isNumeric: false, canSum: false, defaultOn: false,
+    cell: inv => <Text fontSize="xs">{inv.floor} {inv.roomNumber}</Text>,
+    num: () => 0,
+  },
+  {
     key: 'rent', label: 'Rent', isNumeric: true, canSum: true, defaultOn: false,
     cell: inv => fmt(inv.rent),
     num: inv => inv.rent ?? 0,
@@ -117,15 +122,21 @@ function exportCsv(invoices: Invoice[]) {
 
 type SortKey = 'invoiceNumber' | 'lesseeName' | 'buildingName' | 'billingLabel'
   | 'totalDue' | 'amountPaid' | 'outstanding' | 'status'
-  | 'tenantCode' | 'rent' | 'vat' | 'withholdingTax' | 'water' | 'electricity' | 'guard' | 'otherCharges';
+  | 'tenantCode' | 'unit' | 'rent' | 'vat' | 'withholdingTax' | 'water' | 'electricity' | 'guard' | 'otherCharges';
 type SortDir = 'asc' | 'desc';
 
 const SORTABLE_OPTIONAL: SortKey[] = [
-  'buildingName', 'tenantCode', 'rent', 'vat', 'withholdingTax', 'water', 'electricity', 'guard', 'otherCharges',
+  'buildingName', 'tenantCode', 'unit', 'rent', 'vat', 'withholdingTax', 'water', 'electricity', 'guard', 'otherCharges',
 ];
 
 function sortInvoices(invoices: Invoice[], key: SortKey, dir: SortDir): Invoice[] {
   return [...invoices].sort((a, b) => {
+    // Plain string comparison would put "Rm 11" before "Rm 4" (lexicographic, not numeric) --
+    // localeCompare's numeric option treats the embedded digits as numbers instead.
+    if (key === 'unit') {
+      const cmp = `${a.floor} ${a.roomNumber}`.localeCompare(`${b.floor} ${b.roomNumber}`, undefined, { numeric: true, sensitivity: 'base' });
+      return dir === 'asc' ? cmp : -cmp;
+    }
     let va: string | number, vb: string | number;
     switch (key) {
       case 'invoiceNumber':  va = a.invoiceNumber;   vb = b.invoiceNumber;   break;

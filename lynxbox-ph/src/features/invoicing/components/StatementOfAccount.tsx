@@ -19,6 +19,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   credit_card: 'Credit Card',
   bank: 'Bank',
   online_banking: 'Online Banking',
+  other: 'Other',
 };
 
 function formatPhone(phone: string): string {

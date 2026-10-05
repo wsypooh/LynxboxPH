@@ -96,7 +96,7 @@ export interface OtherCharge {
   amount: number;
 }
 
-export type PaymentMethod = 'cash' | 'check' | 'gcash' | 'credit_card' | 'bank' | 'online_banking';
+export type PaymentMethod = 'cash' | 'check' | 'gcash' | 'credit_card' | 'bank' | 'online_banking' | 'other';
 
 export interface Payment {
   date: string;

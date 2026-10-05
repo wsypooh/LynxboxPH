@@ -29,6 +29,7 @@ const PAYMENT_METHOD_LABELS = {
   credit_card: 'Credit Card',
   bank: 'Bank',
   online_banking: 'Online Banking',
+  other: 'Other',
 };
 
 export default function InvoiceDetailClient({ id }: { id: string }) {

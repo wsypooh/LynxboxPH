@@ -147,11 +147,16 @@ const SORTABLE_OPTIONAL: SortKey[] = ['building', 'leaseStart', 'leaseEnd', 'def
 
 function sortTenants(tenants: Tenant[], key: SortKey, dir: SortDir, buildings: Building[] = []): Tenant[] {
   return [...tenants].sort((a, b) => {
+    // Plain string comparison would put "Rm 11" before "Rm 4" (lexicographic, not numeric) --
+    // localeCompare's numeric option treats the embedded digits as numbers instead.
+    if (key === 'unit') {
+      const cmp = `${a.floor} ${a.roomNumber}`.localeCompare(`${b.floor} ${b.roomNumber}`, undefined, { numeric: true, sensitivity: 'base' });
+      return dir === 'asc' ? cmp : -cmp;
+    }
     let va: string | number, vb: string | number;
     switch (key) {
       case 'tenantCode':  va = a.tenantCode;  vb = b.tenantCode;  break;
       case 'lesseeName':  va = a.lesseeName;  vb = b.lesseeName;  break;
-      case 'unit':        va = `${a.floor} ${a.roomNumber}`; vb = `${b.floor} ${b.roomNumber}`; break;
       case 'status':      va = a.status;      vb = b.status;      break;
       case 'building':
         va = buildings.find(bl => bl.id === a.buildingId)?.name ?? '';

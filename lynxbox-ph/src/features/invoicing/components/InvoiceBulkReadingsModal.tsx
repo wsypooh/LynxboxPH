@@ -87,9 +87,11 @@ export function InvoiceBulkReadingsModal({ isOpen, onClose, invoices, onUpdated 
   // explicitly direct" is the correct test here, not an exact 'metered' match (water keeps the
   // exact match since it genuinely has a third 'fixed' mode, and its mode IS in InvoiceForm's
   // submitted payload).
-  const editableRows = invoices.filter(inv =>
-    inv.status === 'draft' && (inv.electricity?.mode !== 'direct' || inv.water?.mode === 'metered')
-  );
+  const editableRows = invoices
+    .filter(inv => inv.status === 'draft' && (inv.electricity?.mode !== 'direct' || inv.water?.mode === 'metered'))
+    // Plain string comparison would put "Rm 11" before "Rm 4" (lexicographic, not numeric) --
+    // localeCompare's numeric option treats the embedded digits as numbers instead.
+    .sort((a, b) => `${a.floor} ${a.roomNumber}`.localeCompare(`${b.floor} ${b.roomNumber}`, undefined, { numeric: true, sensitivity: 'base' }));
   const excludedCount = invoices.length - editableRows.length;
   const anyWaterMetered = editableRows.some(inv => inv.water?.mode === 'metered');
 
@@ -185,6 +187,7 @@ export function InvoiceBulkReadingsModal({ isOpen, onClose, invoices, onUpdated 
                     <Tr>
                       <Th rowSpan={2}>Lessee No.</Th>
                       <Th rowSpan={2}>Lessee Name</Th>
+                      <Th rowSpan={2}>Unit</Th>
                       <Th colSpan={4} textAlign="center">Electricity</Th>
                       {anyWaterMetered && <Th colSpan={4} textAlign="center">Water</Th>}
                     </Tr>
@@ -208,6 +211,7 @@ export function InvoiceBulkReadingsModal({ isOpen, onClose, invoices, onUpdated 
                       <Tr key={inv.id}>
                         <Td fontFamily="mono" fontSize="xs">{inv.tenantCode}</Td>
                         <Td>{inv.lesseeName}</Td>
+                        <Td fontSize="xs">{inv.floor} {inv.roomNumber}</Td>
                         <MeterCells
                           metered={inv.electricity?.mode !== 'direct'}
                           previousReading={inv.electricity?.previousReading ?? 0}
