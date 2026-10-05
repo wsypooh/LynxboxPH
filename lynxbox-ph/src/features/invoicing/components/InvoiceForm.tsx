@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -60,6 +60,28 @@ interface Props {
 
 function fmt(n: number) {
   return `₱${(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// Chakra NumberInput + react-hook-form: feeding the re-derived *number* back in as the controlled
+// `value` strips a trailing decimal point the moment it's typed (parseFloat('885.') -> 885 ->
+// re-rendered as "885"), making it look like the field won't accept decimals at all. Tracking the
+// displayed text in its own state, decoupled from the numeric value handed to the form, is the
+// same fix already used for PropertyForm.tsx's `features.area` field.
+function PenaltyInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [text, setText] = useState(() => String(value));
+  return (
+    <NumberInput
+      size="sm" min={0}
+      value={text}
+      onChange={v => {
+        setText(v);
+        const parsed = parseFloat(v);
+        onChange(Number.isNaN(parsed) ? 0 : parsed);
+      }}
+    >
+      <NumberInputField textAlign="right" />
+    </NumberInput>
+  );
 }
 
 export function InvoiceForm({
@@ -403,13 +425,10 @@ export function InvoiceForm({
                       <Td isNumeric>{fmt(field.amountPaid)}</Td>
                       <Td isNumeric>{fmt(field.outstanding)}</Td>
                       <Td isNumeric>
-                        <NumberInput
-                          size="sm" min={0}
+                        <PenaltyInput
                           value={vals.previousBalanceHistory?.[i]?.penalty ?? field.penalty}
-                          onChange={(_, v) => setValue(`previousBalanceHistory.${i}.penalty`, v)}
-                        >
-                          <NumberInputField textAlign="right" />
-                        </NumberInput>
+                          onChange={v => setValue(`previousBalanceHistory.${i}.penalty`, v)}
+                        />
                       </Td>
                     </Tr>
                   ))}
