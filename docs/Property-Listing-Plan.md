@@ -175,7 +175,7 @@ The CSV import above deliberately left photos out — every imported row landed 
 
 ### Restricted to Growth/Business
 
-The whole bulk-import feature (plain CSV and the ZIP-bundled-photos extension both) is gated to Growth/Business via `PLAN_LIMITS.csvImportEnabled` — see docs/Pricing-Strategy-Plan.md's Implementation notes #19 for the full reasoning, including why this is a frontend-only gate (`DashboardPropertyList.tsx`'s "Import CSV" button) rather than something enforced in the API: there's no dedicated bulk-import endpoint, since the importer just calls the same `createProperty`/`updateProperty` a manual "Add Property" click already uses.
+The whole bulk-import feature (plain CSV and the ZIP-bundled-photos extension both) is gated via `PLAN_LIMITS.csvImportEnabled` (originally Growth/Business only; now Starter/Growth/Business, Free excluded) — see docs/Pricing-Strategy-Plan.md's Implementation notes #19 for the full reasoning, including why this is a frontend-only gate (`DashboardPropertyList.tsx`'s "Import CSV" button) rather than something enforced in the API: there's no dedicated bulk-import endpoint, since the importer just calls the same `createProperty`/`updateProperty` a manual "Add Property" click already uses.
 
 ## Property type taxonomy: dropped `commercial`, added `retail`/`warehouse`/`industrial`
 

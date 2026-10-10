@@ -28,6 +28,10 @@ const NAV_ITEMS: Array<NavItem> = [
     href: '/#pricing',
   },
   {
+    label: 'Help',
+    href: '/help',
+  },
+  {
     label: 'Contact Us',
     href: '/contact',
   },

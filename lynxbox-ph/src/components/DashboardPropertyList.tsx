@@ -890,7 +890,7 @@ export function DashboardPropertyList({
             <PlanGatedButton
               variant="outline"
               enabled={csvImportEnabled}
-              upgradeMessage="Bulk CSV import is available on Growth and Business plans."
+              upgradeMessage="Bulk CSV import is available on Starter, Growth, and Business plans."
               onClick={onCsvOpen}
             >
               Import CSV
