@@ -66,13 +66,28 @@ function AccountSwitcher({ accountId, memberships, switchAccount }: {
   switchAccount: ReturnType<typeof useAccount>['switchAccount'];
 }) {
   if (memberships.length <= 1) return null;
+
+  const baseName = (m: (typeof memberships)[number]) =>
+    m.role === 'owner' ? 'My Account' : (m.ownerName || m.ownerEmail || `${m.accountId.slice(0, 8)}…`);
+  const nameCounts = new Map<string, number>();
+  memberships.forEach(m => {
+    const key = baseName(m).toLowerCase();
+    nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+  });
+  const label = (m: (typeof memberships)[number]) => {
+    const name = baseName(m);
+    const duplicate = (nameCounts.get(name.toLowerCase()) ?? 0) > 1;
+    const withEmail = duplicate && m.ownerName && m.ownerEmail ? `${name} (${m.ownerEmail})` : name;
+    return m.role === 'owner' ? name : `${withEmail} (${m.role})`;
+  };
+
   return (
     <Box px={4} pb={4}>
       <Text fontSize="xs" color="gray.500" mb={1}>Account</Text>
       <Select size="sm" value={accountId} onChange={(e) => switchAccount(e.target.value)}>
         {memberships.map(m => (
           <option key={m.accountId} value={m.accountId}>
-            {m.role === 'owner' ? 'My Account' : `${m.ownerEmail || m.accountId.slice(0, 8) + '…'} (${m.role})`}
+            {label(m)}
           </option>
         ))}
       </Select>

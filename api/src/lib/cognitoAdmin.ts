@@ -54,6 +54,17 @@ export async function getCognitoUserEmail(sub: string): Promise<string | null> {
   }
 }
 
+export async function getCognitoUserInfo(sub: string): Promise<{ email: string | null; name: string | null }> {
+  try {
+    const result = await client.send(new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: sub }));
+    const attr = (n: string) => result.UserAttributes?.find(a => a.Name === n)?.Value?.trim() || null;
+    return { email: attr('email'), name: attr('name') };
+  } catch (err: any) {
+    if (err.name === 'UserNotFoundException') return { email: null, name: null };
+    throw err;
+  }
+}
+
 // Creates the user with MessageAction SUPPRESS so Cognito doesn't send its own unbranded
 // invite email — the caller sends its own via ZeptoMailService with the temp password.
 // Total registered users across the whole User Pool (a platform-wide count, not per-account).

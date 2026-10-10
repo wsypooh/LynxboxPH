@@ -7,6 +7,17 @@ export function formatCurrency(amount: number, currency: string = 'PHP'): string
   }).format(amount);
 }
 
+// Price per sqm (price / area), or null when area is missing/zero.
+export function formatPricePerSqm(price?: number, area?: number, currency: string = 'PHP'): string | null {
+  if (!price || !area || area <= 0) return null;
+  return `${new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price / area)} / sqm`;
+}
+
 // docs/Pricing-Strategy-Plan.md — a listing's plan-determined visibility window has run out.
 // `expiresAt` of null/undefined means the plan never expires listings (e.g. Business tier).
 export function isPropertyExpired(expiresAt: string | null | undefined): boolean {

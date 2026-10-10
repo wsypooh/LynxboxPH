@@ -16,6 +16,7 @@ import {
   Spacer,
 } from '@chakra-ui/react'
 import { MapPin, Square, Car, Phone, Mail } from 'lucide-react'
+import { formatPricePerSqm } from '@/lib/utils'
 import Link from 'next/link'
 import { Property } from '@/services/propertyService'
 import { SecureImage } from '@/components/SecureImage'
@@ -137,6 +138,14 @@ export function PropertyCard({ property, onContact }: PropertyCardProps) {
               <Text fontSize="sm" color="gray.500">per month</Text>
             </VStack>
             <Spacer />
+            {formatPricePerSqm(property.price, property.features.area) && (
+              <VStack align="end" spacing={0}>
+                <Text fontSize="md" fontWeight="semibold" color="gray.700">
+                  {formatPricePerSqm(property.price, property.features.area)?.replace(' / sqm', '')}
+                </Text>
+                <Text fontSize="sm" color="gray.500">per sqm</Text>
+              </VStack>
+            )}
           </Flex>
 
           <HStack spacing={2}>

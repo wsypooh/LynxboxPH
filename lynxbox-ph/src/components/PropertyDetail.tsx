@@ -31,7 +31,7 @@ import {
   useDisclosure,
 } from '@chakra-ui/react';
 import { Property, propertyService } from '@/services/propertyService';
-import { formatCurrency, formatExpiryDate, formatFloor, isPropertyExpired } from '@/lib/utils';
+import { formatCurrency, formatExpiryDate, formatFloor, formatPricePerSqm, isPropertyExpired } from '@/lib/utils';
 import { EditIcon, DeleteIcon, ArrowBackIcon, PhoneIcon, EmailIcon, RepeatIcon, CheckIcon } from '@chakra-ui/icons';
 import { ImageGallery } from '@/components/ImageGallery';
 
@@ -348,9 +348,18 @@ export function PropertyDetail({ propertyId, onBack, onEdit, onDelete }: Propert
                       {formatCurrency(property.price, property.currency)}
                     </Text>
                   </HStack>
-                  
+
+                  {formatPricePerSqm(property.price, property.features?.area, property.currency) && (
+                    <HStack justify="space-between">
+                      <Text fontWeight="medium">Price per sqm</Text>
+                      <Text color="gray.600">
+                        {formatPricePerSqm(property.price, property.features?.area, property.currency)}
+                      </Text>
+                    </HStack>
+                  )}
+
                   <Divider />
-                  
+
                   <VStack align="stretch" spacing={2}>
                     <Text fontWeight="medium">Location</Text>
                     <Text>{property.location.address}</Text>

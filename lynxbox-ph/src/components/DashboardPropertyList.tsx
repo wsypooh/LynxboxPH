@@ -53,7 +53,7 @@ import { Search, Filter, Building2, X, Plus, Grid, List, ChevronUp, ChevronDown 
 import { EditIcon, DeleteIcon, ViewIcon, RepeatIcon, CheckIcon } from '@chakra-ui/icons'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Property, propertyService, PropertyType } from '@/services/propertyService';
-import { formatCurrency, formatExpiryDate, isPropertyExpired } from '@/lib/utils';
+import { formatCurrency, formatExpiryDate, formatPricePerSqm, isPropertyExpired } from '@/lib/utils';
 import { PropertyStatusUpdater } from './PropertyStatusUpdater';
 import { PropertyCsvUpload } from '@/features/properties/components/PropertyCsvUpload';
 import { SecureImage } from '@/components/SecureImage';
@@ -1081,9 +1081,16 @@ export function DashboardPropertyList({
                         </Text>
                       )}
 
-                      <Text color="blue.600" fontSize="xl" fontWeight="bold">
-                        {formatCurrency(property.price, property.currency)}
-                      </Text>
+                      <Flex align="baseline" justify="space-between" w="full">
+                        <Text color="blue.600" fontSize="xl" fontWeight="bold">
+                          {formatCurrency(property.price, property.currency)}
+                        </Text>
+                        {formatPricePerSqm(property.price, property.features?.area, property.currency) && (
+                          <Text fontSize="sm" color="gray.600">
+                            {formatPricePerSqm(property.price, property.features?.area, property.currency)}
+                          </Text>
+                        )}
+                      </Flex>
 
                       <Text fontSize="sm" color="gray.500">
                         📍 {property.location?.address}, {property.location?.city}

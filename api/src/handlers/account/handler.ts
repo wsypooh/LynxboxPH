@@ -3,7 +3,7 @@ import { ApiResponse } from '../../lib/apiResponse';
 import { Actor, canManageMembers, resolveActor } from '../../lib/auth';
 import { MembershipRepository } from '../../repositories/membershipRepository';
 import { Role } from '../../models/member';
-import { findCognitoUserByEmail, createCognitoUser, generateTemporaryPassword, getCognitoUserEmail } from '../../lib/cognitoAdmin';
+import { findCognitoUserByEmail, createCognitoUser, generateTemporaryPassword, getCognitoUserInfo } from '../../lib/cognitoAdmin';
 import { ZeptoMailService } from '../../lib/zeptomail';
 import { PLAN_LIMITS } from '../../lib/planLimits';
 
@@ -66,16 +66,15 @@ export class AccountHandler {
     // too") — only synthesize one when that explicit row doesn't already exist, or the
     // switcher shows "My Account" twice.
     const explicitMemberships = await MembershipRepository.listByUser(actor.sub);
-    const enriched = await Promise.all(explicitMemberships.map(async m => ({
-      accountId: m.accountId,
-      role: m.role,
+    const enriched = await Promise.all(explicitMemberships.map(async m => {
       // Shown in the account-switcher dropdown instead of a raw accountId GUID — safe to
       // expose since the member already knows this account (they were invited into it).
-      ownerEmail: await getCognitoUserEmail(m.accountId).catch(() => null),
-    })));
+      const info = await getCognitoUserInfo(m.accountId).catch(() => ({ email: null, name: null }));
+      return { accountId: m.accountId, role: m.role, ownerEmail: info.email, ownerName: info.name };
+    }));
     const result = explicitMemberships.some(m => m.accountId === actor.sub)
       ? enriched
-      : [{ accountId: actor.sub, role: 'owner' as const, ownerEmail: actor.email || null }, ...enriched];
+      : [{ accountId: actor.sub, role: 'owner' as const, ownerEmail: actor.email || null, ownerName: null }, ...enriched];
     return ApiResponse.success({ memberships: result });
   }
 

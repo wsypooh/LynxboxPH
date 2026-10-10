@@ -39,7 +39,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { Property } from '@/services/propertyService'
 import { propertyService } from '@/services/propertyService'
-import { formatFloor } from '@/lib/utils'
+import { formatFloor, formatPricePerSqm } from '@/lib/utils'
 import { route } from '@/utils/routing';
 
 export default function PropertyDetailClient({ id }: { id: string }) {
@@ -254,12 +254,19 @@ export default function PropertyDetailClient({ id }: { id: string }) {
                   <Text fontSize="lg">{property.location?.address || 'Address not available'}</Text>
                 </HStack>
 
-                <Text fontSize="3xl" fontWeight="bold" color="primary.600">
-                  {formatPrice(property.price || 0)}
-                  <Text as="span" fontSize="lg" fontWeight="normal" color="gray.500" ml={2}>
-                    per month
+                <Flex align="baseline" justify="space-between" wrap="wrap" gap={2}>
+                  <Text fontSize="3xl" fontWeight="bold" color="primary.600">
+                    {formatPrice(property.price || 0)}
+                    <Text as="span" fontSize="lg" fontWeight="normal" color="gray.500" ml={2}>
+                      per month
+                    </Text>
                   </Text>
-                </Text>
+                  {formatPricePerSqm(property.price, property.features?.area) && (
+                    <Text fontSize="md" color="gray.600">
+                      {formatPricePerSqm(property.price, property.features?.area)}
+                    </Text>
+                  )}
+                </Flex>
               </Box>
 
               <Divider />

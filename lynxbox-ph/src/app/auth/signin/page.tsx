@@ -8,7 +8,10 @@ import {
   FormLabel,
   FormErrorMessage,
   Heading,
+  IconButton,
   Input,
+  InputGroup,
+  InputRightElement,
   Stack,
   Text,
   VStack,
@@ -21,6 +24,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { signIn, type SignInInput } from 'aws-amplify/auth'
+import { FiEye, FiEyeOff } from 'react-icons/fi'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -37,6 +41,7 @@ type SignInFormData = z.infer<typeof signInSchema>
 export default function SignInPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [showMFA, setShowMFA] = useState(false)
   const [showNewPasswordChallenge, setShowNewPasswordChallenge] = useState(false)
@@ -192,12 +197,23 @@ export default function SignInPage() {
 
               <FormControl isInvalid={!!errors.password}>
                 <FormLabel>Password</FormLabel>
-                <Input
-                  {...register('password')}
-                  type="password"
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                />
+                <InputGroup>
+                  <Input
+                    {...register('password')}
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                  />
+                  <InputRightElement>
+                    <IconButton
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      icon={showPassword ? <FiEyeOff /> : <FiEye />}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowPassword(v => !v)}
+                    />
+                  </InputRightElement>
+                </InputGroup>
                 <FormErrorMessage>
                   {errors.password?.message}
                 </FormErrorMessage>

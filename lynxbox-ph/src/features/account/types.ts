@@ -13,6 +13,7 @@ export interface Membership {
   accountId: string;
   role: Role;
   ownerEmail?: string | null;
+  ownerName?: string | null;
 }
 
 export interface AccountMember {
