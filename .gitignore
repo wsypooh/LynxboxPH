@@ -125,3 +125,5 @@ infra/modules/api/placeholder.zip
 # Temporary node_modules zip (created in infra folder)
 infra/node_modules-temp.zip
 node_modules-temp.zip
+# Help screenshot/video generator output
+lynxbox-ph/scripts/help-media/out/

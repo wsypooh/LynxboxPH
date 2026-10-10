@@ -80,7 +80,20 @@ export function HelpLayout({ nav, activeSlug, title, body }: { nav: HelpNavItem[
                     li: ({ children }) => <ListItem>{children}</ListItem>,
                     a: ({ href, children }) => <ChakraLink href={href} color="primary.600" textDecoration="underline">{children}</ChakraLink>,
                     code: ({ children }) => <Code>{children}</Code>,
-                    img: ({ src, alt }) => <Image src={typeof src === 'string' ? src : undefined} alt={alt ?? ''} borderWidth="1px" borderRadius="md" my={4} maxW="100%" />,
+                    img: ({ src, alt }) => {
+                      const url = typeof src === 'string' ? src : undefined
+                      // Markdown image syntax pointing at an .mp4 renders as a video player.
+                      if (url && /\.mp4$/i.test(url)) {
+                        return (
+                          <Box my={4} as="span" display="block">
+                            <video controls preload="metadata" aria-label={alt ?? ''} style={{ width: '100%', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                              <source src={url} type="video/mp4" />
+                            </video>
+                          </Box>
+                        )
+                      }
+                      return <Image src={url} alt={alt ?? ''} borderWidth="1px" borderRadius="md" my={4} maxW="100%" />
+                    },
                     table: ({ children }) => <Box overflowX="auto" mb={4}><Table size="sm">{children}</Table></Box>,
                     thead: ({ children }) => <Thead>{children}</Thead>,
                     tbody: ({ children }) => <Tbody>{children}</Tbody>,
