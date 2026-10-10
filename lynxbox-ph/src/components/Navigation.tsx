@@ -1,7 +1,10 @@
 'use client'
 
-import { Box, Container, Flex, Text, Button, HStack, IconButton, useDisclosure, Stack } from '@chakra-ui/react'
-import { HamburgerIcon, CloseIcon } from '@chakra-ui/icons'
+import {
+  Box, Container, Flex, Text, Button, HStack, IconButton, useDisclosure, Stack,
+  Menu, MenuButton, MenuList, MenuItem, MenuDivider, Avatar,
+} from '@chakra-ui/react'
+import { HamburgerIcon, CloseIcon, ChevronDownIcon } from '@chakra-ui/icons'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -31,21 +34,13 @@ const NAV_ITEMS: Array<NavItem> = [
     label: 'Help',
     href: '/help',
   },
-  {
-    label: 'Contact Us',
-    href: '/contact',
-  },
-  {
-    label: 'Dashboard',
-    href: route('/dashboard'),
-    isPrivate: true,
-  },
 ]
 
 export function Navigation() {
   const { isOpen, onToggle } = useDisclosure()
   const { user, signOut } = useAuth()
   const pathname = usePathname()
+  const displayName = user?.attributes?.name || user?.username || 'Account'
 
   // Hide navigation on coming-soon page and any variations
   if (pathname?.startsWith('/coming-soon.html') || pathname?.startsWith('/coming-soon')) {
@@ -83,23 +78,34 @@ export function Navigation() {
           {/* Auth Buttons - Desktop */}
           <HStack spacing={4} display={{ base: 'none', md: 'flex' }}>
             {user ? (
-              <>
-                <Link href={route('/dashboard/profile')}>
-                  <Button variant="solid" bg="white" color="primary.600" size="sm" _hover={{ bg: 'gray.100' }}>
-                    Profile
-                  </Button>
-                </Link>
-                <Button
-                  variant="outline"
-                  color="white"
-                  borderColor="white"
-                  size="sm"
+              <Menu placement="bottom-end">
+                <MenuButton
+                  as={Button}
+                  variant="ghost"
+                  rounded="full"
+                  px={1}
+                  aria-label="Account menu"
                   _hover={{ bg: 'rgba(255, 255, 255, 0.1)' }}
-                  onClick={() => signOut()}
+                  _active={{ bg: 'rgba(255, 255, 255, 0.15)' }}
                 >
-                  Sign Out
-                </Button>
-              </>
+                  <HStack spacing={1}>
+                    <Avatar size="sm" name={displayName} bg="white" color="primary.600" />
+                    <ChevronDownIcon color="white" />
+                  </HStack>
+                </MenuButton>
+                <MenuList color="gray.800" zIndex={1100}>
+                  <Box px={3} py={2}>
+                    <Text fontWeight="semibold" noOfLines={1}>{displayName}</Text>
+                    {user.attributes?.email && (
+                      <Text fontSize="sm" color="gray.500" noOfLines={1}>{user.attributes.email}</Text>
+                    )}
+                  </Box>
+                  <MenuDivider />
+                  <MenuItem as={Link} href={route('/dashboard')}>Dashboard</MenuItem>
+                  <MenuItem as={Link} href={route('/dashboard/profile')}>Profile</MenuItem>
+                  <MenuItem onClick={() => signOut()}>Sign Out</MenuItem>
+                </MenuList>
+              </Menu>
             ) : (
               <>
                 <Link href={route('/auth/signin')}>
@@ -166,6 +172,11 @@ export function Navigation() {
             
             {user ? (
               <>
+                <Link href={route('/dashboard')} onClick={onToggle}>
+                  <Button w="full" justifyContent="flex-start" variant="ghost" color="white">
+                    Dashboard
+                  </Button>
+                </Link>
                 <Link href={route('/dashboard/profile')} onClick={onToggle}>
                   <Button w="full" justifyContent="flex-start" variant="ghost" color="white">
                     Profile

@@ -42,6 +42,9 @@ export function HelpLayout({ nav, activeSlug, title, body }: { nav: HelpNavItem[
                 </ChakraLink>
               ))}
               {filtered.length === 0 && <Text color="gray.500" px={3}>No matching topics.</Text>}
+              <ChakraLink as={Link} href="/contact" px={3} py={2} borderRadius="md" fontWeight="semibold" borderTopWidth="1px" mt={2}>
+                Contact Us
+              </ChakraLink>
             </VStack>
           </Box>
 
@@ -57,6 +60,10 @@ export function HelpLayout({ nav, activeSlug, title, body }: { nav: HelpNavItem[
                       <Text color="gray.600" mt={1}>{n.summary}</Text>
                     </Box>
                   ))}
+                  <Box as={Link} href="/contact" p={4} borderWidth="1px" borderRadius="md" _hover={{ bg: 'gray.50' }}>
+                    <Heading size="md">Contact Us</Heading>
+                    <Text color="gray.600" mt={1}>Can&apos;t find what you need? Send us a message and we&apos;ll get back to you.</Text>
+                  </Box>
                 </VStack>
               </>
             ) : (
