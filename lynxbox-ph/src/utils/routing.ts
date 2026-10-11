@@ -52,7 +52,7 @@ export function getAddPropertyUrl(): string {
  * @returns The appropriate URL for property details
  */
 export function getPropertyDetailUrl(propertyId: string): string {
-  return getUrl(`/properties/${propertyId}`);
+  return getUrl(`/properties/detail?id=${encodeURIComponent(propertyId)}`);
 }
 
 /**

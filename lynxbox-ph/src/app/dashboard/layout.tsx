@@ -2,8 +2,9 @@ import { Metadata } from 'next'
 import { DashboardSidebar, DashboardMobileNav } from './DashboardSidebar'
 
 export const metadata: Metadata = {
-  title: 'Dashboard | Lynxbox PH',
+  title: 'Dashboard',
   description: 'Manage your commercial property listings and rental operations',
+  robots: { index: false, follow: false },
 }
 
 export default function DashboardLayout({

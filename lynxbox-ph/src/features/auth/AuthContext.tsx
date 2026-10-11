@@ -18,7 +18,12 @@ import {
   type UpdateUserAttributesInput,
   type UpdateMFAPreferenceInput
 } from 'aws-amplify/auth'
+import { usePathname } from 'next/navigation'
 import { clearActiveAccountId } from '@/lib/auth'
+
+// Public pages that render immediately instead of waiting for the auth check, so their
+// content is in the prerendered HTML for crawlers. They tolerate `user` being null at first.
+const RENDER_BEFORE_AUTH_PATHS = ['/', '/pricing', '/contact']
 
 type TOTPSetupResult = {
   success: boolean;
@@ -75,6 +80,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CustomAuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const pathname = usePathname()
+  const renderBeforeAuth = RENDER_BEFORE_AUTH_PATHS.includes(
+    pathname && pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname || '/'
+  )
 
   const checkUser = useCallback(async () => {
     try {
@@ -391,7 +400,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!isLoading && children}
+      {(!isLoading || renderBeforeAuth) && children}
     </AuthContext.Provider>
   )
 }

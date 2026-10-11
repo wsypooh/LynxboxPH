@@ -1,114 +1,43 @@
-'use client';
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { RootShell } from '@/components/RootShell'
 
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { useEffect, useState } from 'react';
-import Script from 'next/script';
-import { Amplify } from 'aws-amplify';
-import { ResourcesConfig } from 'aws-amplify';
-import { Providers } from '@/components/providers';
-import { Navigation } from '@/components/Navigation';
-import { Box } from '@chakra-ui/react';
-import { usePathname } from 'next/navigation';
+const inter = Inter({ subsets: ['latin'] })
 
+const SITE_URL = 'https://lynxbox.ph'
 
-const inter = Inter({ subsets: ['latin'] });
-
-// Configure Amplify immediately when this module loads in browser
-if (typeof window !== 'undefined') {
-  try {
-    const config: ResourcesConfig = {
-      Auth: {
-        Cognito: {
-          userPoolId: process.env.NEXT_PUBLIC_AWS_USER_POOL_ID!,
-          userPoolClientId: process.env.NEXT_PUBLIC_AWS_USER_POOL_WEB_CLIENT_ID!,
-          identityPoolId: process.env.NEXT_PUBLIC_AWS_IDENTITY_POOL_ID!,
-          loginWith: {
-            email: true,
-          },
-          signUpVerificationMethod: 'code' as const,
-          userAttributes: {
-            email: { required: true },
-            name: { required: true },
-            phone_number: { required: false },
-          },
-          passwordFormat: {
-            minLength: 8,
-            requireLowercase: true,
-            requireUppercase: true,
-            requireNumbers: true,
-            requireSpecialCharacters: true,
-          },
-        },
-      },
-      API: {
-        REST: {
-          lynxboxAPI: {
-            endpoint: process.env.NEXT_PUBLIC_API_URL || '',
-            region: process.env.NEXT_PUBLIC_AWS_REGION || 'ap-southeast-1',
-          }
-        }
-      },
-      Storage: {
-        S3: {
-          bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET || '',
-          region: process.env.NEXT_PUBLIC_AWS_REGION || 'ap-southeast-1',
-        }
-      }
-    };
-
-    console.log('Configuring Amplify with:', {
-      region: process.env.NEXT_PUBLIC_AWS_REGION,
-      userPoolId: config.Auth?.Cognito?.userPoolId?.substring(0, 10) + '...',
-      userPoolClientId: config.Auth?.Cognito?.userPoolClientId?.substring(0, 10) + '...',
-    });
-    
-    Amplify.configure(config, { ssr: true });
-    console.log('✅ Amplify configured successfully');
-  } catch (error) {
-    console.error('❌ Error configuring Amplify:', error);
-  }
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Lynxbox PH - Commercial Property Listings',
+    template: '%s | Lynxbox PH',
+  },
+  description:
+    'Digital listing and rental management platform for small commercial property owners in the Philippines',
+  icons: { icon: '/favicon.png' },
+  openGraph: {
+    type: 'website',
+    siteName: 'Lynxbox PH',
+    locale: 'en_PH',
+    url: SITE_URL,
+    title: 'Lynxbox PH - Commercial Property Listings',
+    description:
+      'Digital listing and rental management platform for small commercial property owners in the Philippines',
+    images: ['/lynxboxph-logo.png'],
+  },
+  twitter: { card: 'summary' },
 }
 
-const GA_ID = 'G-FJ0B3CH614';
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-  const isComingSoonPage = pathname?.startsWith('/coming-soon.html') || pathname?.startsWith('/coming-soon');
-  const isLandingPage = pathname?.startsWith('/landlord') || pathname?.startsWith('/realtor') || pathname?.startsWith('/business-address') || pathname?.startsWith('/properties/bacolod-condo-for-sale') || isComingSoonPage;
-
-  const [isProduction, setIsProduction] = useState(false);
-  useEffect(() => {
-    setIsProduction(window.location.hostname === 'lynxbox.ph');
-  }, []);
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.png" type="image/png" />
-        {isProduction && (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-              strategy="afterInteractive"
-            />
-            {/* External file, not inline, so the CSP's script-src doesn't need 'unsafe-inline' */}
-            <Script src="/gtag-init.js" strategy="afterInteractive" />
-          </>
-        )}
       </head>
       <body className={inter.className}>
-        <Providers>
-          {!isLandingPage && <Navigation />}
-          <Box as="main" pt={isLandingPage ? "0" : "70px"}>
-            {children}
-          </Box>
-        </Providers>
+        <RootShell>{children}</RootShell>
       </body>
     </html>
-  );
+  )
 }

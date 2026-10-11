@@ -157,6 +157,19 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
   name    = "${var.project_name}-${var.environment}-security-headers"
   comment = "CSP + baseline security headers for the static frontend"
 
+  # Keep every non-prod environment (sandbox.lynxbox.ph) out of search results.
+  # A header covers every file type; robots.txt alone wouldn't stop indexing of linked URLs.
+  dynamic "custom_headers_config" {
+    for_each = var.environment == "prod" ? [] : [1]
+    content {
+      items {
+        header   = "X-Robots-Tag"
+        value    = "noindex, nofollow"
+        override = true
+      }
+    }
+  }
+
   security_headers_config {
     content_security_policy {
       override = true
@@ -257,7 +270,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = var.ssl_certificate_arn != "" ? var.ssl_certificate_arn : null
+    acm_certificate_arn            = var.ssl_certificate_arn != "" ? var.ssl_certificate_arn : null
     cloudfront_default_certificate = var.domain_name == "" || var.ssl_certificate_arn == ""
     minimum_protocol_version       = "TLSv1.2_2021"
     ssl_support_method             = "sni-only"
