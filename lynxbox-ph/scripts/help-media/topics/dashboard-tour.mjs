@@ -1,14 +1,10 @@
 export default {
   startPath: '/dashboard',
   async steps({ app, ready, mark, hover, shot, pause }) {
-    // (steps run once; the hide below must happen after the usage cards have rendered)
-    // Sandbox still runs the old frontend, where Business-plan usage cards render "of null allowed"
-    // (fixed in billingService.getUsage; harmless once deployed). Hide those lines until then.
+    // Business plan usage cards must read "Unlimited". If this times out, the deployed frontend
+    // predates the billingService.getUsage() null -> Infinity fix and would show "of null allowed".
     const quick = app.getByRole('heading', { name: 'Quick Actions' })
-    await quick.waitFor({ timeout: 45000 })
-    await app.getByText(/allowed/).first().waitFor({ timeout: 45000 })
-    await pause(1500)
-    await app.getByText(/allowed/).evaluateAll(els => els.forEach(e => { e.style.visibility = 'hidden' }))
+    await app.getByText('Unlimited').first().waitFor({ timeout: 45000 })
     await ready(quick)
     await shot('dashboard')
     const link = name => app.getByRole('link', { name, exact: true }).first()
