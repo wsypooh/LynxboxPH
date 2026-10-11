@@ -35,7 +35,14 @@ class BillingService {
   }
 
   async getUsage(): Promise<UsageSummary> {
-    return this.request<UsageSummary>('/api/billing/usage');
+    const usage = await this.request<UsageSummary>('/api/billing/usage');
+    // The API's "unlimited" caps are Infinity server-side, which JSON turns into null on the wire.
+    // Restore Infinity so every `=== Infinity` check (and plain `>` comparison) behaves as intended.
+    const limits = usage.limits;
+    (['maxProperties', 'maxInvoicesPerMonth', 'maxSeats', 'maxDocumentBytes'] as const).forEach(key => {
+      if (limits[key] === null || limits[key] === undefined) limits[key] = Infinity;
+    });
+    return usage;
   }
 
   async startTrial(plan: PaidPlan, billingCycle: BillingCycle): Promise<AccountSubscription> {

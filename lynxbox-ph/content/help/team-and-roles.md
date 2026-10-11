@@ -23,6 +23,10 @@ You can invite people to work in your account from the **Team** page. The number
 
 A role change takes effect on their next action.
 
+![Invite a Team Member](/help-images/invite-team-member-invite.png)
+
+![Video: inviting a team member](/help-videos/invite-team-member.mp4)
+
 ## Working in more than one account
 
 If you belong to several accounts, use the account switcher to change which one you are working in. The page reloads after switching.

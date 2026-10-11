@@ -8,6 +8,10 @@ order: 3
 
 Create an invoice for a tenant and billing month from the **Invoices** page or from the tenant's row. Only one non-void invoice can exist per tenant and billing month; trying to create a second is rejected.
 
+![New Invoice form](/help-images/create-invoice-summary.png)
+
+![Video: creating an invoice](/help-videos/create-invoice.mp4)
+
 A new invoice starts as a **draft**. While it is a draft you can edit charges, meter readings, and the previous-balance details. Once it is sent or printed, it can no longer be freely edited.
 
 ## Meter readings
@@ -16,6 +20,12 @@ For metered electricity or water, enter the present and previous reading; the am
 
 - Use **Enter Meter Readings** (bulk action) to fill in readings for several draft invoices in one grid.
 - A reading you saved earlier is shown again when you reopen the grid.
+
+![Bulk Actions menu](/help-images/meter-readings-bulk-menu.png)
+
+![Enter Meter Readings](/help-images/meter-readings-readings.png)
+
+![Video: entering meter readings in bulk](/help-videos/meter-readings.mp4)
 
 ## Rolling over to the next month
 
@@ -40,3 +50,7 @@ Note: **Mark as Printed** has no effect once a payment has already been applied 
 ## Statement of Account / PDF
 
 Each invoice can be viewed as a Statement of Account and downloaded as a PDF. It shows previous balance, current charges, payments received since the previous invoice, and the total due.
+
+![Statement of Account](/help-images/invoice-statement-statement.png)
+
+![Video: viewing an invoice and its statement](/help-videos/invoice-statement.mp4)

@@ -78,4 +78,16 @@ if (ledger.charges.length === 0) {
   })
   console.log('Created charge for:', first.lesseeName)
 }
+// Draft October invoices for the other two tenants (not the first, whose balance the payment demo relies on).
+const allTenants = (await api('GET', '/api/tenants')).tenants.filter(t => t.buildingId === building.id)
+for (const name of [TENANTS[1].lesseeName, TENANTS[2].lesseeName]) {
+  const tenant = allTenants.find(t => t.lesseeName === name)
+  try {
+    await api('POST', '/api/invoices', { tenantId: tenant.id, billingMonth: '2026-10' })
+    console.log('Created invoice for:', name)
+  } catch (e) {
+    if (String(e.message).includes('409')) console.log('Invoice exists for:', name)
+    else throw e
+  }
+}
 await browser.close()

@@ -8,15 +8,19 @@ order: 4
 
 Every invoice creates a charge in the tenant's **ledger**. The ledger shows the tenant's charges, payments, and the outstanding balance including penalties. Open a tenant to see it.
 
+![Tenant ledger](/help-images/tenant-ledger-ledger.png)
+
+![Video: reading a tenant's ledger](/help-videos/tenant-ledger.mp4)
+
 ## Recording a payment
 
 Click **Record Payment** on the tenant's page, or use the quick payment icon on the Tenants list. Enter the amount, date, payment method, and an optional note. The Tenants list shows the tenant's outstanding balance in the dialog.
 
-![Tenants list with the Record Payment icon highlighted](/help-images/record-payment-1-icon.png)
+![Tenants list with the Record Payment icon highlighted](/help-images/record-payment-icon.png)
 
 In the dialog, enter the amount, choose the date and payment method, and add a note such as a reference number. The tenant's outstanding balance is shown at the top.
 
-![Record Payment dialog filled in](/help-images/record-payment-2-form.png)
+![Record Payment dialog filled in](/help-images/record-payment-form.png)
 
 Payments are not recorded on individual invoices; they always go through the tenant.
 

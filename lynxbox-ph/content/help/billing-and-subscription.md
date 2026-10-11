@@ -19,6 +19,10 @@ From **Billing**, start a 30-day trial of a paid plan. No credit card is needed.
 
 Your submissions are listed under **Payment History**.
 
+![Billing page with plan status and payment form](/help-images/billing-overview-status.png)
+
+![Video: the Billing page](/help-videos/billing-overview.mp4)
+
 ## Promo codes
 
 Enter a promo code on the payment form to preview the discount. Codes are for new customers, one code at a time, and may apply for a limited duration.

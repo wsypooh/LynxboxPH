@@ -287,7 +287,7 @@ function validateRow(
       features: {
         area: parseNum(data.area),
         parking: data.parking ? parseNum(data.parking) : 0,
-        floors: data.floors ? parseNum(data.floors) : 0,
+        floors: data.floors ? parseNum(data.floors) : 1,
         furnished: parseBool(data.furnished),
         aircon: parseBool(data.aircon),
         wifi: parseBool(data.wifi),

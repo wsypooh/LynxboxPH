@@ -12,6 +12,12 @@ Lynxbox PH helps landlords manage buildings, tenants, invoices, and payments, an
 2. Confirm your email using the code we send you.
 3. Sign in to reach your dashboard.
 
+![Sign Up form](/help-images/signup-form.png)
+
+![Video: creating an account](/help-videos/signup.mp4)
+
+**Can't find the confirmation code email?** Check your spam/junk folder. If it's not there either, wait a few minutes and request a new code from the confirmation page.
+
 ## Plans and free trial
 
 Every account starts on the **Free** plan. You can start a **30-day free trial** of a paid plan from the Billing page, with no credit card required. See the [Pricing page](/pricing) for what each plan includes.
@@ -24,5 +30,13 @@ Plans limit things like how many property listings can be active, how many invoi
 2. Add your **Tenants** to that building, one by one or by CSV import.
 3. Create the first **Invoice** for each tenant.
 4. Record payments as tenants pay.
+
+## Your dashboard
+
+After signing in, the sidebar takes you to Property Listings, Buildings, Tenants, Invoices, and Billing.
+
+![Dashboard](/help-images/dashboard-tour-dashboard.png)
+
+![Video: dashboard tour](/help-videos/dashboard-tour.mp4)
 
 Related guides: [Buildings and Tenants](/help/buildings-and-tenants), [Invoices](/help/invoices), [Payments and Ledger](/help/payments-and-ledger).

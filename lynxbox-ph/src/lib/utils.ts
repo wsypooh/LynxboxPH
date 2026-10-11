@@ -49,7 +49,8 @@ export function formatBillingMonth(billingMonth: string): string {
 }
 
 export function formatFloor(floor: number): string {
-  if (floor === 0) return 'Ground';
+  if (floor < 0) return `B${Math.abs(floor)}`;
+  if (floor <= 1) return 'Ground';
 
   const remainder100 = Math.abs(floor) % 100;
   if (remainder100 >= 11 && remainder100 <= 13) return `${floor}th`;

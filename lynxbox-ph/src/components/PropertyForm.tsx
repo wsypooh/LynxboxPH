@@ -67,7 +67,7 @@ const propertySchema = z.object({
   features: z.object({
     area: z.number().min(0, 'Area must be a positive number'),
     parking: z.number().min(0, 'Parking must be a positive number'),
-    floors: z.number().min(0, 'Floors must be a positive number'),
+    floors: z.number().int().refine(n => n !== 0, 'Use 1 for ground floor, or -1 for B1'),
     furnished: z.boolean(),
     aircon: z.boolean(),
     wifi: z.boolean(),
@@ -174,8 +174,15 @@ export function PropertyForm({
         phone: '',
       },
       ...initialData,
+      ...(initialData?.features && {
+        features: { ...initialData.features, floors: initialData.features.floors || 1 },
+      }),
     },
   });
+
+  const [floorInputValue, setFloorInputValue] = useState<string>(
+    String(initialData?.features?.floors || 1)
+  );
 
   const descriptionLength = watch('description')?.length ?? 0;
 
@@ -651,9 +658,14 @@ export function PropertyForm({
                         name="features.floors"
                         render={({ field }) => (
                           <NumberInput
-                            {...field}
-                            onChange={(value) => field.onChange(parseFloat(value) || 0)}
-                            min={0}
+                            value={floorInputValue}
+                            onChange={(valueString) => {
+                              setFloorInputValue(valueString);
+                              const n = parseInt(valueString, 10);
+                              field.onChange(Number.isNaN(n) ? 0 : n);
+                            }}
+                            onBlur={field.onBlur}
+                            step={1}
                           >
                             <NumberInputField />
                             <NumberInputStepper>
@@ -664,7 +676,7 @@ export function PropertyForm({
                         )}
                       />
                       <Text fontSize="xs" color="gray.500">
-                        Which floor the property is on (0 = ground floor)
+                        Which floor the property is on (1 = ground floor, -1 = B1, -2 = B2)
                       </Text>
                       <Text color="red.500" fontSize="sm">
                         {errors.features?.floors?.message}

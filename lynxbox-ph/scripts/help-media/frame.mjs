@@ -72,6 +72,7 @@ export async function pause(page, ms = 1200) {
 // Glide the visible cursor to an element, then click (or just hover).
 export async function moveTo(page, locator, { click = false } = {}) {
   await locator.waitFor({ state: 'visible' })
+  await locator.scrollIntoViewIfNeeded()
   const box = await locator.boundingBox()
   const x = box.x + box.width / 2
   const y = box.y + box.height / 2

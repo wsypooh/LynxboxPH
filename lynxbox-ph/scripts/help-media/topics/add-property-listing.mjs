@@ -1,0 +1,33 @@
+export default {
+  startPath: '/dashboard/properties/manage',
+  async steps({ app, ready, mark, click, type, choose, hover, shot, pause }) {
+    await ready(app.getByRole('button', { name: 'Add Property' }).first())
+    mark('add')
+    await click(app.getByRole('button', { name: 'Add Property' }).first(), 0)
+    await app.getByPlaceholder('Enter property title').waitFor({ timeout: 30000 })
+    await pause(1500)
+    mark('basic')
+    await type(app.getByPlaceholder('Enter property title'), 'Ground Floor Retail Space')
+    await type(app.getByPlaceholder('Describe your property'), 'Corner unit with high foot traffic.')
+    await choose(app.locator('select[name="type"]'), { index: 1 })
+    await type(app.locator('input[name="price"]'), '85000', { wait: 1200 })
+    await shot('basic')
+    mark('location')
+    await type(app.getByPlaceholder('Street address'), '123 Sample Avenue')
+    const province = app.locator('select[name="location.province"]')
+    await province.waitFor()
+    const cebu = await province.locator('option', { hasText: 'Cebu' }).first().textContent()
+    await choose(province, { label: cebu.trim() }, 900)
+    await choose(app.locator('select[name="location.city"]'), { index: 1 }, 1200)
+    mark('features')
+    await type(app.locator('input[name="features.area"]'), '60', { wait: 800 })
+    await hover(app.getByRole('heading', { name: 'Features' }))
+    await pause(1500)
+    mark('images')
+    await hover(app.getByRole('heading', { name: 'Property Images' }))
+    await pause(2500)
+    await shot('images')
+    mark('cancel')
+    await click(app.getByRole('button', { name: 'Cancel' }), 1500)
+  },
+}
