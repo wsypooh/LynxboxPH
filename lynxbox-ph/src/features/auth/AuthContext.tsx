@@ -18,6 +18,7 @@ import {
   type UpdateUserAttributesInput,
   type UpdateMFAPreferenceInput
 } from 'aws-amplify/auth'
+import { clearActiveAccountId } from '@/lib/auth'
 
 type TOTPSetupResult = {
   success: boolean;
@@ -152,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       await amplifySignOut()
+      clearActiveAccountId()
       setUser(null)
       window.location.href = '/'
     } catch (error) {

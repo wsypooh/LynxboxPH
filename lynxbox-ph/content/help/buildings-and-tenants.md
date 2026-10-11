@@ -40,15 +40,33 @@ Each tenant row has icon buttons for viewing, editing, deleting, creating an inv
 
 ## Documents
 
-Buildings and tenants can each have documents attached, such as SEC certificates, business permits, lease PDFs, and government IDs.
+Buildings and tenants can each have documents attached, such as SEC certificates, business permits, and government IDs. Lease contracts are attached separately, to the contract itself (see below).
 
-- Open the building or tenant and use the Documents section to upload a file.
-- Choose a category, optional expiry date, and notes.
-- **Lease contracts are attached to a specific contract, not uploaded here.** Open **Edit Tenant**, find the contract under **Contracts**, and click **Attach lease PDF**. The file then shows under that contract's period in the tenant's Documents list. (The contract must already be saved; if you just added it, save the tenant and reopen it.)
+### Other documents
+
+- Open the building or tenant and use the **Documents** section to upload a file.
+- Choose a category, an optional expiry date, and notes. **Lease Contract** is not in this list, because lease files are attached to a specific contract.
 - Use the eye icon to view or download (the original file name is kept), the pencil to edit details, and the trash icon to delete.
 
 ![Upload Document dialog](/help-images/tenant-documents-upload.png)
 
 ![Video: attaching a document to a tenant](/help-videos/tenant-documents.mp4)
+
+### Lease contracts
+
+Attach a lease PDF to the contract it belongs to, so it always stays linked to the right lease period.
+
+1. On the Tenants page, click the pencil icon to open **Edit Tenant**.
+2. Scroll to **Contracts** and find the contract.
+3. Click **Attach lease PDF** and choose the file.
+4. The file then shows under that contract's period in the tenant's Documents list.
+
+The contract must already be saved. If you just added it, save the tenant and reopen it; until then the row shows "Save tenant, then reopen to attach files".
+
+![Attach lease PDF button on a contract](/help-images/tenant-contract-contract.png)
+
+![Upload dialog for a lease contract](/help-images/tenant-contract-attach.png)
+
+![Video: attaching a lease contract](/help-videos/tenant-contract.mp4)
 
 Documents count toward your plan's storage limit.

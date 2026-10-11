@@ -6,7 +6,7 @@ Steps are keyed to the recording's marks; see `out/tenant-documents.json` for wh
 | --- | --- | --- |
 | start | Tenants list | "Open the Tenants page." |
 | open | Open a tenant | "Click the eye icon to open a tenant." |
-| documents | Documents section | "Scroll down to the Documents section. Permits, IDs, and lease contracts live here." |
+| documents | Documents section | "Scroll down to the Documents section. Permits, IDs, and other files live here. Lease contracts are attached separately, to the contract." |
 | upload | Click + Upload Document | "Click Upload Document." |
-| details | Category and notes | "Choose a category, optionally set an expiry date, and add a note. Then pick the file." |
+| details | Category and notes | "Choose a category, such as business permit or government ID. Optionally set an expiry date and add a note, then pick the file." |
 | cancel | Cancel (demo only) | "Click Upload to attach it. You can view or download it later from the same list." |

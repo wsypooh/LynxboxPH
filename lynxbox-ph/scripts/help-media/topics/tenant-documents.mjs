@@ -15,7 +15,7 @@ export default {
     await dialog.waitFor()
     await pause(1500)
     mark('details')
-    await choose(dialog.locator('select').first(), { index: 1 })
+    await choose(dialog.locator('select').first(), { label: 'Business Permit' })
     await type(dialog.locator('textarea'), 'Business permit for 2026', { wait: 1500 })
     await shot('upload')
     mark('cancel')

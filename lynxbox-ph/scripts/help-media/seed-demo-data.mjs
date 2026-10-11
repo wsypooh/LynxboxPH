@@ -62,9 +62,16 @@ for (const t of TENANTS) {
     defaultFixedWater: 500,
     penaltyEnabled: true,
     status: 'active',
-    contracts: [{ startDate: '2026-01-01', endDate: '2027-01-01', rentAmount: t.defaultRent, deposit: t.defaultRent * 2 }],
+    contracts: [{ id: crypto.randomUUID(), startDate: '2026-01-01', endDate: '2027-01-01', rentAmount: t.defaultRent, deposit: t.defaultRent * 2 }],
   })
   console.log('Created tenant:', t.lesseeName)
+}
+// Contracts need a persisted id before "Attach lease PDF" shows in Edit Tenant; backfill any that lack one.
+for (const tenant of (await api('GET', '/api/tenants')).tenants.filter(t => t.buildingId === building.id)) {
+  if ((tenant.contracts ?? []).some(c => !c.id)) {
+    await api('PUT', `/api/tenants/${tenant.id}`, { contracts: tenant.contracts.map(c => (c.id ? c : { ...c, id: crypto.randomUUID() })) })
+    console.log('Gave contract ids to:', tenant.lesseeName)
+  }
 }
 // Give the first tenant one unpaid charge so payment dialogs show a real outstanding balance.
 const first = (await api('GET', '/api/tenants')).tenants.find(t => t.buildingId === building.id && t.lesseeName === TENANTS[0].lesseeName)

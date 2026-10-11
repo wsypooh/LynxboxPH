@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { accountService } from '@/services/accountService';
-import { getActiveAccountId, setActiveAccountId } from '@/lib/auth';
+import { getActiveAccountId, setActiveAccountId, clearActiveAccountId } from '@/lib/auth';
 import { AccountContext as AccountContextData, Membership, Role } from './types';
 
 interface AccountContextValue {
@@ -38,6 +38,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         accountService.getMe(),
         accountService.listMemberships(),
       ]);
+      // A stored account the user doesn't belong to is stale; drop it so later requests
+      // stop sending it. The API already fell back to the user's own account for this call.
+      const stored = getActiveAccountId();
+      if (stored && !myMemberships.some(m => m.accountId === stored)) {
+        clearActiveAccountId();
+      }
       setContext(me);
       setMemberships(myMemberships);
     } catch (error) {

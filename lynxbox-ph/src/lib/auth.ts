@@ -60,6 +60,14 @@ export function setActiveAccountId(accountId: string): void {
   }
 }
 
+export function clearActiveAccountId(): void {
+  try {
+    localStorage.removeItem(ACTIVE_ACCOUNT_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await getCurrentJWTToken();
   if (!token) {
