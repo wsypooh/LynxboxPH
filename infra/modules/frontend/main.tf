@@ -281,8 +281,8 @@ resource "aws_cloudfront_distribution" "frontend" {
     content {
       error_caching_min_ttl = 300
       error_code            = custom_error_response.value
-      response_code         = 200
-      response_page_path    = "/realtor.html"
+      response_code         = 404
+      response_page_path    = "/404.html"
     }
   }
 }
