@@ -11,11 +11,11 @@ Property listings are public ads for units you want to rent. They are separate f
 Go to **Properties** in your dashboard and add a property. Fill in title, price, type (office, retail, warehouse, industrial, land), location (pick province, then city), floor, area, and features.
 
 - **Photos**: upload and drag to reorder (desktop). Choose the default photo shown first. Photos are resized and watermarked automatically.
-- **Floor** means which floor the unit is on, not how many floors the building has. Use 1 for the ground floor, 2 for the second floor, and so on. Use -1 for the first basement level (B1), -2 for B2, etc.
+- **Floor** means which floor the unit is on, not how many floors the building has. Enter `1` for the ground floor, `2` for the second floor, and so on. Use `-1` for the first basement (B1), `-2` for B2. There is no floor `0`.
+
+![Features section with the Floor field](/help-images/add-property-listing-features.png) Use 1 for the ground floor, 2 for the second floor, and so on. Use -1 for the first basement level (B1), -2 for B2, etc.
 
 ![Add Property form](/help-images/add-property-listing-basic.png)
-
-![Property photos section](/help-images/add-property-listing-images.png)
 
 ![Video: adding a property listing](/help-videos/add-property-listing.mp4)
 

@@ -56,7 +56,7 @@ for (const t of TENANTS) {
     ...t,
     buildingId: building.id,
     vatEnabled: true,
-    withholdingTaxEnabled: false,
+    withholdingTaxEnabled: true,
     electricityMode: 'metered',
     waterMode: 'fixed',
     defaultFixedWater: 500,
@@ -78,10 +78,20 @@ if (ledger.charges.length === 0) {
   })
   console.log('Created charge for:', first.lesseeName)
 }
-// Draft October invoices for the other two tenants (not the first, whose balance the payment demo relies on).
-const allTenants = (await api('GET', '/api/tenants')).tenants.filter(t => t.buildingId === building.id)
-for (const name of [TENANTS[1].lesseeName, TENANTS[2].lesseeName]) {
+// Draft October invoices for the other two tenants (not the first, whose balance the payment demo relies on),
+// with withholding tax computed and electricity readings filled in so statements show real numbers.
+const READINGS = {
+  [TENANTS[1].lesseeName]: { previous: 1000, present: 1180 },
+  [TENANTS[2].lesseeName]: { previous: 2200, present: 2530 },
+}
+const round2 = n => Math.round(n * 100) / 100
+let allTenants = (await api('GET', '/api/tenants')).tenants.filter(t => t.buildingId === building.id)
+for (const name of Object.keys(READINGS)) {
   const tenant = allTenants.find(t => t.lesseeName === name)
+  if (!tenant.withholdingTaxEnabled) {
+    await api('PUT', `/api/tenants/${tenant.id}`, { withholdingTaxEnabled: true })
+    console.log('Enabled withholding tax for:', name)
+  }
   try {
     await api('POST', '/api/invoices', { tenantId: tenant.id, billingMonth: '2026-10' })
     console.log('Created invoice for:', name)
@@ -89,5 +99,14 @@ for (const name of [TENANTS[1].lesseeName, TENANTS[2].lesseeName]) {
     if (String(e.message).includes('409')) console.log('Invoice exists for:', name)
     else throw e
   }
+  const invoice = (await api('GET', `/api/invoices?tenantId=${tenant.id}&billingMonth=2026-10`)).invoices.find(i => i.status === 'draft')
+  if (!invoice) { console.log('Invoice is no longer a draft, leaving as is:', name); continue }
+  const { previous, present } = READINGS[name]
+  const rate = building.currentElectricityRate ?? 12.5
+  await api('PUT', `/api/invoices/${invoice.id}`, {
+    withholdingTax: round2(invoice.rent * (building.withholdingTaxRate ?? 0.05)),
+    electricity: { mode: 'metered', presentReading: present, previousReading: previous, rate, amount: round2(Math.max(0, (present - previous) * rate)) },
+  })
+  console.log(`Updated invoice for ${name}: withholding + electricity ${previous} -> ${present}`)
 }
 await browser.close()

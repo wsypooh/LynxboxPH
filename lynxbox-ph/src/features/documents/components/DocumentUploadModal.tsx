@@ -42,8 +42,7 @@ export function DocumentUploadModal({ isOpen, onClose, parentType, parentId, con
   const { register, handleSubmit, formState: { errors }, reset } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      category: defaultCategory ?? (contractId ? 'lease_contract' : 'other'),
-      expiryDate: '',
+      category: defaultCategory ?? (contractId ? 'lease_contract' : 'other'),      expiryDate: '',
       notes: '',
     },
   });
@@ -124,7 +123,7 @@ export function DocumentUploadModal({ isOpen, onClose, parentType, parentId, con
               <FormControl isInvalid={!!errors.category}>
                 <FormLabel>Category</FormLabel>
                 <Select {...register('category')}>
-                  {CATEGORIES.map(c => (
+                  {CATEGORIES.filter(c => contractId || c !== 'lease_contract').map(c => (
                     <option key={c} value={c}>{DOCUMENT_CATEGORY_LABELS[c]}</option>
                   ))}
                 </Select>

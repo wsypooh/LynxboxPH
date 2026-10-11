@@ -72,7 +72,7 @@ export function DocumentEditModal({ isOpen, onClose, doc, onUpdated }: Props) {
               <FormControl isInvalid={!!errors.category}>
                 <FormLabel>Category</FormLabel>
                 <Select {...register('category')}>
-                  {CATEGORIES.map(c => (
+                  {CATEGORIES.filter(c => c !== 'lease_contract' || doc?.category === 'lease_contract').map(c => (
                     <option key={c} value={c}>{DOCUMENT_CATEGORY_LABELS[c]}</option>
                   ))}
                 </Select>

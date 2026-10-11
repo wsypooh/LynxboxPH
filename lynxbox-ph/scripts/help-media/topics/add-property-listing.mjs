@@ -1,6 +1,6 @@
 export default {
   startPath: '/dashboard/properties/manage',
-  async steps({ app, ready, mark, click, type, choose, hover, shot, pause }) {
+  async steps({ app, ready, mark, click, type, choose, hover, scrollTop, shot, pause }) {
     await ready(app.getByRole('button', { name: 'Add Property' }).first())
     mark('add')
     await click(app.getByRole('button', { name: 'Add Property' }).first(), 0)
@@ -20,13 +20,15 @@ export default {
     await choose(province, { label: cebu.trim() }, 900)
     await choose(app.locator('select[name="location.city"]'), { index: 1 }, 1200)
     mark('features')
+    await scrollTop(app.getByRole('heading', { name: 'Features' }), 1000)
     await type(app.locator('input[name="features.area"]'), '60', { wait: 800 })
-    await hover(app.getByRole('heading', { name: 'Features' }))
-    await pause(1500)
+    // Floor: 1 = ground floor, -1 = B1 (no zero). The hint text proves the deployed build has this UI.
+    await app.getByText(/1 = ground floor/).waitFor({ timeout: 20000 })
+    await type(app.getByLabel('Floor', { exact: true }), '3', { replace: true, wait: 1500 })
+    await shot('features')
     mark('images')
     await hover(app.getByRole('heading', { name: 'Property Images' }))
     await pause(2500)
-    await shot('images')
     mark('cancel')
     await click(app.getByRole('button', { name: 'Cancel' }), 1500)
   },

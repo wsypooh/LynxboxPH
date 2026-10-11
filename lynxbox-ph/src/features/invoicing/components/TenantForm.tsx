@@ -59,6 +59,9 @@ interface Props {
 }
 
 export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoading }: Props) {
+  // Legacy contract rows have no id; assign one in-form so they save with it, but only ids already stored can take an attachment.
+  const [persistedContractIds] = useState(() => new Set((defaultValues?.contracts ?? []).map(c => c.id).filter(Boolean) as string[]));
+  const [healedContracts] = useState(() => (defaultValues?.contracts ?? []).map(c => c.id ? c : { ...c, id: crypto.randomUUID() }));
   const { register, handleSubmit, formState: { errors }, setValue, watch, control } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -82,7 +85,7 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
       penaltyEnabled: defaultValues?.penaltyEnabled ?? true,
       paymentWaived: defaultValues?.paymentWaived ?? false,
       status: defaultValues?.status ?? 'active',
-      contracts: defaultValues?.contracts ?? [],
+      contracts: healedContracts,
     },
   });
 
@@ -317,12 +320,12 @@ export function TenantForm({ buildings, defaultValues, onSubmit, onCancel, isLoa
                 <FormLabel fontSize="sm">Notes</FormLabel>
                 <Input size="sm" {...register(`contracts.${idx}.notes`)} placeholder="Optional notes" />
               </FormControl>
-              {tenantId && field.id ? (
+              {tenantId && field.id && persistedContractIds.has(field.id) ? (
                 <Button size="xs" variant="outline" whiteSpace="nowrap" onClick={() => handleAttachClick(field.id!)}>
                   Attach lease PDF
                 </Button>
               ) : (
-                <Text fontSize="xs" color="gray.500" whiteSpace="nowrap">Save tenant to attach files</Text>
+                <Text fontSize="xs" color="gray.500" whiteSpace="nowrap">Save tenant, then reopen to attach files</Text>
               )}
             </HStack>
             {contractDocs.length > 0 && (

@@ -146,6 +146,7 @@ function validateRow(
   if (errors.length === 0 && building) {
     const hasContract = !!(data.contractStartDate && data.contractEndDate);
     const contract = hasContract ? {
+      id: crypto.randomUUID(),
       startDate: normalizeDate(data.contractStartDate),
       endDate: normalizeDate(data.contractEndDate),
       rentAmount: parseNum(data.contractRentAmount) || parseNum(data.defaultRent),

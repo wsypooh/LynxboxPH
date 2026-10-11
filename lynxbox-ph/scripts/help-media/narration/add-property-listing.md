@@ -8,6 +8,6 @@ Steps are keyed to the recording's marks; see `out/add-property-listing.json` fo
 | add | Click Add Property | "Click Add Property." |
 | basic | Title, type, price | "Enter a title, a description, the property type, and the price." |
 | location | Address, province, city | "Enter the address, then choose the province and city." |
-| features | Area and features | "Add the area and any features, like parking or air conditioning." |
+| features | Area, floor, features | "Add the area and the floor. Use 1 for the ground floor, 2 for the second floor, and minus 1 for the first basement. You can also tick features like parking or air conditioning." |
 | images | Photos | "Upload your photos and choose the one shown first. Drag to reorder them." |
 | cancel | Cancel (demo only) | "Click Create Property. Save it as a draft until you are ready to publish." |

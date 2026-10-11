@@ -1,6 +1,6 @@
 export default {
   startPath: '/dashboard/invoices',
-  async steps({ app, ready, mark, click, choose, hover, shot, pause }) {
+  async steps({ app, ready, mark, click, choose, hover, type, scrollTop, shot, pause }) {
     await ready(app.getByRole('button', { name: '+ New Invoice' }))
     mark('new')
     await click(app.getByRole('button', { name: '+ New Invoice' }), 0)
@@ -17,8 +17,11 @@ export default {
     await pause(2000)
     mark('utilities')
     await hover(app.getByRole('heading', { name: 'Electricity' }))
-    await pause(2500)
+    await pause(1500)
+    await type(app.getByLabel('Previous Reading (kWh)'), '1180', { replace: true })
+    await type(app.getByLabel('Present Reading (kWh)'), '1340', { replace: true, wait: 1500 })
     mark('summary')
+    await scrollTop(app.getByRole('heading', { name: 'Summary' }), 1200)
     await hover(app.getByRole('heading', { name: 'Summary' }))
     await pause(2500)
     await shot('summary')

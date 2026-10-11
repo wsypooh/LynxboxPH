@@ -16,7 +16,7 @@ export default {
     await pause(2000)
     mark('enter')
     const inputs = dialog.locator('tbody tr input')
-    const readings = ['1250', '2310']
+    const readings = ['1195', '2545']
     for (let i = 0; i < Math.min(readings.length, await inputs.count()); i++) {
       await type(inputs.nth(i), readings[i], { replace: true })
     }

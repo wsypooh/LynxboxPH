@@ -44,6 +44,7 @@ Buildings and tenants can each have documents attached, such as SEC certificates
 
 - Open the building or tenant and use the Documents section to upload a file.
 - Choose a category, optional expiry date, and notes.
+- **Lease contracts are attached to a specific contract, not uploaded here.** Open **Edit Tenant**, find the contract under **Contracts**, and click **Attach lease PDF**. The file then shows under that contract's period in the tenant's Documents list. (The contract must already be saved; if you just added it, save the tenant and reopen it.)
 - Use the eye icon to view or download (the original file name is kept), the pencil to edit details, and the trash icon to delete.
 
 ![Upload Document dialog](/help-images/tenant-documents-upload.png)
