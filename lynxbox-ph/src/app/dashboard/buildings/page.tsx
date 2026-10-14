@@ -170,7 +170,7 @@ export default function BuildingsPage() {
         </ModalContent>
       </Modal>
 
-      <Modal isOpen={docsOpen} onClose={() => { closeDocs(); setDocsBuilding(null); }} size="3xl">
+      <Modal isOpen={docsOpen} onClose={() => { closeDocs(); setDocsBuilding(null); }} size="5xl">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Documents — {docsBuilding?.name}</ModalHeader>

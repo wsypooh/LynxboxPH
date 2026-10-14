@@ -9,12 +9,39 @@ import { Document, DOCUMENT_CATEGORY_LABELS } from '@/features/documents/types';
 import { DocumentEditModal } from '@/features/documents/components/DocumentEditModal';
 import { useAccount } from '@/features/account/AccountContext';
 
-function expiryBadge(expiryDate?: string) {
+function expiryCell(expiryDate?: string) {
   if (!expiryDate) return null;
-  const days = (new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-  if (days < 0) return <Badge colorScheme="red">Expired</Badge>;
-  if (days <= 30) return <Badge colorScheme="orange">Expiring soon</Badge>;
-  return <Badge colorScheme="green">Valid</Badge>;
+  const [y, m, d] = expiryDate.slice(0, 10).split('-').map(Number);
+  const expiry = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const dateText = expiry.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const plural = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+
+  let scheme = 'green';
+  let badgeText = 'Valid';
+  let detail = `in ${plural(days)}`;
+  if (days < 0) {
+    scheme = 'red';
+    badgeText = 'Expired';
+    detail = `${plural(-days)} ago`;
+  } else if (days === 0) {
+    scheme = 'orange';
+    badgeText = 'Expires today';
+    detail = 'today';
+  } else if (days <= 30) {
+    scheme = 'orange';
+    badgeText = 'Expiring soon';
+  }
+
+  return (
+    <>
+      <Text fontSize="sm">{dateText}</Text>
+      <Badge colorScheme={scheme} title={detail}>{badgeText}</Badge>
+      <Text fontSize="xs" color="gray.500">{days === 0 ? 'Expires today' : days < 0 ? `Expired ${detail}` : `Expires ${detail}`}</Text>
+    </>
+  );
 }
 
 interface Props {
@@ -84,7 +111,7 @@ export function DocumentList({ documents, onDelete, onUpdate, contractLabel }: P
             </Td>
             <Td whiteSpace="nowrap"><Badge>{DOCUMENT_CATEGORY_LABELS[doc.category]}</Badge></Td>
             <Td whiteSpace="nowrap">{new Date(doc.createdAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</Td>
-            <Td whiteSpace="nowrap">{expiryBadge(doc.expiryDate)}</Td>
+            <Td whiteSpace="nowrap">{expiryCell(doc.expiryDate)}</Td>
             <Td whiteSpace="nowrap">
               <HStack spacing={1}>
                 <Tooltip label="View">

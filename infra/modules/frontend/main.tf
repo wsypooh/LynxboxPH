@@ -221,7 +221,7 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
-  comment             = "${var.project_name} frontend distribution"
+  comment             = "${var.project_name} ${var.environment}"
   default_root_object = "index.html"
 
   # Add custom domain aliases

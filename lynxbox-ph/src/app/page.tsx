@@ -201,8 +201,34 @@ export default function Home() {
         </VStack>
       </Container>
 
+      {/* Product Demo Section */}
+      <Box id="demo" py={20} as="section" scrollMarginTop="96px">
+        <Container maxW="container.lg">
+          <VStack spacing={8}>
+            <VStack spacing={4} textAlign="center">
+              <Heading size="xl">See Lynxbox PH in Action</Heading>
+              <Text fontSize="lg" color="gray.600" maxW="2xl">
+                A quick tour of managing your buildings, tenants, invoices, and payments
+              </Text>
+            </VStack>
+            <Box
+              as="video"
+              src="/help-videos/product-demo.mp4"
+              poster="/images/product-demo-poster.jpg"
+              controls
+              playsInline
+              preload="metadata"
+              w="100%"
+              borderRadius="lg"
+              boxShadow="lg"
+              bg="black"
+            />
+          </VStack>
+        </Container>
+      </Box>
+
       {/* Pricing Section */}
-      <Box id="pricing" bg="gray.50" py={20} as="section">
+      <Box id="pricing" bg="gray.50" py={20} as="section" scrollMarginTop="96px">
         <Container maxW="container.xl">
           <VStack spacing={12}>
             <VStack spacing={4} textAlign="center">
