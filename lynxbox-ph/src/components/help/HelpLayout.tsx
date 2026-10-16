@@ -86,7 +86,14 @@ export function HelpLayout({ nav, activeSlug, title, body }: { nav: HelpNavItem[
                       if (url && /\.mp4$/i.test(url)) {
                         return (
                           <Box my={4} as="span" display="block">
-                            <video controls preload="metadata" aria-label={alt ?? ''} style={{ width: '100%', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                            <video
+                              controls
+                              controlsList="nodownload"
+                              onContextMenu={e => e.preventDefault()}
+                              preload="metadata"
+                              aria-label={alt ?? ''}
+                              style={{ width: '100%', borderRadius: 8, border: '1px solid #E2E8F0' }}
+                            >
                               <source src={url} type="video/mp4" />
                             </video>
                           </Box>

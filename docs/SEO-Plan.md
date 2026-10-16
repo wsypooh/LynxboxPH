@@ -14,6 +14,8 @@ Status as of 2026-10-11. Scope: the public marketing/marketplace pages of `lynxb
 - **`/`, `/pricing`, `/contact` now have real content in the prerendered HTML** (home ~2,000 chars of body text, pricing ~1,200, contact ~200; was an empty `<body>`). Root cause was `AuthProvider` (`features/auth/AuthContext.tsx`) rendering `{!isLoading && children}`, which hid the entire site (including the nav) until the Cognito check finished, so the static export contained nothing. It now renders immediately for the paths in `RENDER_BEFORE_AUTH_PATHS` (`/`, `/pricing`, `/contact`); every other route keeps the old wait-for-auth behavior. No server/client page split was needed — with `output: 'export'`, `'use client'` pages are still prerendered. Side effect: a logged-in visitor briefly sees logged-out CTAs on these pages until auth resolves. To cover another public page, add its path to that list (only if the page tolerates `user === null` on first render).
 - `/properties/detail` title now `Property Details | Lynxbox PH` (explicit `absolute` title).
 
+- **Homepage title/description updated (2026-10-16)**: default and Open Graph title are `Commercial Rental Management | Lynxbox PH`; meta and OG description follow the new hero copy. Convention: every page title ends in ` | Lynxbox PH`. Analytics/UTM tracking for the same pages is in `docs/Homepage-Analytics-Plan.md`.
+
 ## Deliberately out of scope
 
 - `/business-address`, `/landlord`, `/realtor`, `/properties/bacolod-condo-for-sale-...` are old pages. No metadata work, not in the sitemap.

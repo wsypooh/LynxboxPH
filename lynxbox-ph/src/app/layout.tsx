@@ -10,20 +10,20 @@ const SITE_URL = 'https://lynxbox.ph'
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Lynxbox PH - Commercial Property Listings',
+    default: 'Commercial Rental Management | Lynxbox PH',
     template: '%s | Lynxbox PH',
   },
   description:
-    'Digital listing and rental management platform for small commercial property owners in the Philippines',
+    'Manage tenants, leases, rental billing, and records in one place. Start free with Lynxbox PH, built for small commercial landlords in the Philippines.',
   icons: { icon: '/favicon.png' },
   openGraph: {
     type: 'website',
     siteName: 'Lynxbox PH',
     locale: 'en_PH',
     url: SITE_URL,
-    title: 'Lynxbox PH - Commercial Property Listings',
+    title: 'Commercial Rental Management | Lynxbox PH',
     description:
-      'Digital listing and rental management platform for small commercial property owners in the Philippines',
+      'Manage tenants, leases, rental billing, and records in one place. Start free with Lynxbox PH, built for small commercial landlords in the Philippines.',
     images: ['/lynxboxph-logo.png'],
   },
   twitter: { card: 'summary' },

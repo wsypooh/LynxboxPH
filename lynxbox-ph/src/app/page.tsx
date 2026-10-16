@@ -3,6 +3,7 @@
 import { Box, Container, Heading, Text, Button, VStack, HStack, SimpleGrid, Card, CardBody, Icon } from '@chakra-ui/react'
 import { Building2, Search, FileText, Users } from 'lucide-react'
 import Link from 'next/link'
+import { trackEvent } from '@/lib/analytics'
 import { route } from '@/utils/routing'
 import PricingComparisonTable from '@/features/billing/components/PricingComparisonTable'
 import PricingCtaButton from '@/features/billing/components/PricingCtaButton'
@@ -84,13 +85,10 @@ export default function Home() {
             justify="center"
           >
             <Heading size={['2xl', '3xl', '4xl']} fontWeight="bold" lineHeight="1.2">
-              Lynxbox PH
+              Simplify Your Commercial Rental Management
             </Heading>
-            <Text fontSize={['lg', 'xl', '2xl']} maxW="2xl" lineHeight="1.4" fontWeight="500">
-              Helping Small Commercial Landlords Go Digital
-            </Text>
             <Text fontSize={['md', 'lg', 'xl']} opacity={0.95} maxW="3xl" lineHeight="1.6">
-              The premier digital listing and rental management platform designed for small commercial property owners in the Philippines.
+              Manage tenants, leases, rental billing, and records in one place. Start free with Lynxbox PH and organize your property management from anywhere.
             </Text>
             <HStack 
               spacing={4} 
@@ -102,8 +100,9 @@ export default function Home() {
             >
               <Button 
                 as={Link} 
-                href={route('/auth/signup')} 
-                size={['md', 'lg']} 
+                href={route('/auth/signup')}
+                onClick={() => trackEvent('cta_click', { location: 'hero' })}
+                size={['md', 'lg']}
                 variant="outline" 
                 color="white" 
                 borderColor="white" 
@@ -115,7 +114,7 @@ export default function Home() {
                 py={6}
                 fontSize={['md', 'lg']}
               >
-                Get Started Free
+                Sign Up Free
               </Button>
               <Button 
                 as={Link} 
@@ -216,6 +215,8 @@ export default function Home() {
               src="/help-videos/product-demo.mp4"
               poster="/images/product-demo-poster.jpg"
               controls
+              controlsList="nodownload"
+              onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
               playsInline
               preload="metadata"
               w="100%"
@@ -261,7 +262,7 @@ export default function Home() {
             <Text fontSize="lg" maxW="2xl">
               Join hundreds of property owners who are already using Lynxbox PH to manage their commercial properties
             </Text>
-            <Button as={Link} href={route('/auth/signup')} size="lg" colorScheme="white" variant="solid">
+            <Button as={Link} href={route('/auth/signup')} onClick={() => trackEvent('cta_click', { location: 'bottom' })} size="lg" colorScheme="white" variant="solid">
               Create Your Free Account
             </Button>
           </VStack>

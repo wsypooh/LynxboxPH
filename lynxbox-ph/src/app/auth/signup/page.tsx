@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signUp } from 'aws-amplify/auth';
 import Link from 'next/link';
+import { trackEvent } from '@/lib/analytics';
 import {
   Box,
   Button,
@@ -71,6 +72,8 @@ export default function SignUpPage() {
           },
         },
       });
+
+      trackEvent('sign_up', { method: 'email', plan: searchParams.get('plan') ?? 'free' });
 
       toast({
         title: 'Account created!',

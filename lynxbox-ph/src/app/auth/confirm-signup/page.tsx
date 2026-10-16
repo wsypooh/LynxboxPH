@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { confirmSignUp, resendSignUpCode } from 'aws-amplify/auth';
+import { trackEvent } from '@/lib/analytics';
 import {
   Box,
   Button,
@@ -84,6 +85,7 @@ export default function ConfirmSignupPage() {
       
       setIsConfirmed(true);
       notifyInternalOfSignup(email);
+      trackEvent('signup_confirmed', { plan: searchParams.get('plan') ?? 'free' });
 
       toast({
         title: 'Email verified!',

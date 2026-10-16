@@ -3,6 +3,7 @@
 import { Button, Tooltip, Box } from '@chakra-ui/react'
 import Link from 'next/link'
 import { route } from '@/utils/routing'
+import { trackEvent } from '@/lib/analytics'
 import { PricingTier } from './PricingComparisonTable'
 import { Plan, BillingCycle } from '../types'
 
@@ -32,7 +33,14 @@ export default function PricingCtaButton({
   if (!isLoggedIn) {
     const href = tier.slug === 'free' ? '/auth/signup' : `/auth/signup?plan=${tier.slug}&cycle=${cycle}`
     return (
-      <Button as={Link} href={route(href)} colorScheme="primary" size="sm" w="full">
+      <Button
+        as={Link}
+        href={route(href)}
+        onClick={() => trackEvent('cta_click', { location: 'pricing', plan: tier.slug })}
+        colorScheme="primary"
+        size="sm"
+        w="full"
+      >
         Get Started
       </Button>
     )

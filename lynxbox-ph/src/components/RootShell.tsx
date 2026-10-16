@@ -8,6 +8,7 @@ import { Providers } from './providers';
 import { Navigation } from './Navigation';
 import { Box } from '@chakra-ui/react';
 import { usePathname } from 'next/navigation';
+import { captureAttribution } from '@/lib/analytics';
 
 
 // Configure Amplify immediately when this module loads in browser
@@ -80,6 +81,7 @@ export function RootShell({
   const [isProduction, setIsProduction] = useState(false);
   useEffect(() => {
     setIsProduction(window.location.hostname === 'lynxbox.ph');
+    captureAttribution();
   }, []);
 
   return (
